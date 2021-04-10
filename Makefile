@@ -6,9 +6,9 @@ ifeq ($(strip $(DEVKITPRO)),)
 $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 endif
 
-ifeq ($(strip $(WiiuFtpSreverVersion)),)
-export WiiuFtpSreverVersion=0.0.0
-$(info WiiuFtpSreverVersion set to $(WiiuFtpSreverVersion), use build.sh instead)
+ifeq ($(strip $(WiiuFtpServerVersion)),)
+export WiiuFtpServerVersion=0.0.0
+$(info WiiuFtpServerVersion set to $(WiiuFtpServerVersion), use build.sh instead)
 endif
 
 TOPDIR ?= $(CURDIR)
@@ -40,7 +40,7 @@ INCLUDES	:=	src \
 CFLAGS	:=	-std=gnu11 -mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
             -g -O3 -Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing
 
-CFLAGS	+=	-D_GNU_SOURCE -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpSreverVersion)\""
+CFLAGS	+=	-D_GNU_SOURCE -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
 
 CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__ -D_GNU_SOURCE
 # Force to unsupport nanosecond timestamp fields
