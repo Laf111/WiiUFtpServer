@@ -3,10 +3,10 @@
 VERSION_MAJOR=1
 VERSION_MINOR=0
 VERSION_PATCH=0
-export WiiuFtpSreverVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
+export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 clear
 echo =======================
-echo - WiiUFtpServer $WiiuFtpSreverVersion                           -
+echo - WiiUFtpServer $WiiuFtpServerVersion                           -
 echo =======================
 echo " "
 echo checking env ...
