@@ -5,5 +5,5 @@
   <version>1.0</version>
   <release_date>20210323000000</release_date>
   <short_description>FTP server for WiiU</short_description>
-  <long_description>A FTP server for the WiiU based on WUT, libFat and iosuhax.</long_description>
+  <long_description>A FTP server for the WiiU based on WUT + iosuhax.</long_description>
 </app>
