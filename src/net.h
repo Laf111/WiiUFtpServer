@@ -1,57 +1,30 @@
-/*
-
-Copyright (C) 2008 Joseph Jordan <joe.ftpii@psychlaw.com.au>
-
-This software is provided 'as-is', without any express or implied warranty.
-In no event will the authors be held liable for any damages arising from
-the use of this software.
-
-Permission is granted to anyone to use this software for any purpose,
-including commercial applications, and to alter it and redistribute it
-freely, subject to the following restrictions:
-
-1.The origin of this software must not be misrepresented; you must not
-claim that you wrote the original software. If you use this software in a
-product, an acknowledgment in the product documentation would be
-appreciated but is not required.
-
-2.Altered source versions must be plainly marked as such, and must not be
-misrepresented as being the original software.
-
-3.This notice may not be removed or altered from any source distribution.
-
-*/
+/****************************************************************************
+  * WiiUFtpServer_dl
+  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+ ***************************************************************************/
 #ifndef _NET_H_
 #define _NET_H_
+
+#include <whb/proc.h>
+#include <whb/log.h>
+#include <whb/log_console.h>
+#include <coreinit/thread.h>
 
 #ifdef __cplusplus
 extern "C"{
 #endif
 
-#define IOSUHAX_BUFFER_SIZE 				0x8020
-#define IOSUHAX_BUFFER_SIZE_STEPS           0x20
-#define IOSUHAX_BUS_SPEED                   OSGetSystemInfo()->busClockSpeed
-
-// define here buffers size (same as IOSUHAX use)
-#define SO_SNDBUF       0x8021      // send buffer size
-#define SO_RCVBUF       0x8022      // receive buffer size
-
-// max MTU size even on fatest networks ~9000
-// #define SO_SNDBUF       0x2001      // send buffer size = 1024*8+1 = 8193
-// #define SO_RCVBUF       0x2002      // receive buffer size = 1024*8+2 = 8194
-
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+    
 #include <nsysnet/socket.h>
-// define : add #indef 
-//define SO_SNDBUF       0x1001      // send buffer size
-//define SO_RCVBUF       0x1002      // receive buffer size
 
-#include "iosuhax.h"
-#include "iosuhax_devoptab.h"
-#include "iosuhax_disc_interface.h"
+#include "receivedFiles.h"
 
+#define MAX_NET_BUFFER_SIZE (256*1024)
+#define MIN_NET_BUFFER_SIZE 4*1024
+#define FREAD_BUFFER_SIZE (256*1024)
 
 void initialise_network();
 void finalize_network();
@@ -77,10 +50,7 @@ int32_t send_from_file(int32_t s, FILE *f);
 
 int32_t recv_to_file(int32_t s, FILE *f);
 
-// access to iosuhax file descriptors
-void setFSAFD(int fd);
-int getFSAFD();
-int FSAR(int result);
+int32_t setRecvFileVolPath(char *vPath);
 
 #ifdef __cplusplus
 }

@@ -27,24 +27,22 @@ TARGET		:=	WiiUFtpServer
 BUILD		:=	build
 SOURCES		:=	src \
                 src/dynamic_libs \
-                src/iosuhax 
+                src/iosuhax
                 
 DATA		:=	data
 INCLUDES	:=	src \
                 src/dynamic_libs \
-                src/iosuhax 
+                src/iosuhax
                 
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS	:=	-std=gnu11 -mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
-            -g -O3 -Wall -Wextra -Wno-unused-parameter -Wno-strict-aliasing
+CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
+            -O3 -Wall -Wextra -Wno-unused-parameter
 
 CFLAGS	+=	-D_GNU_SOURCE -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
 
 CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__ -D_GNU_SOURCE
-# Force to unsupport nanosecond timestamp fields
-#CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__ -D_GNU_SOURCE -D__svr4__
 
 CXXFLAGS	:= $(CFLAGS)
 

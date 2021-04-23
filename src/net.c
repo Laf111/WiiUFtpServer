@@ -1,59 +1,26 @@
-/*
-
-Copyright (C) 2008 Joseph Jordan <joe.ftpii@psychlaw.com.au>
-
-This software is provided 'as-is', without any express or implied warranty.
-In no event will the authors be held liable for any damages arising from
-the use of this software.
-
-Permission is granted to anyone to use this software for any purpose,
-including commercial applications, and to alter it and redistribute it
-freely, subject to the following restrictions:
-
-1.The origin of this software must not be misrepresented; you must not
-claim that you wrote the original software. If you use this software in a
-product, an acknowledgment in the product documentation would be
-appreciated but is not required.
-
-2.Altered source versions must be plainly marked as such, and must not be
-misrepresented as being the original software.
-
-3.This notice may not be removed or altered from any source distribution.
-
-*/
+/****************************************************************************
+  * WiiUFtpServer_dl
+  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+ ***************************************************************************/
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
 #include <unistd.h>
+
 #include <errno.h>
 #include <sys/fcntl.h>
 
+#include <nn/ac.h>
 #include "vrt.h"
+#include "net.h"
+
 #ifndef MIN
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
-#include <nn/ac.h>
-
-#ifndef SO_TCPSACK
-#define SO_TCPSACK	0x0200
-#endif
-
-#ifndef SO_WINSCALE
-#define SO_WINSCALE	0x0400
-#endif
-
-#include "net.h"
-
-#define MAX_NET_BUFFER_SIZE (64*1024)
-#define MIN_NET_BUFFER_SIZE 4096
-#define FREAD_BUFFER_SIZE (64*1024)
-
 static uint32_t NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
-
-int fsaFd = -1;
 
 uint32_t hostIpAddress = 0;
 
@@ -251,7 +218,7 @@ static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_
 		} else if (bytes_transferred < 0) {
 			if (bytes_transferred == -EINVAL && NET_BUFFER_SIZE == MAX_NET_BUFFER_SIZE) {
 				NET_BUFFER_SIZE = MIN_NET_BUFFER_SIZE;
-				usleep(1000);
+				OSSleepTicks(OSMillisecondsToTicks(1000));
 				goto try_again_with_smaller_buffer;
 			}
 			result = bytes_transferred;
@@ -294,30 +261,42 @@ int32_t send_from_file(int32_t s, FILE *f) {
 }
 
 int32_t recv_to_file(int32_t s, FILE *f) {
-
-	char * buf = (char *) malloc(NET_BUFFER_SIZE);
     
+	int buf_size = NET_BUFFER_SIZE+32;
+ 	uint8_t * buf=NULL;
 
-	if(!buf)
-		return -1;
-
+    // align memory (64bytes = 0x40) when alocating the buffer
+	do{
+		buf_size -= 32;
+		if (buf_size < 0) {
+            WHBLogPrintf("ERROR failed to allocate buf"); 
+            WHBLogConsoleDraw();
+			return -5;
+		}
+		buf = (uint8_t *)memalign(0x40, buf_size);
+		if (buf) memset(buf, 0x00, buf_size);
+	}while(!buf);    
 	int32_t bytes_read;
 	while (1) {
 		try_again_with_smaller_buffer:
+        // network_read call recv() that return the number of bytes read
 		bytes_read = network_read(s, buf, NET_BUFFER_SIZE);
 		if (bytes_read < 0) {
 			if (bytes_read == -EINVAL && NET_BUFFER_SIZE == MAX_NET_BUFFER_SIZE) {
 				NET_BUFFER_SIZE = MIN_NET_BUFFER_SIZE;
-				usleep(1000);
+				OSSleepTicks(OSMillisecondsToTicks(1000));
 				goto try_again_with_smaller_buffer;
 			}
 			free(buf);
 			return bytes_read;
 		} else if (bytes_read == 0) {
+            // get the fd 
+            int fd=fileno(f);
+            ChmodFile(fd);
 			free(buf);
 			return 0;
 		}
-
+        
 		int32_t bytes_written = fwrite(buf, 1, bytes_read, f);
 		if (bytes_written < bytes_read)
 		{
@@ -328,18 +307,3 @@ int32_t recv_to_file(int32_t s, FILE *f) {
 	return -1;
 }
 
-
-void setFSAFD(int fd) {
-	fsaFd = fd;
-}
-
-int getFSAFD() {
-	return fsaFd;
-}
-
-int FSAR(int result) {
-	if ((result & 0xFFFF0000) == 0xFFFC0000)
-		return (result & 0xFFFF) | 0xFFFF0000;
-	else
-		return result;
-}

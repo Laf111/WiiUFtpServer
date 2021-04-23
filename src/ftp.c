@@ -1,28 +1,7 @@
-/*
-
-ftpii -- an FTP server for the Wii
-
-Copyright (C) 2008 Joseph Jordan <joe.ftpii@psychlaw.com.au>
-
-This software is provided 'as-is', without any express or implied warranty.
-In no event will the authors be held liable for any damages arising from
-the use of this software.
-
-Permission is granted to anyone to use this software for any purpose,
-including commercial applications, and to alter it and redistribute it
-freely, subject to the following restrictions:
-
-1.The origin of this software must not be misrepresented; you must not
-claim that you wrote the original software. If you use this software in a
-product, an acknowledgment in the product documentation would be
-appreciated but is not required.
-
-2.Altered source versions must be plainly marked as such, and must not be
-misrepresented as being the original software.
-
-3.This notice may not be removed or altered from any source distribution.
-
-*/
+/****************************************************************************
+  * WiiUFtpServer_dl
+  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+ ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +33,8 @@ static char *password = NULL;
 // OS time computed in main
 static struct tm *timeOs=NULL;
 
+// IOSUHAX fd
+static int fsaFd = -1;
 
 typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
 
@@ -79,6 +60,74 @@ struct client_struct {
 typedef struct client_struct client_t;
 
 static client_t *clients[MAX_CLIENTS] = { NULL };
+
+// vPath : /storage_usb/path/saveinfo.xml -> vlPath : /vol/storage_usb01/path/saveinfo.xml
+// This function allocate the memory returned.
+// The caller must take care of freeing it
+static char* virtualToVolPath(char *vPath) {
+
+    if (vPath) {
+        if (strcmp(vPath,"/") ==0) return "/vol";
+
+        int dimv=strlen(vPath);
+        int dimm=dimv+6+1;
+        
+        // output
+        char *vlPath = NULL;
+        
+        // allocate vlPath
+        vlPath=(char *) malloc(sizeof(char)*dimm);
+        if (!vlPath) {
+            printf("ERROR when allocation vlPath\n");
+        } else {
+        
+            char volume[30]="";
+            if (strncmp(strchr(vPath, '_'), "_usb", 4) == 0) {
+                strcpy(volume,"/vol/storage_usb01");
+            } else if (strncmp(strchr(vPath, '_'), "_mlc", 4) == 0) {
+                strcpy(volume,"/vol/storage_mlc01");
+            } else if (strncmp(strchr(vPath, '_'), "_slccmpt", 8) == 0) {
+                strcpy(volume,"/vol/storage_slccmpt01");
+            } else if (strncmp(strchr(vPath, '_'), "_odd_tickets", 12) == 0) {
+                strcpy(volume,"/vol/storage_odd_tickets");
+            } else if (strncmp(strchr(vPath, '_'), "_odd_updates", 12) == 0) {
+                strcpy(volume,"/vol/storage_odd_updates");
+            } else if (strncmp(strchr(vPath, '_'), "_odd_content", 12) == 0) {
+                strcpy(volume,"/vol/storage_odd_content");
+            } else if (strncmp(strchr(vPath, '_'), "_odd_content2", 13) == 0) {
+                strcpy(volume,"/vol/storage_odd_content2");
+            } else if (strncmp(strchr(vPath, '_'), "_sdcard", 7) == 0) {
+                strcpy(volume,"/vol/storage_sdcard");
+            } else if (strncmp(strchr(vPath, '_'), "_slc", 4) == 0) {
+                strcpy(volume,"/vol/system");
+            } else {
+                WHBLogPrintf("ERROR No volume found for vPath");
+                WHBLogPrintf("%s", vPath);
+            }
+            
+            strcpy(vlPath, volume);
+            
+            char str[dimm];            
+            char *token="";
+            strcpy(str,vPath);
+            
+            token=strtok(str, "/");
+            if (token != NULL) {
+                token=strtok(NULL, "/");
+                while (token != NULL) {            
+                    strcat(vlPath, "/");
+                    strcat(vlPath, token);
+                    token=strtok(NULL, "/");
+                }
+            }
+            if (vPath[dimv-1] == '/') strcat(vlPath, "/");
+            return vlPath;
+            
+        }        
+    }
+
+    return "";
+}
 
 void set_ftp_password(char *new_password) {
 	if (password) free(password);
@@ -186,7 +235,7 @@ static int32_t ftp_QUIT(client_t *client, char *rest UNUSED) {
 }
 
 static int32_t ftp_SYST(client_t *client, char *rest UNUSED) {
-	return write_reply(client, 215, "UNIX Type: L8 Version: ftpii");
+	return write_reply(client, 215, "UNIX Type: L8 Version: WiiUFtpServer");
 }
 
 static int32_t ftp_TYPE(client_t *client, char *rest) {
@@ -201,7 +250,7 @@ static int32_t ftp_TYPE(client_t *client, char *rest) {
 	} else {
 		return write_reply(client, 501, "Syntax error in parameters.");
 	}
-	char msg[FTP_BUFFER_SIZE+14] = "";
+	char msg[FTP_BUFFER_SIZE+21] = "";
 	sprintf(msg,"Type set to %s.", representation_type);
 	return write_reply(client, 200, msg);
 }
@@ -413,7 +462,62 @@ static int32_t send_nlst(int32_t data_socket, DIR_P *iter) {
 	}
 	return result < 0 ? result : 0;
 }
+/*
+TODO : set 
+static int fsaFd =-1
++ setFsaFd()
++ call in main.c
 
+int FSAR(int result) {
+	if ((result & 0xFFFF0000) == 0xFFFC0000)
+		return (result & 0xFFFF) | 0xFFFF0000;
+	else
+		return result;
+}
+
+ static int32_t send_list(s32 data_socket, DIR_P *iter) {
+	struct stat st;
+    int32_t result = 0;
+    
+	char filename[MAXPATHLEN] = "";
+	char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
+	struct dirent *dirent = NULL;
+    
+	while ((dirent = vrt_readdir(iter)) != 0) {
+        
+        snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
+        char *vPath=NULL;
+        vPath = realToVolPath(filename);
+		
+        // dim = 13
+		char timestamp[13]="";		
+        uint64_t size = 0;
+
+        IOSUHAX_FSA_Stat fStat;
+        int ret = FSAR(IOSUHAX_FSA_GetStat(fsaFd, vPath, &fStat));        
+        if (ret >= 0) {
+                    
+            size = fStat.size;    
+
+        	time_t mtime = fStat.ctime;
+                
+            strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&mtime));
+		} else {
+            // still use size
+    		size = fStat.size;
+            // set date to OStime
+			strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
+		}      
+
+        // write in lline
+		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
+		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
+			break;
+		}
+	}
+	return result < 0 ? result : 0;
+}
+ */
 static int32_t send_list(int32_t data_socket, DIR_P *iter) {
 	struct stat st;
 	int32_t result = 0;
@@ -433,7 +537,7 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
         // set date to OStime
         strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
         
-        // write in lline
+        // write in line
 		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
 
 		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
@@ -474,14 +578,7 @@ static int32_t ftp_LIST(client_t *client, char *path) {
 		path = ".";
 	}
 
-	if(path && client->cwd)
-	{
-		if(strcmp(path, ".") == 0 && strcmp(client->cwd, "/") == 0)
-		{
-			UnmountVirtualPaths();
-			MountVirtualDevices();
-		}
-	}
+  	if(path && client->cwd) if(strcmp(path, ".") == 0 && strcmp(client->cwd, "/") == 0) ResetVirtualPaths(); 
 
 	DIR_P *dir = vrt_opendir(client->cwd, path);
 	if (dir == NULL) {
@@ -513,11 +610,22 @@ static int32_t ftp_RETR(client_t *client, char *path) {
 	return result;
 }
 
-static int32_t stor_or_append(client_t *client, FILE *f) {
+static int32_t stor_or_append(client_t *client, char *path, FILE *f) {
 	if (!f) {
 		return write_reply(client, 550, strerror(errno));
 	}
     
+    // compute virtual path /usb/... in a string allocate on the stack
+    char vPath[MAXPATHLEN+1] = "";
+    if (path) sprintf(vPath, "%s%s", client->cwd, path);
+    else sprintf(vPath, "%s", client->cwd);
+    
+    // allocate compute and store the volume path (/vol/storage_usb01) 
+    // needed for IOSUHAX operations
+    char *volPath = NULL;
+    volPath = virtualToVolPath(vPath);    
+    SetVolPath(volPath, fileno(f));
+    free(volPath);
     
 	int32_t result = prepare_data_connection(client, recv_to_file, f, fclose);
     
@@ -537,11 +645,12 @@ static int32_t ftp_STOR(client_t *client, char *path) {
 	}
 	client->restart_marker = 0;
 
-	return stor_or_append(client, f);
+	return stor_or_append(client, path, f);
 }
 
 static int32_t ftp_APPE(client_t *client, char *path) {
-	return stor_or_append(client, vrt_fopen(client->cwd, path, "ab"));
+    
+	return stor_or_append(client, path, vrt_fopen(client->cwd, path, "ab"));
 }
 
 static int32_t ftp_REST(client_t *client, char *offset_str) {
@@ -701,7 +810,7 @@ static void cleanup_data_resources(client_t *client) {
 	client->data_connection_connected = false;
 	client->data_callback = NULL;
 	if (client->data_connection_cleanup) {
-		client->data_connection_cleanup(client->data_connection_callback_arg);
+        client->data_connection_cleanup(client->data_connection_callback_arg);
 	}
 	client->data_connection_callback_arg = NULL;
 	client->data_connection_cleanup = NULL;
@@ -775,7 +884,7 @@ static bool process_accept_events(int32_t server) {
 		client->data_connection_timer = 0;
 		memcpy(&client->address, &client_address, sizeof(client_address));
 		int client_index;
-		if (write_reply(client, 220, "ftpii") < 0) {
+		if (write_reply(client, 220, "WiiUFtpServer") < 0) {
 			WHBLogPrintf("[!!] Error writing greeting.\n");
 			network_close_blocking(peer);
 			free(client);
@@ -917,3 +1026,10 @@ bool process_ftp_events(int32_t server) {
 void setOsTime(struct tm *tmTime) {
     if (!timeOs) timeOs=tmTime;
 }
+
+void setFsaFd(int hfd) {
+    fsaFd = hfd;
+}    
+int getFsaFd() {
+    return fsaFd;
+}    
