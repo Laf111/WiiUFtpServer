@@ -1,6 +1,7 @@
 # WiiUFtpServer
 FTP server based on libWUT and libIOSUHAX.
-Works with MOCHA and HAXCHI.
+
+(works with MOCHA and HAXCHI)
 
 <p align="center">
   <img src="WiiUFtpServer.png">
