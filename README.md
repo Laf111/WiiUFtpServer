@@ -21,7 +21,7 @@ No dependencies to set.
 
 The build process creates : HBL app + WUP package (to install it on the Wii-U menu as a channel)
 
-* Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
+\* Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
 #
 # BUILD :
