@@ -21,7 +21,8 @@ The build process creates : HBL app + WUP package (to install it on the Wii-U me
 
 * Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-# BUILD : (i used Windows)
+#
+# BUILD :
 
 Install devkitPro (in DEVKITPRO_PATH)
 Launch "msys2\msys2_shell.bat"
