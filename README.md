@@ -8,6 +8,7 @@ Works with MOCHA and HAXCHI.
 
 
 It fixes remaining files injection failures when using ftp-everywhere (such as saves for WWHD*).
+
 The performance (bandwidth) of the server is close to be doubled compared to ftpiiU based on dynamics libs.
 
 <p align="center">
@@ -25,8 +26,12 @@ The build process creates : HBL app + WUP package (to install it on the Wii-U me
 # BUILD :
 
 Install devkitPro (in DEVKITPRO_PATH)
+
 Launch "msys2\msys2_shell.bat"
+
 export DEVKITPRO=$DEVKITPRO_PATH
+
 cd WiiUFtpServer
+
 ./build.sh
 
