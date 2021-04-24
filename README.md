@@ -10,7 +10,7 @@ FTP server based on libWUT and libIOSUHAX.
 
 It **fixes remaining files injection failures** when using ftp-everywhere (such as saves for WWHD*).
 
-The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on dynamics libs.
+The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on dynamics libs (+ FTP buffer increased in WiiU FTP Server)
 
 <p align="center">
   <img src="bandwith.png">
