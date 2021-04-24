@@ -30,7 +30,7 @@ Wii-U FTP server use the current OS GMT time (instead of J9170 on ftpiiu).
 
 **This means that your FTP client will always consider Wii-U files older then local ones!**
 
-**I recommend (if available on client) to set a size criterion for synchronizing operations.**
+**So you'd better (if available on client) to set a size criterion for synchronizing operations.**
 
 
 #
