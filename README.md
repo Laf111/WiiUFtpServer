@@ -14,7 +14,7 @@ Few games such as WWHD check the save files'rights and refuse to import them if 
 
 The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on dynamics libs (+ FTP buffer increased in WiiU FTP Server).
 
-I also disable the power saving feature when it runs.
+I also **disable the power saving feature** when it runs.
 
 
 <p align="center">
