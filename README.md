@@ -25,20 +25,21 @@ The server does not implement the [MTDM](https://support.solarwinds.com/SuccessC
 Wii-U FTP server use the current OS GMT time (instead of J9170 on ftpiiu).
 
 
-The build process creates : HBL app + WUP package (to install it on the Wii-U menu as a channel)
 
 \* Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
 #
 # BUILD :
 
-Install devkitPro (in DEVKITPRO_PATH)
+The build process creates : HBL app + WUP package (to install it on the Wii-U menu as a channel)
 
-Launch "msys2\msys2_shell.bat"
+- Install devkitPro (in DEVKITPRO_PATH)
 
-export DEVKITPRO=$DEVKITPRO_PATH
+- Launch "msys2\msys2_shell.bat"
 
-cd WiiUFtpServer
+- export DEVKITPRO=$DEVKITPRO_PATH
 
-./build.sh
+- cd WiiUFtpServer
+
+- ./build.sh
 
