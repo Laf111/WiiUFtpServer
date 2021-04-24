@@ -21,11 +21,16 @@ The **performance (bandwidth)** of the server is close to be **doubled** compare
 Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
 No dependencies to set.
 
+#
 
+**NOTES :**
 There's an issue with the time_t type defined. I'm working on it but it is only a display purpose. 
 The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 Wii-U FTP server use the current OS GMT time (instead of J9170 on ftpiiu).
 
+**This means that your FTP client will always consider Wii-U files older then local ones!**
+
+**I recommend (if available on client) to set a size criterion for synchronizing operations**
 
 
 #
