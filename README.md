@@ -12,7 +12,10 @@ It **fixes remaining files injection failures** when using ftp-everywhere.
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on dynamics libs (+ FTP buffer increased in WiiU FTP Server)
+The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on dynamics libs (+ FTP buffer increased in WiiU FTP Server).
+
+I also disable the power saving feature when it runs.
+
 
 <p align="center">
   <img src="bandwith.png">
