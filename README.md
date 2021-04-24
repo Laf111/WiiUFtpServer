@@ -24,7 +24,7 @@ No dependencies to set.
 #
 
 **NOTES :**
-There's an issue with the time_t type defined. I'm working on it but it is only a display purpose. 
+There's still an issue with the time_t type defined. I'm working on it but it is only a display purpose. 
 The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 Wii-U FTP server use the current OS GMT time (instead of J9170 on ftpiiu).
 
