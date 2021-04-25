@@ -68,6 +68,36 @@ void MCPHookClose() {
     mcp_hook_fd = -1;
 }
 
+
+// TODO : remove checks -----------------------------------------------------------------------
+
+int FSAR(int result) {
+	if ((result & 0xFFFF0000) == 0xFFFC0000)
+		return (result & 0xFFFF) | 0xFFFF0000;
+	else
+		return result;
+}
+
+void displayTs(time_t t) {
+    if ((time_t)-1 > 0) {
+        // time_t is an unsigned type
+        WHBLogPrintf("TS (unsigned) = %ju\n", (uintmax_t)t);
+    }
+    else if ((time_t)1 / 2 > 0) {
+        // time_t is a signed integer type
+        WHBLogPrintf("%TS (signed) = %jd\n", (intmax_t)t);
+    }
+    else {
+        // time_t is a floating-point type (I've never seen this)
+        WHBLogPrintf("TS (floating-point) = %Lf\n", (long double)t);
+    }
+}
+// TODO : remove checks -----------------------------------------------------------------------
+
+
+
+
+
 //--------------------------------------------------------------------------
 /****************************************************************************/
 // MAIN PROGRAM
@@ -154,8 +184,6 @@ int main()
         returnCode = 4;
         goto exit;
     }
-
-    
 
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */

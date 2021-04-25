@@ -39,5 +39,7 @@ HISTORY :
     
 TODO : 
 
+> patch version in "_sdCard\wiiu\apps\WiiUFtpServer\meta.xml" on build
 > fix wrong files timestamps (set to OS GMT time for display purpose instead of J1970 in ftpiiU)
 > check channel
+

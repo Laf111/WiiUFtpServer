@@ -1,6 +1,7 @@
 /****************************************************************************
   * WiiUFtpServer_dl
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+  * 2021/04/25:V1.1.1:Laf111: try 1980 epoch for timestamp
  ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <coreinit/time.h>
+#include <time.h>
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -462,88 +464,37 @@ static int32_t send_nlst(int32_t data_socket, DIR_P *iter) {
 	}
 	return result < 0 ? result : 0;
 }
-/*
-TODO : set 
-static int fsaFd =-1
-+ setFsaFd()
-+ call in main.c
 
-int FSAR(int result) {
-	if ((result & 0xFFFF0000) == 0xFFFC0000)
-		return (result & 0xFFFF) | 0xFFFF0000;
-	else
-		return result;
-}
-
- static int32_t send_list(s32 data_socket, DIR_P *iter) {
-	struct stat st;
-    int32_t result = 0;
-    
-	char filename[MAXPATHLEN] = "";
-	char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
-	struct dirent *dirent = NULL;
-    
-	while ((dirent = vrt_readdir(iter)) != 0) {
-        
-        snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
-        char *vPath=NULL;
-        vPath = realToVolPath(filename);
-		
-        // dim = 13
-		char timestamp[13]="";		
-        uint64_t size = 0;
-
-        IOSUHAX_FSA_Stat fStat;
-        int ret = FSAR(IOSUHAX_FSA_GetStat(fsaFd, vPath, &fStat));        
-        if (ret >= 0) {
-                    
-            size = fStat.size;    
-
-        	time_t mtime = fStat.ctime;
-                
-            strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&mtime));
-		} else {
-            // still use size
-    		size = fStat.size;
-            // set date to OStime
-			strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
-		}      
-
-        // write in lline
-		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
-		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
-			break;
-		}
-	}
-	return result < 0 ? result : 0;
-}
- */
 static int32_t send_list(int32_t data_socket, DIR_P *iter) {
 	struct stat st;
 	int32_t result = 0;
     uint64_t size = 0;
-    
+    time_t time;
 	char filename[MAXPATHLEN] = "";
 	char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
 	struct dirent *dirent = NULL;
     
+    // dim = 13
+    char timestamp[13]="";
         
 	while ((dirent = vrt_readdir(iter)) != 0) {
-		char timestamp[13]="";		
 		snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
-		stat(filename, &st);
-		size = st.st_size;
+		if (stat(filename, &st)==0) {
+            // 86400*(8*365+2*366) = 315532800 (J1980)
+            time = (st.st_mtime/1000000) + 315532800;
+            strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&time));
+        } else {
+            if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
+            else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
+        }
+        size = st.st_size;
 
-        // set date to OStime
-        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
-        
-        // write in line
 		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
-
 		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
 			break;
 		}
-	}
+	}    
+        
 	return result < 0 ? result : 0;
 }
 
