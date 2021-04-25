@@ -34,7 +34,7 @@ The server does not implement the [MTDM](https://support.solarwinds.com/SuccessC
 
 Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section.
 
-The build process creates : HBL app + WUP package (to install it on the Wii-U menu as a channel)
+The build process creates : HBL app + RPX package (to create a channel)
 
 
 - Install devkitPro (in DEVKITPRO_PATH)
