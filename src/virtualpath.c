@@ -1,6 +1,7 @@
 /****************************************************************************
   * WiiUFtpServer_dl
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+  * 2021/04/05:V1.2.0:Laf111: add msg when unmonting device
  ***************************************************************************/
 #include <malloc.h>
 #include <string.h>
@@ -200,46 +201,64 @@ void UmountVirtualDevices() {
     
     if (storage_sdcard) {
         unmount_fs("storage_sdcard");
+        WHBLogPrintf(">unmounting storage_sdcard...");
+        WHBLogConsoleDraw();        
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
         storage_sdcard = 0;
     }
     if (storage_slccmpt) {
         unmount_fs("storage_slccmpt");
+        WHBLogPrintf(">unmounting storage_slccmpt...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slccmpt01");
         storage_slccmpt = 0;
     }
     if (storage_mlc) {
         unmount_fs("storage_mlc");
+        WHBLogPrintf(">unmounting storage_mlc...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_mlc01");
         storage_mlc = 0;
     }
     if (storage_usb) {
         unmount_fs("storage_usb");
+        WHBLogPrintf(">unmounting storage_usb...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_usb01");
         storage_usb = 0;
     }
     if (storage_odd_tickets) {
         unmount_fs("storage_odd_tickets");
+        WHBLogPrintf(">unmounting storage_odd_tickets...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_tickets");
         storage_odd_tickets = 0;
     }
     if (storage_odd_updates) {
         unmount_fs("storage_odd_updates");
+        WHBLogPrintf(">unmounting storage_odd_updates...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_updates");
         storage_odd_updates = 0;
     }
     if (storage_odd_content) {
         unmount_fs("storage_odd_content");
+        WHBLogPrintf(">unmounting storage_odd_content...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content");
         storage_odd_content = 0;
     }
     if (storage_odd_content2) {
         unmount_fs("storage_odd_content2");
+        WHBLogPrintf(">unmounting storage_odd_content2...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content2");
         storage_odd_content2 = 0;
     }
     if (storage_slc) {
         unmount_fs("storage_slc");
+        WHBLogPrintf(">unmounting storage_slc...");
+        WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slc");
         storage_slc = 0;
     }

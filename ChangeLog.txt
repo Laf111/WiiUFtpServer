@@ -2,11 +2,9 @@
 > WiiUFtpServer
 ======================================================================================================
 
-FTP server based on libWUT and libIOSUHAX.
-Works with MOCHA and HAXCHI.
-
+FTP server based on libWUT and libIOSUHAX. 
 It fixes remaining files injection failures when using ftp-everywhere (such as saves for WWHD*).
-The performance (bandwidth) of the server is close to be doubled compared to ftpiiU based on dynamics libs.
+The performance (bandwidth) of the server is doubled (using WUT+FTP buffers increased).
 
 Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
 No dependencies to set.
@@ -15,6 +13,7 @@ The build process creates : HBL app + WUP package (to install it on the Wii-U me
 
 * Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
+TODO : fix wrong files timestamps (set to OS GMT time for display purpose instead of J1970 in ftpiiU)
 ======================================================================================================
 BUILD : (i used Windows)
 
@@ -32,14 +31,20 @@ HISTORY :
     > Set files timestamp to OStime instead of J1970
   
 2021/04/22 V1-1 : 
-    > change rights on the files received : fix files injection (saves for WWD for example)
-    > Increase bandwith 20% more (close to 50% gain compared to ftp-everywhere)
+    > Change rights on the files received : fix files injection (saves for WWD for example)
+    > Increase bandwith by 50%
 
-    
-    
-TODO : 
-
-> patch version in "_sdCard\wiiu\apps\WiiUFtpServer\meta.xml" on build
-> fix wrong files timestamps (set to OS GMT time for display purpose instead of J1970 in ftpiiU)
-> check channel
-
+2021/04/22 V1-2 : 
+    > Try to fix timestamps with a date offset
+      time_t seems to be a long double timestamp with micro-seconds based on epoch 1980
+      The following code return "floating-point type"
+        if ((time_t)-1 > 0) {
+            // time_t is an unsigned type
+        }
+        else if ((time_t)1 / 2 > 0) {
+            // time_t is a signed integer type
+        }
+        else {
+            // time_t is a floating-point type (I've never seen this)
+        }                 
+    > set version and date in meta.xml when building
