@@ -47,3 +47,6 @@ The build process creates : HBL app + RPX package (to create a channel)
 
 - ./build.sh
 
+#
+# TODO :
+ - fix channel creation
