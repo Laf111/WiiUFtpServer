@@ -2,8 +2,8 @@
 <app version="1">
   <name>WiiUFtpServer</name>
   <coder>Laf111</coder>
-  <version>1.0</version>
-  <release_date>20210323000000</release_date>
-  <short_description>FTP server for WiiU</short_description>
-  <long_description>A FTP server for the WiiU based on WUT + iosuhax.</long_description>
+  <version>1.1.1</version>
+  <release_date>20210425040807</release_date>
+  <short_description>FTP server based on WUT + iosuhax. Fix file injection failures of ftpiiu</short_description>
+  <long_description>FTP server based on WUT + iosuhax. Fix file injection failures of ftpiiu</long_description>
 </app>

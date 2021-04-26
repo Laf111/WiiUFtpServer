@@ -46,7 +46,7 @@ if [ "$check" == "" ]; then
 fi
 
 rm -f ./_sdCard/wiiu/apps/WiiUFtpServer/WiiUFtpServer.rpx > /dev/null 2>&1
-rm -f ./_sdCard/wiiu/apps/WiiUFtpServer/install/WUP-P-WIIUFTPSERVER/code/WiiUFtpServer.rpx > /dev/null 2>&1
+rm -f ./_loadiine/0005000010050421/code/WiiUFtpServer.rpx > /dev/null 2>&1
 rm -rf ./WiiUFtpServer.* > /dev/null 2>&1
 make clean
 
@@ -57,7 +57,12 @@ make
 if [ $? -eq 0 ]; then
     # set version in ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     sed -i "s|<version>0.0.0|<version>$WiiuFtpServerVersion|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
-
+    # set version in ./_loadiine/0005000010050421/meta/meta.xml
+    withNoDot=$(echo $WiiuFtpServerVersion | sed "s|\.||g")
+    sed -i "s|1</title_version|$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
+    # set version in ./_loadiine/0005000010050421/code/app.xml
+    sed -i "s|1</title_version|$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
+    
     sed -i "s|release_date>00000000000000|release_date>$buildDate|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     
     mv -f ./WiiUFtpServer.elf ./build > /dev/null 2>&1
@@ -65,8 +70,8 @@ if [ $? -eq 0 ]; then
     echo ""
     cp -rf ./WiiUFtpServer.rpx ./_sdCard/wiiu/apps/WiiUFtpServer > /dev/null 2>&1
     echo "HBL package in ./_sdCard/wiiu/apps/WiiUFtpServer : "$(ls ./_sdCard/wiiu/apps/WiiUFtpServer)
-    mv -f ./WiiUFtpServer.rpx ./_sdCard/install/WUP-P-WIIUFTPSERVER/code > /dev/null 2>&1
-    echo "WUP package in ./_sdCard/install/WUP-P-WIIUFTPSERVER : "$(ls ./_sdCard/install/WUP-P-WIIUFTPSERVER)
+    mv -f ./WiiUFtpServer.rpx ./_loadiine/0005000010050421/code > /dev/null 2>&1
+    echo "RPX package in ./_loadiine/0005000010050421 : "$(ls ./_loadiine/0005000010050421)
     echo ""
     echo done sucessfully, exit 0
     exit 0
