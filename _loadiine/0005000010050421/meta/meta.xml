@@ -14,7 +14,7 @@
   <launching_flag type="hexBinary" length="4">00000004</launching_flag>
   <install_flag type="hexBinary" length="4">00000000</install_flag>
   <closing_msg type="unsignedInt" length="4">1</closing_msg>
-  <title_version type="unsignedInt" length="4">1.2.0</title_version>
+  <title_version type="unsignedInt" length="4">200</title_version>
   <title_id type="hexBinary" length="8">0005000010050421</title_id>
   <group_id type="hexBinary" length="4">00003748</group_id>
   <boss_id type="hexBinary" length="8">0000000000000000</boss_id>

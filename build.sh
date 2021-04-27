@@ -4,9 +4,11 @@
 #  * WiiUFtpServer_dl
 #  * 2021/04/25:V1.2.0:Laf111: set version and date in ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
 #               add uname -a output               
+#  * 2021/04/26:V2.0.0:Laf111: patch version and date in xml files
+#               add RPX to WUP packaging             
 # ***************************************************************************/
-VERSION_MAJOR=1
-VERSION_MINOR=2
+VERSION_MAJOR=2
+VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -56,12 +58,12 @@ echo -----------------------------------------------------
 make
 if [ $? -eq 0 ]; then
     # set version in ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
-    sed -i "s|<version>0.0.0|<version>$WiiuFtpServerVersion|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
+    sed -i "s|<version>.|<version>$WiiuFtpServerVersion|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     # set version in ./_loadiine/0005000010050421/meta/meta.xml
     withNoDot=$(echo $WiiuFtpServerVersion | sed "s|\.||g")
-    sed -i "s|1</title_version|$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
+    sed -i "s|>.</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
     # set version in ./_loadiine/0005000010050421/code/app.xml
-    sed -i "s|1</title_version|$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
+    sed -i "s|>.</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
     
     sed -i "s|release_date>00000000000000|release_date>$buildDate|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     
@@ -73,6 +75,9 @@ if [ $? -eq 0 ]; then
     mv -f ./WiiUFtpServer.rpx ./_loadiine/0005000010050421/code > /dev/null 2>&1
     echo "RPX package in ./_loadiine/0005000010050421 : "$(ls ./_loadiine/0005000010050421)
     echo ""
+    echo "Use ./toWUP/createChannel.bat in a windows cmd to create the WUP package"
+    echo ""
+    echo -----------------------------------------------------
     echo done sucessfully, exit 0
     exit 0
 else
