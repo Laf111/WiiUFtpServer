@@ -45,7 +45,7 @@ REM : main
     
 
     REM : check NUSP install
-    set "WIIUCOMMONKEY=NOT_FOUND"
+    set "KEY=NOT_FOUND"
     call:checkNusP
     if !ERRORLEVEL! NEQ 0 (
         echo ERROR^: in checkNusP function
@@ -68,9 +68,9 @@ REM : main
     if not exist !OUTPUTDIRECTORY! mkdir !OUTPUTDIRECTORY! > NUL 2>&1
     
     del /F "NUSP.log" > NUL 2>&1
-    echo java -jar NUSPacker.jar -in !INPUTDIRECTORY! -out !OUTPUTDIRECTORY! -tID 0005000010050421 -encryptKeyWith !WIIUCOMMONKEY!
+    echo java -jar NUSPacker.jar -in !INPUTDIRECTORY! -out !OUTPUTDIRECTORY! -tID 0005000010050421 -encryptKeyWith !KEY!
     echo ---------------------------------------------------------
-    java -jar NUSPacker.jar -in !INPUTDIRECTORY! -out !OUTPUTDIRECTORY! -tID 0005000010050421 -encryptKeyWith !WIIUCOMMONKEY!
+    java -jar NUSPacker.jar -in !INPUTDIRECTORY! -out !OUTPUTDIRECTORY! -tID 0005000010050421 -encryptKeyWith !KEY!
     echo.
     echo ---------------------------------------------------------
     echo NusPacker returned = !ERRORLEVEL!
@@ -115,20 +115,23 @@ REM : functions
 
         set "config="!NUSPFolder:"=!\Key.txt""
         
-        for /F "delims=~" %%i in ('type !config! ^| find "D7" 2^>NUL') do set "WIIUCOMMONKEY=%%i"
+        for /F "delims=~" %%i in ('type !config! ^| findStr /R /I "^[A-F0-9]*$" 2^>NUL') do set "KEY=%%i"
         
-        if ["!WIIUCOMMONKEY!"] == ["NOT_FOUND"] (
-            echo First you need to find the ^'Wii U common key^' with google
+        if ["!KEY!"] == ["NOT_FOUND"] (
             echo.
-            echo Then replace the first line of config with the ^'Wii U common key^'
-            echo and save^.
+            echo No key found in !config!
+            echo 
+            echo Get the ^'Wii U common key^' with google
+            echo.
+            echo Replace the line in !config! with the ^'Wii U common key^'
+            echo and save^. Close notepad to continue^.
             echo.
             timeout /T 3 > NUL 2>&1
             !notePad! !config!
         )
-        for /F "delims=~" %%i in ('type !config! ^| find "D7" 2^>NUL') do set "WIIUCOMMONKEY=%%i"
+        for /F "delims=~" %%i in ('type !config! ^| findStr /R /I "^[A-F0-9]*$" 2^>NUL') do set "KEY=%%i"
         
-        if ["!WIIUCOMMONKEY!"] == ["NOT_FOUND"] (
+        if ["!KEY!"] == ["NOT_FOUND"] (
                 echo ERROR^: WiiU common key not found in !config! ^!
                 wmic process get Commandline 2>NUL | find /I "cmd.exe" | find /I "convertWiiuFiles.bat" | find /I /V "find"
                 pause
