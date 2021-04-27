@@ -58,12 +58,12 @@ echo -----------------------------------------------------
 make
 if [ $? -eq 0 ]; then
     # set version in ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
-    sed -i "s|<version>.|<version>$WiiuFtpServerVersion|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
+    sed -i "s|<version>.*<|<version>$WiiuFtpServerVersion<|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     # set version in ./_loadiine/0005000010050421/meta/meta.xml
     withNoDot=$(echo $WiiuFtpServerVersion | sed "s|\.||g")
-    sed -i "s|>.</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
+    sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
     # set version in ./_loadiine/0005000010050421/code/app.xml
-    sed -i "s|>.</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
+    sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
     
     sed -i "s|release_date>00000000000000|release_date>$buildDate|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     

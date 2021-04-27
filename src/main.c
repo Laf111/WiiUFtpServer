@@ -1,11 +1,13 @@
 /****************************************************************************
   * WiiUFtpServer_dl
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+  * 2021/04/26:V2.0.0:Laf111: remove debug code
  ***************************************************************************/
 #include <coreinit/thread.h>
 #include <coreinit/mcp.h>
 #include <coreinit/time.h>
 #include <coreinit/energysaver.h>
+#include <vpad/input.h>
 #include <whb/proc.h>
 #include <time.h>
 #include <sys/stat.h>
@@ -30,6 +32,9 @@ static int fsaFd = -1;
 
 // mcp_hook_fd
 static int mcp_hook_fd = -1;
+
+// gamepad inputs
+VPADStatus vpad;
 
 /****************************************************************************/
 // LOCAL FUNCTIONS
@@ -67,36 +72,6 @@ void MCPHookClose() {
     MCP_Close(mcp_hook_fd);
     mcp_hook_fd = -1;
 }
-
-
-// TODO : remove checks -----------------------------------------------------------------------
-
-int FSAR(int result) {
-	if ((result & 0xFFFF0000) == 0xFFFC0000)
-		return (result & 0xFFFF) | 0xFFFF0000;
-	else
-		return result;
-}
-
-void displayTs(time_t t) {
-    if ((time_t)-1 > 0) {
-        // time_t is an unsigned type
-        WHBLogPrintf("TS (unsigned) = %ju\n", (uintmax_t)t);
-    }
-    else if ((time_t)1 / 2 > 0) {
-        // time_t is a signed integer type
-        WHBLogPrintf("%TS (signed) = %jd\n", (intmax_t)t);
-    }
-    else {
-        // time_t is a floating-point type (I've never seen this)
-        WHBLogPrintf("TS (floating-point) = %Lf\n", (long double)t);
-    }
-}
-// TODO : remove checks -----------------------------------------------------------------------
-
-
-
-
 
 //--------------------------------------------------------------------------
 /****************************************************************************/
@@ -210,14 +185,18 @@ int main()
             break;
         OSSleepTicks(OSMillisecondsToTicks(100));
 
-        WHBLogConsoleDraw();        
+        WHBLogConsoleDraw();
+        
+        // exit if gamePad's button HOME is pressed (added to exit app when launched from WiiU menu = channel)
+        if (vpad.trigger & VPAD_BUTTON_HOME) break;
     }
 
     /*--------------------------------------------------------------------------*/
     /* Cleanup and exit                                                         */
     /*--------------------------------------------------------------------------*/
     WHBLogPrintf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-    WHBLogPrintf("Exiting... have a nice day!");   
+    WHBLogPrintf("Exiting... ");   
+    WHBLogPrintf(" ");   
     WHBLogConsoleDraw();
 
     cleanup_ftp();
@@ -232,11 +211,13 @@ int main()
     IOSUHAX_FSA_Close(fsaFd);
     if (mcp_hook_fd >= 0) MCPHookClose();
     else IOSUHAX_Close();
-        
+    WHBLogPrintf(" ");   
+    WHBLogPrintf("Done, have a nice day!");   
+    
 exit:
     WHBLogConsoleDraw();
     OSSleepTicks(OSMillisecondsToTicks(3000));
-    
+
     WHBLogConsoleFree();
     WHBProcShutdown();
     return returnCode;

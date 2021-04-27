@@ -2,6 +2,8 @@
   * WiiUFtpServer_dl
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
   * 2021/04/25:V1.1.1:Laf111: try 1980 epoch for timestamp
+  * 2021/04/26:V1.2.0:Laf111: change the 421 msg 
+  * 2021/04/26:V2.0.0:Laf111: display OS date instead of J1980 (case where stat() return 0 but mtime=0)
  ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
@@ -480,9 +482,15 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
 	while ((dirent = vrt_readdir(iter)) != 0) {
 		snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
 		if (stat(filename, &st)==0) {
-            // 86400*(8*365+2*366) = 315532800 (J1980)
-            time = (st.st_mtime/1000000) + 315532800;
-            strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&time));
+            // O return and date at 0 (OS files)
+            if (st.st_mtime==0) {
+                if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);                        
+                else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
+            } else {
+                // 86400*(8*365+2*366) = 315532800 (J1980)
+                time = (st.st_mtime/1000000) + 315532800;
+                strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&time));
+            }
         } else {
             if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
             else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
@@ -789,7 +797,7 @@ void cleanup_ftp() {
 	for (client_index = 0; client_index < MAX_CLIENTS; client_index++) {
 		client_t *client = clients[client_index];
 		if (client) {
-			write_reply(client, 421, "Service not available, closing control connection.");
+			write_reply(client, 421, "Service no more available, closing remaining active clients connection.");
 			cleanup_client(client);
 		}
 	}
