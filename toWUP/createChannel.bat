@@ -47,7 +47,7 @@ REM : main
     REM : check NUSP install
     set "KEY=NOT_FOUND"
     call:checkNusP
-    if !ERRORLEVEL! NEQ 0 (
+    if !ERRORLEVEL! GEQ 50 (
         echo ERROR^: in checkNusP function
         exit /b 50
     )
@@ -65,7 +65,8 @@ REM : main
 
     set "INPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_loadiine\0005000010050421""
     set "OUTPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_sdCard\install\WUP-P-FTPS""
-    if not exist !OUTPUTDIRECTORY! mkdir !OUTPUTDIRECTORY! > NUL 2>&1
+    if exist !OUTPUTDIRECTORY! rmdir /Q /S !OUTPUTDIRECTORY! > NUL 2>&1
+    mkdir !OUTPUTDIRECTORY! > NUL 2>&1
     
     del /F "NUSP.log" > NUL 2>&1
     echo java -jar NUSPacker.jar -in !INPUTDIRECTORY! -out !OUTPUTDIRECTORY! -tID 0005000010050421 -encryptKeyWith !KEY!
@@ -114,26 +115,26 @@ REM : functions
         )
 
         set "config="!NUSPFolder:"=!\Key.txt""
-        
-        for /F "delims=~" %%i in ('type !config! ^| findStr /R /I "^[A-F0-9]*$" 2^>NUL') do set "KEY=%%i"
-        
-        if ["!KEY!"] == ["NOT_FOUND"] (
+        :getKey
+        type !config! | find /I "[ENCRYPTING_KEY_32HEXACHARS]" > NUL 2>&1 && (
             echo.
             echo No key found in !config!
-            echo 
-            echo Get the ^'Wii U common key^' with google
             echo.
-            echo Replace the line in !config! with the ^'Wii U common key^'
-            echo and save^. Close notepad to continue^.
+            echo Replace the last line in !config! 
+            echo with the key you want to echo use for encrypting the data.
+            echo.
+            echo ^(use the ^'Wii U common key^' for custom app^)
+            echo.
+            echo Close notepad to continue^.
             echo.
             timeout /T 3 > NUL 2>&1
             !notePad! !config!
+            goto:getKey
         )
-        for /F "delims=~" %%i in ('type !config! ^| findStr /R /I "^[A-F0-9]*$" 2^>NUL') do set "KEY=%%i"
         
+        for /F "delims=~" %%i in ('type !config! 2^>NUL') do set "KEY=%%i"      
         if ["!KEY!"] == ["NOT_FOUND"] (
                 echo ERROR^: WiiU common key not found in !config! ^!
-                wmic process get Commandline 2>NUL | find /I "cmd.exe" | find /I "convertWiiuFiles.bat" | find /I /V "find"
                 pause
                 exit /b 54
         )
