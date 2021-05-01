@@ -49,7 +49,6 @@ fi
 
 rm -f ./_sdCard/wiiu/apps/WiiUFtpServer/WiiUFtpServer.rpx > /dev/null 2>&1
 rm -f ./_loadiine/0005000010050421/code/WiiUFtpServer.rpx > /dev/null 2>&1
-rm -rf ./WiiUFtpServer.* > /dev/null 2>&1
 make clean
 
 echo "build ..."
