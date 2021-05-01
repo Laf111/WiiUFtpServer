@@ -1,12 +1,15 @@
 /****************************************************************************
-  * WiiUFtpServer_dl
+  * WiiUFtpServer
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
-  * 2021/04/26:V2.0.0:Laf111: remove debug code
+  * 2021/04/30:V2.0.0:Laf111: code for channel
  ***************************************************************************/
+#include <coreinit/dynload.h>
 #include <coreinit/thread.h>
 #include <coreinit/mcp.h>
+#include <coreinit/core.h>
 #include <coreinit/time.h>
 #include <coreinit/energysaver.h>
+#include <coreinit/title.h>
 #include <vpad/input.h>
 #include <whb/proc.h>
 #include <time.h>
@@ -14,6 +17,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <string.h> 
+
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -23,7 +27,6 @@
 #include "receivedFiles.h"
 
 #define FTP_PORT	21
-
 /****************************************************************************/
 // PARAMETERS
 /****************************************************************************/
@@ -33,8 +36,13 @@ static int fsaFd = -1;
 // mcp_hook_fd
 static int mcp_hook_fd = -1;
 
-// gamepad inputs
-VPADStatus vpad;
+// gamepad inputs (needed for channel, WHBProc HOME_BUTTON event is not enought)
+VPADStatus status;
+VPADReadError error;
+bool vpad_fatal = false;
+
+static OSDynLoad_Module coreinitHandle = NULL;
+static int32_t (*OSShutdown)(int32_t status);
 
 /****************************************************************************/
 // LOCAL FUNCTIONS
@@ -73,6 +81,10 @@ void MCPHookClose() {
     mcp_hook_fd = -1;
 }
 
+static bool isChannel() {
+    return OSGetTitleID() == 0x0005000010050421;
+}
+
 //--------------------------------------------------------------------------
 /****************************************************************************/
 // MAIN PROGRAM
@@ -81,14 +93,21 @@ int main()
 {
     // returned code :
     // =0 : OK
-    // >0 : ERRORS 
+    // <0 : ERRORS 
     int returnCode = 0;
-    
+        
     // Console init
     WHBProcInit();
     WHBLogConsoleInit();
 
     IMDisableAPD(); // Disable auto-shutdown feature
+    
+    if (isChannel()) {
+        // Initialize OSShutdown and OSForceFullRelaunch functions
+        OSDynLoad_Acquire("coreinit.rpl", &coreinitHandle);
+        OSDynLoad_FindExport(coreinitHandle, FALSE, "OSShutdown", (void **)&OSShutdown);
+        OSDynLoad_Release(coreinitHandle);    
+    }
     
     WHBLogPrintf(" -=============================-\n");
     WHBLogPrintf("|    %s     |\n", VERSION_STRING);
@@ -124,7 +143,7 @@ int main()
     IOSUHAX_CFW_Family cfw = IOSUHAX_CFW_GetFamily();
     if (cfw == 0) {
         WHBLogPrintf("ERROR No running CFW detected");
-        returnCode = 1;
+        returnCode = -10;
         goto exit;
     }
     
@@ -137,7 +156,7 @@ int main()
     }
     if (res < 0) {
         WHBLogPrintf("ERROR IOSUHAX_Open failed.");
-        returnCode = 2;
+        returnCode = -11;
         goto exit;        
     }
     
@@ -146,7 +165,7 @@ int main()
         WHBLogPrintf("ERROR IOSUHAX_FSA_Open failed.");
         if (mcp_hook_fd >= 0) MCPHookClose();
         else IOSUHAX_Close();
-        returnCode = 3;
+        returnCode = -12;
         goto exit;
     }
     
@@ -156,10 +175,16 @@ int main()
 	int nbDrives=MountVirtualDevices(fsaFd);    
     if (nbDrives == 0) {
         WHBLogPrintf("ERROR No virtual devices mounted !");
-        returnCode = 4;
+        returnCode = -20;
         goto exit;
     }
+    
+ 	OSThread *mainThread = OSGetCurrentThread();
+	OSSetThreadName(mainThread, "WiiUFtpServer");
 
+	if(!OSSetThreadPriority(mainThread, 1))
+		WHBLogPrintf("WARNING: Error changing main thread priority!");
+    
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
@@ -178,7 +203,7 @@ int main()
     /*--------------------------------------------------------------------------*/
     /* FTP loop                                                                 */
     /*--------------------------------------------------------------------------*/    
-    while(WHBProcIsRunning() && serverSocket >= 0 && !network_down)
+    while (serverSocket >= 0 && !network_down)
     {
         network_down = process_ftp_events(serverSocket);
         if(network_down)
@@ -187,16 +212,41 @@ int main()
 
         WHBLogConsoleDraw();
         
-        // exit if gamePad's button HOME is pressed (added to exit app when launched from WiiU menu = channel)
-        if (vpad.trigger & VPAD_BUTTON_HOME) break;
+        // check VPAD input validity
+        VPADRead(VPAD_CHAN_0, &status, 1, &error);
+        switch (error) {
+            case VPAD_READ_SUCCESS: {
+                break;
+            }
+            case VPAD_READ_NO_SAMPLES: {
+                continue;
+            }
+            case VPAD_READ_INVALID_CONTROLLER: {
+                WHBLogPrint("Gamepad disconnected!");
+                vpad_fatal = true;
+                break;
+            }
+            default: {
+                WHBLogPrintf("Unknown VPAD error! %08X", error);
+                vpad_fatal = true;
+                break;
+            }
+        }
+        // if an error occurs, exit the loop
+        if (vpad_fatal) break;
+        
+         // exit if gamePad's button HOME is pressed
+        if (status.trigger & VPAD_BUTTON_HOME) break;
     }
+    WHBLogConsoleDraw();
 
     /*--------------------------------------------------------------------------*/
     /* Cleanup and exit                                                         */
     /*--------------------------------------------------------------------------*/
     WHBLogPrintf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-    WHBLogPrintf("Exiting... ");   
     WHBLogPrintf(" ");   
+    WHBLogPrintf("Stopping server...");   
+    WHBLogPrintf(" "); 
     WHBLogConsoleDraw();
 
     cleanup_ftp();
@@ -211,14 +261,24 @@ int main()
     IOSUHAX_FSA_Close(fsaFd);
     if (mcp_hook_fd >= 0) MCPHookClose();
     else IOSUHAX_Close();
-    WHBLogPrintf(" ");   
-    WHBLogPrintf("Done, have a nice day!");   
     
 exit:
+    WHBLogPrintf(" "); 
+    if (isChannel()) {
+        WHBLogPrintf("Shuting down the Wii-U...");
+        
+    } else {
+        WHBLogPrintf("Returning to HBL Menu...");               
+    }
+    WHBLogConsoleDraw();    
+    OSSleepTicks(OSMillisecondsToTicks(1000));
+        
     WHBLogConsoleDraw();
-    OSSleepTicks(OSMillisecondsToTicks(3000));
-
     WHBLogConsoleFree();
-    WHBProcShutdown();
+    WHBProcShutdown();    
+
+    // ShutDown when launched with channel
+    if (isChannel()) OSShutdown(1);
+        
     return returnCode;
 }

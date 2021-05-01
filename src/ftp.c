@@ -1,9 +1,9 @@
 /****************************************************************************
-  * WiiUFtpServer_dl
+  * WiiUFtpServer
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
   * 2021/04/25:V1.1.1:Laf111: try 1980 epoch for timestamp
   * 2021/04/26:V1.2.0:Laf111: change the 421 msg 
-  * 2021/04/26:V2.0.0:Laf111: display OS date instead of J1980 (case where stat() return 0 but mtime=0)
+  * 2021/04/30:V2.0.0:Laf111: revert to timeOs for timestamp
  ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
@@ -471,7 +471,6 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
 	struct stat st;
 	int32_t result = 0;
     uint64_t size = 0;
-    time_t time;
 	char filename[MAXPATHLEN] = "";
 	char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
 	struct dirent *dirent = NULL;
@@ -481,21 +480,11 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
         
 	while ((dirent = vrt_readdir(iter)) != 0) {
 		snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
-		if (stat(filename, &st)==0) {
-            // O return and date at 0 (OS files)
-            if (st.st_mtime==0) {
-                if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);                        
-                else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
-            } else {
-                // 86400*(8*365+2*366) = 315532800 (J1980)
-                time = (st.st_mtime/1000000) + 315532800;
-                strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(&time));
-            }
-        } else {
-            if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);
-            else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
-        }
+		stat(filename, &st);
+        
         size = st.st_size;
+        if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);                        
+        else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
 
 		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
 		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
