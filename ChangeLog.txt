@@ -48,3 +48,8 @@ HISTORY :
             // time_t is a floating-point type (I've never seen this)
         }                 
     > set version and date in meta.xml when building
+
+2021/05/01 V2 : 
+    > Fix channel creation (WUP package)
+    > build.sh patch version and date in all xml files
+    > remove debug code in main.c
