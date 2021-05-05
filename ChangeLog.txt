@@ -53,3 +53,8 @@ HISTORY :
     > Fix channel creation (WUP package)
     > build.sh patch version and date in all xml files
     > remove debug code in main.c
+
+2021/05/04 V2-1 : 
+    > add a scocket optimization (thanks to V10lator)
+    > [Request] Support for other controllers #1
+    

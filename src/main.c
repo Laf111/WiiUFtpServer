@@ -10,6 +10,8 @@
 #include <coreinit/time.h>
 #include <coreinit/energysaver.h>
 #include <coreinit/title.h>
+#include <padscore/kpad.h>
+#include <padscore/wpad.h>
 #include <vpad/input.h>
 #include <whb/proc.h>
 #include <time.h>
@@ -27,6 +29,7 @@
 #include "receivedFiles.h"
 
 #define FTP_PORT	21
+
 /****************************************************************************/
 // PARAMETERS
 /****************************************************************************/
@@ -37,9 +40,10 @@ static int fsaFd = -1;
 static int mcp_hook_fd = -1;
 
 // gamepad inputs (needed for channel, WHBProc HOME_BUTTON event is not enought)
-VPADStatus status;
-VPADReadError error;
-bool vpad_fatal = false;
+VPADStatus vpadStatus;
+VPADReadError vpadError;
+
+KPADStatus kpadStatus;
 
 static OSDynLoad_Module coreinitHandle = NULL;
 static int32_t (*OSShutdown)(int32_t status);
@@ -99,7 +103,10 @@ int main()
     // Console init
     WHBProcInit();
     WHBLogConsoleInit();
-
+    
+    VPADInit();
+    KPADInit();
+    
     IMDisableAPD(); // Disable auto-shutdown feature
     
     if (isChannel()) {
@@ -202,7 +209,11 @@ int main()
 
     /*--------------------------------------------------------------------------*/
     /* FTP loop                                                                 */
-    /*--------------------------------------------------------------------------*/    
+    /*--------------------------------------------------------------------------*/
+    int vpadError = -1;
+    int vpadReadCounter = 0;
+    bool exitApplication = false;
+    
     while (serverSocket >= 0 && !network_down)
     {
         network_down = process_ftp_events(serverSocket);
@@ -212,31 +223,43 @@ int main()
 
         WHBLogConsoleDraw();
         
-        // check VPAD input validity
-        VPADRead(VPAD_CHAN_0, &status, 1, &error);
-        switch (error) {
-            case VPAD_READ_SUCCESS: {
+        //! update only at 50 Hz, thats more than enough
+        if(++vpadReadCounter >= 20)
+        {
+            vpadReadCounter = 0;
+            VPADRead(0, &vpadStatus, 1, &vpadError);
+
+            if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
+
+            for (int i = 0; i < 4; i++)
+            {
+                uint32_t controllerType;
+                // check if the controller is connected
+                if (WPADProbe(i, &controllerType) != 0)
+                    continue;
+
+                KPADRead(i, &kpadStatus, 1);
+
+                switch (controllerType)
+                {
+                    case WPAD_EXT_CORE:
+                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_HOME)
+                            exitApplication = true;
+                        break;
+                    case WPAD_EXT_CLASSIC:
+                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_CLASSIC_BUTTON_HOME)
+                            exitApplication = true;
+                        break;
+                    case WPAD_EXT_PRO_CONTROLLER:
+                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_PRO_BUTTON_HOME)
+                            exitApplication = true;
+                        break;
+                }
+            }
+            
+            if (exitApplication)
                 break;
-            }
-            case VPAD_READ_NO_SAMPLES: {
-                continue;
-            }
-            case VPAD_READ_INVALID_CONTROLLER: {
-                WHBLogPrint("Gamepad disconnected!");
-                vpad_fatal = true;
-                break;
-            }
-            default: {
-                WHBLogPrintf("Unknown VPAD error! %08X", error);
-                vpad_fatal = true;
-                break;
-            }
         }
-        // if an error occurs, exit the loop
-        if (vpad_fatal) break;
-        
-         // exit if gamePad's button HOME is pressed
-        if (status.trigger & VPAD_BUTTON_HOME) break;
     }
     WHBLogConsoleDraw();
 
