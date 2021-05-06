@@ -4,6 +4,7 @@
   * 2021/04/25:V1.1.1:Laf111: try 1980 epoch for timestamp
   * 2021/04/26:V1.2.0:Laf111: change the 421 msg 
   * 2021/04/30:V2.0.0:Laf111: revert to timeOs for timestamp
+  * 2021/05/06:V2.1.0:Laf111: IOSUHAX_FSA_ChangeMode on folder created remotely
  ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
@@ -313,6 +314,19 @@ static int32_t ftp_MKD(client_t *client, char *path) {
 		vrt_chdir(abspath, path); // TODO: error checking
 		// TODO: escape double-quotes
 		sprintf(msg, "\"%s\" directory created.", abspath);
+        
+        // compute virtual path /usb/... in a string allocate on the stack
+        char vPath[MAXPATHLEN+1] = "";
+        if (path) sprintf(vPath, "%s%s", client->cwd, path);
+        else sprintf(vPath, "%s", client->cwd);
+        
+        char *volPath = NULL;
+        volPath = virtualToVolPath(vPath); 
+    
+        // chmod on folder
+        IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x666);        
+        free(volPath);
+        
 		return write_reply(client, 257, msg);
 	} else {
 		return write_reply(client, 550, strerror(errno));
@@ -494,9 +508,6 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
         
 	return result < 0 ? result : 0;
 }
-
-
-
 
 static int32_t ftp_NLST(client_t *client, char *path) {
 	if (!*path) {
@@ -786,7 +797,7 @@ void cleanup_ftp() {
 	for (client_index = 0; client_index < MAX_CLIENTS; client_index++) {
 		client_t *client = clients[client_index];
 		if (client) {
-			write_reply(client, 421, "Service no more available, closing remaining active clients connection.");
+			write_reply(client, 421, "Closing remaining active clients connection.");
 			cleanup_client(client);
 		}
 	}

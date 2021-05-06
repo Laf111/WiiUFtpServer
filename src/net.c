@@ -1,7 +1,6 @@
 /****************************************************************************
   * WiiUFtpServer
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
-  * 2021/05/04:V2.1.0:Laf111: add a scocket optimization (thanks to V10lator)
  ***************************************************************************/
 #include <stdint.h>
 #include <stdbool.h>
@@ -12,31 +11,18 @@
 
 #include <errno.h>
 #include <sys/fcntl.h>
-#include <nsysnet/socket.h>
-#include <coreinit/memdefaultheap.h>
 
 #include <nn/ac.h>
 #include "vrt.h"
 #include "net.h"
 
-extern int somemopt (int type, void *buf, size_t bufsize, int unk);
-static OSThread dlbgThread;
-static uint8_t *dlbgThreadStack;
+#ifndef MIN
+    #define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
 
 static uint32_t NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
 
 uint32_t hostIpAddress = 0;
-
-int dlbgThreadMain(int argc, const char **argv)
-{	
-	void *buf = MEMAllocFromDefaultHeapEx(SOCKLIB_BUFSIZE, 64);
-	if(buf == NULL) return 1;
-	
-	if (somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0) == -1 && socketlasterr() != 50) return 1;
-	MEMFreeToDefaultHeap(buf);
-	
-	return 0;
-}
 
 void initialise_network()
 {
@@ -47,13 +33,6 @@ void initialise_network()
     ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
 
-	dlbgThreadStack = MEMAllocFromDefaultHeapEx(DLBGT_STACK_SIZE, 8);
-	
-	if(dlbgThreadStack == NULL) OSCreateThread(&dlbgThread, dlbgThreadMain, 0, NULL, dlbgThreadStack + DLBGT_STACK_SIZE, DLBGT_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_ANY);
-	
-	OSSetThreadName(&dlbgThread, "WIIU FTP server socket optimizer");
-	OSResumeThread(&dlbgThread);
-    
 	socket_lib_init();
 }
 
@@ -258,19 +237,13 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
 }
 
 int32_t send_from_file(int32_t s, FILE *f) {
-
- 	char * buf=NULL;
-	buf = MEMAllocFromDefaultHeapEx(FREAD_BUFFER_SIZE, 0x40);
-	if(buf == NULL)
-	{
-		MEMFreeToDefaultHeap(buf);
+	char * buf = (char *) malloc(FREAD_BUFFER_SIZE);
+	if(!buf)
 		return -1;
-	}
-	
-	if(setvbuf(f, buf, _IOFBF, FREAD_BUFFER_SIZE) != 0) return -2; 
 
 	int32_t bytes_read;
-	int32_t result = 0;    
+	int32_t result = 0;
+
 	bytes_read = fread(buf, 1, FREAD_BUFFER_SIZE, f);
 	if (bytes_read > 0) {
 		result = send_exact(s, buf, bytes_read);
@@ -289,16 +262,20 @@ int32_t send_from_file(int32_t s, FILE *f) {
 
 int32_t recv_to_file(int32_t s, FILE *f) {
     
- 	char * buf=NULL;
-	buf = MEMAllocFromDefaultHeapEx(NET_BUFFER_SIZE, 0x40);
-	if(buf == NULL)
-	{
-		MEMFreeToDefaultHeap(buf);
-		return -1;
-	}
-	
-	if(setvbuf(f, buf, _IOFBF, NET_BUFFER_SIZE) != 0) return -2; 
-    
+	int buf_size = NET_BUFFER_SIZE+32;
+ 	uint8_t * buf=NULL;
+
+    // align memory (64bytes = 0x40) when alocating the buffer
+	do{
+		buf_size -= 32;
+		if (buf_size < 0) {
+            WHBLogPrintf("ERROR failed to allocate buf"); 
+            WHBLogConsoleDraw();
+			return -5;
+		}
+		buf = (uint8_t *)memalign(0x40, buf_size);
+		if (buf) memset(buf, 0x00, buf_size);
+	}while(!buf);    
 	int32_t bytes_read;
 	while (1) {
 		try_again_with_smaller_buffer:

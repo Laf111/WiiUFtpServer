@@ -22,17 +22,9 @@ extern "C"{
 
 #include "receivedFiles.h"
 
-#define SOCKET_BUFSIZE (128 * 1024)
-#define SOCKLIB_BUFSIZE		(SOCKET_BUFSIZE * 4) // For send & receive + double buffering
-#define DLBGT_STACK_SIZE	0x2000
-#ifndef MIN
-    #define MIN(x, y) ((x) < (y) ? (x) : (y))
-#endif
-#define IO_MAX_FILE_BUFFER	(1 * 1024 * 1024) // 1 MB
-
-#define MAX_NET_BUFFER_SIZE IO_MAX_FILE_BUFFER
+#define MAX_NET_BUFFER_SIZE (256*1024)
 #define MIN_NET_BUFFER_SIZE 4*1024
-#define FREAD_BUFFER_SIZE IO_MAX_FILE_BUFFER
+#define FREAD_BUFFER_SIZE (256*1024)
 
 void initialise_network();
 void finalize_network();

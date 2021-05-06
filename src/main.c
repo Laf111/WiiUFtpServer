@@ -2,6 +2,7 @@
   * WiiUFtpServer
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
   * 2021/04/30:V2.0.0:Laf111: code for channel
+  * 2021/05/06:V2.1.0:Laf111: add other controller than gamePad (request/issue #1)
  ***************************************************************************/
 #include <coreinit/dynload.h>
 #include <coreinit/thread.h>
@@ -29,7 +30,6 @@
 #include "receivedFiles.h"
 
 #define FTP_PORT	21
-
 /****************************************************************************/
 // PARAMETERS
 /****************************************************************************/
@@ -42,7 +42,6 @@ static int mcp_hook_fd = -1;
 // gamepad inputs (needed for channel, WHBProc HOME_BUTTON event is not enought)
 VPADStatus vpadStatus;
 VPADReadError vpadError;
-
 KPADStatus kpadStatus;
 
 static OSDynLoad_Module coreinitHandle = NULL;
@@ -209,11 +208,9 @@ int main()
 
     /*--------------------------------------------------------------------------*/
     /* FTP loop                                                                 */
-    /*--------------------------------------------------------------------------*/
+    /*--------------------------------------------------------------------------*/    
     int vpadError = -1;
-    int vpadReadCounter = 0;
     bool exitApplication = false;
-    
     while (serverSocket >= 0 && !network_down)
     {
         network_down = process_ftp_events(serverSocket);
@@ -223,44 +220,39 @@ int main()
 
         WHBLogConsoleDraw();
         
-        //! update only at 50 Hz, thats more than enough
-        if(++vpadReadCounter >= 20)
+        VPADRead(0, &vpadStatus, 1, &vpadError);
+        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
+
+        for (int i = 0; i < 4; i++)
         {
-            vpadReadCounter = 0;
-            VPADRead(0, &vpadStatus, 1, &vpadError);
+            uint32_t controllerType;
+            // check if the controller is connected
+            if (WPADProbe(i, &controllerType) != 0)
+                continue;
 
-            if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
+            KPADRead(i, &kpadStatus, 1);
 
-            for (int i = 0; i < 4; i++)
+            switch (controllerType)
             {
-                uint32_t controllerType;
-                // check if the controller is connected
-                if (WPADProbe(i, &controllerType) != 0)
-                    continue;
-
-                KPADRead(i, &kpadStatus, 1);
-
-                switch (controllerType)
-                {
-                    case WPAD_EXT_CORE:
-                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_HOME)
-                            exitApplication = true;
-                        break;
-                    case WPAD_EXT_CLASSIC:
-                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_CLASSIC_BUTTON_HOME)
-                            exitApplication = true;
-                        break;
-                    case WPAD_EXT_PRO_CONTROLLER:
-                        if((kpadStatus.trigger | kpadStatus.hold) & WPAD_PRO_BUTTON_HOME)
-                            exitApplication = true;
-                        break;
-                }
+                case WPAD_EXT_CORE:
+                    if((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_HOME)
+                        exitApplication = true;
+                    break;
+                case WPAD_EXT_CLASSIC:
+                    if((kpadStatus.trigger | kpadStatus.hold) & WPAD_CLASSIC_BUTTON_HOME)
+                        exitApplication = true;
+                    break;
+                case WPAD_EXT_PRO_CONTROLLER:
+                    if((kpadStatus.trigger | kpadStatus.hold) & WPAD_PRO_BUTTON_HOME)
+                        exitApplication = true;
+                    break;
             }
             
             if (exitApplication)
                 break;
         }
     }
+
     WHBLogConsoleDraw();
 
     /*--------------------------------------------------------------------------*/
