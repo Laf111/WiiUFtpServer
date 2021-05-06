@@ -54,12 +54,8 @@ extern "C" {
 #define SO_OOBINLINE    0x0100      // out-of-band data inline (no effect?)
 #define SO_TCPSACK      0x0200      // set tcp selective acknowledgment
 #define SO_WINSCALE     0x0400      // set tcp window scaling
-#ifndef SO_SNDBUF
 #define SO_SNDBUF       0x1001      // send buffer size
-#endif    
-#ifndef SO_SNDBUF
 #define SO_RCVBUF       0x1002      // receive buffer size
-#endif
 #define SO_SNDLOWAT     0x1003      // send low-water mark (no effect?)
 #define SO_RCVLOWAT     0x1004      // receive low-water mark
 #define SO_TYPE         0x1008      // get socket type
