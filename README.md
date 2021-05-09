@@ -50,3 +50,5 @@ The build process creates : HBL app + RPX package (to create a channel)
 - ./build.sh
 
 
+To create the channel version (HBC), use "toWUP\createChannel.bat"
+
