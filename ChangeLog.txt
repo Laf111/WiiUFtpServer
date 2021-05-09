@@ -56,4 +56,9 @@ HISTORY :
 
 2021/05/06 V2-1 : 
     > chmod also folder created by the client
-    > [Request] Support for other controllers #1
+    > [Request #1] Support for other controllers than gamepad
+    
+2021/05/09 V2-2 : 
+    > fix regression : can't exit HBL version
+      HBL : gamePad, wiiMote +? : OK
+      HBC : only gamePad

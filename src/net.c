@@ -1,6 +1,7 @@
 /****************************************************************************
   * WiiUFtpServer
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
+  * 2021/05/08:V2.2.0:Laf111: decrease buffer with MIN_NET_BUFFER_SIZE steps
  ***************************************************************************/
 #include <stdint.h>
 #include <stdbool.h>
@@ -216,9 +217,9 @@ static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_
 			remaining -= bytes_transferred;
 			buf += bytes_transferred;
 		} else if (bytes_transferred < 0) {
-			if (bytes_transferred == -EINVAL && NET_BUFFER_SIZE == MAX_NET_BUFFER_SIZE) {
-				NET_BUFFER_SIZE = MIN_NET_BUFFER_SIZE;
-				OSSleepTicks(OSMillisecondsToTicks(1000));
+			if (NET_BUFFER_SIZE > MIN_NET_BUFFER_SIZE) {
+				NET_BUFFER_SIZE = NET_BUFFER_SIZE - MIN_NET_BUFFER_SIZE;
+				OSSleepTicks(OSMillisecondsToTicks(100));
 				goto try_again_with_smaller_buffer;
 			}
 			result = bytes_transferred;
@@ -282,9 +283,9 @@ int32_t recv_to_file(int32_t s, FILE *f) {
         // network_read call recv() that return the number of bytes read
 		bytes_read = network_read(s, buf, NET_BUFFER_SIZE);
 		if (bytes_read < 0) {
-			if (bytes_read == -EINVAL && NET_BUFFER_SIZE == MAX_NET_BUFFER_SIZE) {
-				NET_BUFFER_SIZE = MIN_NET_BUFFER_SIZE;
-				OSSleepTicks(OSMillisecondsToTicks(1000));
+			if (NET_BUFFER_SIZE > MIN_NET_BUFFER_SIZE) {
+				NET_BUFFER_SIZE = NET_BUFFER_SIZE - MIN_NET_BUFFER_SIZE;
+				OSSleepTicks(OSMillisecondsToTicks(100));
 				goto try_again_with_smaller_buffer;
 			}
 			free(buf);

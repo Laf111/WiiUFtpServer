@@ -3,6 +3,7 @@
   * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
   * 2021/04/30:V2.0.0:Laf111: code for channel
   * 2021/05/06:V2.1.0:Laf111: add other controller than gamePad (request/issue #1)
+  * 2021/05/07:V2.2.0:Laf111: (request/issue #1) reopen, not work for HBL version
  ***************************************************************************/
 #include <coreinit/dynload.h>
 #include <coreinit/thread.h>
@@ -43,6 +44,8 @@ static int mcp_hook_fd = -1;
 VPADStatus vpadStatus;
 VPADReadError vpadError;
 KPADStatus kpadStatus;
+VPADReadError kpadError;
+bool pad_fatal = false;
 
 static OSDynLoad_Module coreinitHandle = NULL;
 static int32_t (*OSShutdown)(int32_t status);
@@ -209,9 +212,9 @@ int main()
     /*--------------------------------------------------------------------------*/
     /* FTP loop                                                                 */
     /*--------------------------------------------------------------------------*/    
-    int vpadError = -1;
+
     bool exitApplication = false;
-    while (serverSocket >= 0 && !network_down)
+    while (WHBProcIsRunning() && serverSocket >= 0 && !network_down)
     {
         network_down = process_ftp_events(serverSocket);
         if(network_down)
@@ -222,7 +225,7 @@ int main()
         
         VPADRead(0, &vpadStatus, 1, &vpadError);
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
-
+        
         for (int i = 0; i < 4; i++)
         {
             uint32_t controllerType;
@@ -230,7 +233,28 @@ int main()
             if (WPADProbe(i, &controllerType) != 0)
                 continue;
 
-            KPADRead(i, &kpadStatus, 1);
+            KPADRead(i, &kpadStatus, kpadError);
+            
+            switch (kpadError) {
+                case VPAD_READ_SUCCESS: {
+                    break;
+                }
+                case VPAD_READ_NO_SAMPLES: {
+                    continue;
+                }
+                case VPAD_READ_INVALID_CONTROLLER: {
+                    WHBLogPrint("Controller disconnected!");
+                    exitApplication = true;
+                    break;
+                }
+                default: {
+                    WHBLogPrintf("Unknown PAD error! %08X", kpadError);
+                    exitApplication = true;
+                    break;
+                }
+            }
+
+            if (exitApplication) break;         
 
             switch (controllerType)
             {
@@ -247,10 +271,10 @@ int main()
                         exitApplication = true;
                     break;
             }
-            
-            if (exitApplication)
-                break;
-        }
+            if (exitApplication) break;            
+        }        
+        
+        if (exitApplication) break;            
     }
 
     WHBLogConsoleDraw();
@@ -294,6 +318,6 @@ exit:
 
     // ShutDown when launched with channel
     if (isChannel()) OSShutdown(1);
-        
+    
     return returnCode;
 }
