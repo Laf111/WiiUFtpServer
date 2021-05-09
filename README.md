@@ -28,6 +28,8 @@ No dependencies to set.
 **NOTES :**
 The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 
+4 concurents transferts max (to avoid errors)
+
 
 #
 # BUILD :
