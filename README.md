@@ -21,8 +21,6 @@ I also **disable the power saving feature** when it runs.
   <img src="bandwith.png">
 </p>
 
-Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
-No dependencies to set.
 
 
 **NOTES :**
@@ -45,6 +43,10 @@ This version display the correct dates :
 # BUILD :
 
 Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section.
+
+Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
+No dependencies to set.
+
 
 The build process creates : HBL app + RPX package (to create a channel)
 
