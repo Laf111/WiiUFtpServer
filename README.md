@@ -24,9 +24,10 @@ I also **disable the power saving feature** when it runs.
 
 
 **NOTES :**
-Use 4 concurents transferts max (to avoid errors)
 
-The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
+- Use 4 concurents transferts max (to avoid errors)
+
+- The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 
 This means that your FTP client will always consider Wii-U files older then local ones!
 
