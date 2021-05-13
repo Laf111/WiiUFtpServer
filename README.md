@@ -26,9 +26,19 @@ No dependencies to set.
 
 
 **NOTES :**
+Use 4 concurents transferts max (to avoid errors)
+
 The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 
-4 concurents transferts max (to avoid errors)
+This means that your FTP client will always consider Wii-U files older then local ones!
+
+So you'd better (if available on client) to set a size criterion for synchronizing operations.
+
+This version display the correct dates : 
+
+<p align="center">
+  <img src="timestamps.png">
+</p>
 
 
 #
