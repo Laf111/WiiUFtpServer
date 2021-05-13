@@ -62,3 +62,7 @@ HISTORY :
     > fix regression : can't exit HBL version
       HBL : gamePad, wiiMote +? : OK
       HBC : only gamePad
+
+2021/05/09 V3 : 
+    > fix timestamps on files and folders
+      

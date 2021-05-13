@@ -14,9 +14,7 @@ struct ENTRY {
     char *path;
     // file descriptor 
     int fd;
-    // dowloaded status
-    int downloaded;
-} ;
+};
 
 void   SetVolPath(char *volPath, int fd);
 int    ChmodFile(int fd);

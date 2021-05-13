@@ -44,8 +44,7 @@ void SetVolPath(char *volPath, int fd) {
         
         // set the file descriptor
         files[nbFiles]->fd = fd;
-        // set the completion status to 0
-        files[nbFiles]->downloaded = 0;
+
         
         // allocate and set the full volume path to the file        
         int len = strlen(volPath)+1;        

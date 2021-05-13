@@ -22,7 +22,6 @@
 #include <malloc.h>
 #include <string.h> 
 
-
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
@@ -146,6 +145,7 @@ int main()
     tmTime.tm_wday  =   osDateTime.tm_wday;
     tmTime.tm_yday  =   osDateTime.tm_yday;
     
+    // save GMT OS Time in ftp.c
     setOsTime(&tmTime);
 
      // Check if a CFW is active

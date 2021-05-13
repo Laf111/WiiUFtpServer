@@ -7,8 +7,8 @@
 #  * 2021/04/26:V2.0.0:Laf111: patch version and date in xml files
 #               add RPX to WUP packaging             
 # ***************************************************************************/
-VERSION_MAJOR=2
-VERSION_MINOR=2
+VERSION_MAJOR=3
+VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 

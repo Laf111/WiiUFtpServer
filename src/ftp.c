@@ -5,6 +5,7 @@
   * 2021/04/26:V1.2.0:Laf111: change the 421 msg 
   * 2021/04/30:V2.0.0:Laf111: revert to timeOs for timestamp
   * 2021/05/06:V2.1.0:Laf111: IOSUHAX_FSA_ChangeMode on folder created remotely
+  * 2021/05/13:V3.0.0:Laf111: fix timestamps on files and folders
  ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
@@ -37,6 +38,8 @@ static char *password = NULL;
 
 // OS time computed in main
 static struct tm *timeOs=NULL;
+// OS time computed in main
+static time_t tsOs=0;
 
 // IOSUHAX fd
 static int fsaFd = -1;
@@ -133,6 +136,36 @@ static char* virtualToVolPath(char *vPath) {
 
     return "";
 }
+
+// transform a date from J1980 with microseconds to J1970 (UNIX epoch)
+// GetStat can return 0 with faulty time stamp ! -> add check on time stamp value
+static struct tm getDateEpoch(time_t ts1980) {
+    // output 
+    struct tm *time=NULL;
+    // initialized with timeOs
+    if (timeOs == NULL) return *(localtime(NULL));
+
+    if (ts1980 == 0) return (*timeOs);
+    time=timeOs;
+    
+    // WHBLogPrintf("ts1980 = %" PRId64, ts1980);
+    
+    // check ts1980 value (1980 epoch with micro seconds)
+    // 01/01/2010 00:00:00 -> 946771200,  with us = 946771200000000
+    // 01/01/2038 00:00:00 -> 1830384000, with us = 1830384000000000
+    time_t tsMax = tsOs + 86400*2;
+    
+    if ( ts1980 <= 946771200000000 || ts1980 >= tsMax) return *time;
+    
+    // compute the timestamp in J1970 Epoch (1972 and 1976 got 366 days)
+    time_t ts1970 = ts1980/1000000 + 86400*((366*2) + (365*8));
+    
+    // get the corresponding tm
+    time=localtime(&ts1970);
+    
+    return (*time);
+    
+}    
 
 void set_ftp_password(char *new_password) {
 	if (password) free(password);
@@ -482,23 +515,35 @@ static int32_t send_nlst(int32_t data_socket, DIR_P *iter) {
 }
 
 static int32_t send_list(int32_t data_socket, DIR_P *iter) {
-	struct stat st;
+
 	int32_t result = 0;
-    uint64_t size = 0;
+
 	char filename[MAXPATHLEN] = "";
 	char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
 	struct dirent *dirent = NULL;
     
-    // dim = 13
-    char timestamp[13]="";
-        
 	while ((dirent = vrt_readdir(iter)) != 0) {
+
 		snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
-		stat(filename, &st);
+        // get volume path
+        char *volPath = NULL;
+        volPath = virtualToVolPath(filename);    
         
-        size = st.st_size;
-        if (timeOs != NULL) strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeOs);                        
-        else strftime(timestamp, sizeof(timestamp), "%b %d  %Y", localtime(NULL));
+        IOSUHAX_FSA_Stat fStat;
+        struct tm timeinfo;
+        
+        // get stats with IOSUHAX
+        IOSUHAX_FSA_GetStat(fsaFd, volPath, &fStat);    
+        free(volPath);
+
+        uint64_t size = 0;
+        size = fStat.size;
+        // compute date to display : transform a date from J1980 with microseconds to J1970 (UNIX epoch)
+        timeinfo = getDateEpoch((time_t)fStat.modified);
+        
+        // dim = 13
+        char timestamp[13]="";
+        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", &timeinfo);                        
 
 		snprintf(line, sizeof(line), "%crwxr-xr-x	1 0		0	 %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', size, timestamp, dirent->d_name);
 		if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
@@ -966,6 +1011,12 @@ static void process_control_events(client_t *client) {
 }
 
 bool process_ftp_events(int32_t server) {
+    
+    if (timeOs != NULL && tsOs == 0) {
+        time_t ts1970=mktime(timeOs);
+        // compute the timestamp in J1980 Epoch (1972 and 1976 got 366 days)
+        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);        
+    }        
     
 	bool network_down = !process_accept_events(server);    
     int client_index;
