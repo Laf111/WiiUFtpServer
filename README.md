@@ -1,5 +1,5 @@
 # WiiUFtpServer
-FTP server based on libWUT and libIOSUHAX.
+FTP server for the Wii-U based on libWUT and libIOSUHAX.
 
 (works with MOCHA and HAXCHI/CBHC)
 
