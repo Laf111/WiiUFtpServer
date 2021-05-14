@@ -29,9 +29,6 @@ I also **disable the power saving feature** when it runs.
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function and so does not preserve file timestamps.
 
-This means that your FTP client will always consider Wii-U files older then local ones!
-
-So you'd better (if available on client) to set a size criterion for synchronizing operations.
 
 This version display the correct dates : 
 
