@@ -22,9 +22,17 @@ extern "C"{
 
 #include "receivedFiles.h"
 
-#define MAX_NET_BUFFER_SIZE (256*1024)
+
+#ifndef MIN
+    #define MIN(x, y) ((x) < (y) ? (x) : (y))
+#endif
+
+#define MAX_NET_BUFFER_SIZE (512*1024)
 #define MIN_NET_BUFFER_SIZE 4*1024
-#define FREAD_BUFFER_SIZE (256*1024)
+#define FREAD_BUFFER_SIZE MAX_NET_BUFFER_SIZE
+
+// Maximum of simultaneous connexions (clients included)
+#define NB_SIMULTANEOUS_CONNEXIONS 3
 
 void initialise_network();
 void finalize_network();
@@ -50,7 +58,6 @@ int32_t send_from_file(int32_t s, FILE *f);
 
 int32_t recv_to_file(int32_t s, FILE *f);
 
-int32_t setRecvFileVolPath(char *vPath);
 
 #ifdef __cplusplus
 }

@@ -65,4 +65,9 @@ HISTORY :
 
 2021/05/09 V3 : 
     > fix timestamps on files and folders
+
+2021/05/18 V3-1 : 
+    > always retry on transfert error
+    > +15% on network speed by setting a max priority to the thread and 
+      MAX_NET_BUFFER_SIZE to 512k
       

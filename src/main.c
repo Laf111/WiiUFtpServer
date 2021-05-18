@@ -188,18 +188,12 @@ int main()
         goto exit;
     }
     
- 	OSThread *mainThread = OSGetCurrentThread();
-	OSSetThreadName(mainThread, "WiiUFtpServer");
-
-	if(!OSSetThreadPriority(mainThread, 1))
-		WHBLogPrintf("WARNING: Error changing main thread priority!");
-    
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
 	initialise_network();
     uint32_t ip = network_gethostip();     
-    WHBLogPrintf(" ");               
+    WHBLogPrintf(" ");
     WHBLogPrintf("Listening on %u.%u.%u.%u:%i", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, FTP_PORT);
     WHBLogConsoleDraw();
 

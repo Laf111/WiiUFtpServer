@@ -26,12 +26,10 @@ include $(WUT_ROOT)/share/wut_rules
 TARGET		:=	WiiUFtpServer
 BUILD		:=	build
 SOURCES		:=	src \
-                src/dynamic_libs \
                 src/iosuhax
                 
 DATA		:=	data
 INCLUDES	:=	src \
-                src/dynamic_libs \
                 src/iosuhax
                 
 #-------------------------------------------------------------------------------
@@ -42,7 +40,7 @@ CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
 
 CFLAGS	+=	-D_GNU_SOURCE -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
 
-CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__ -D_GNU_SOURCE
+CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__
 
 CXXFLAGS	:= $(CFLAGS)
 
