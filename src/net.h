@@ -29,10 +29,9 @@ extern "C"{
 
 #define MAX_NET_BUFFER_SIZE (512*1024)
 #define MIN_NET_BUFFER_SIZE 4*1024
-#define FREAD_BUFFER_SIZE MAX_NET_BUFFER_SIZE
 
-// Maximum of simultaneous connexions (clients included)
-#define NB_SIMULTANEOUS_CONNEXIONS 3
+// Maximum of simultaneous connexions
+#define NB_SIMULTANEOUS_CONNECTIONS 127
 
 void initialise_network();
 void finalize_network();
@@ -49,8 +48,6 @@ uint32_t network_gethostip();
 int32_t set_blocking(int32_t s, bool blocking);
 
 int32_t network_close_blocking(int32_t s);
-
-int32_t create_server(uint16_t port);
 
 int32_t send_exact(int32_t s, char *buf, int32_t length);
 

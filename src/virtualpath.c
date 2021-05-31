@@ -128,63 +128,63 @@ int	MountVirtualDevices(int hfd) {
     IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
     
     if (mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard") >=0) {
-        WHBLogPrintf(">mounting storage_sdcard...");
+        WHBLogPrintf("mounting storage_sdcard...");
         WHBLogConsoleDraw();
         storage_sdcard=1;
         VirtualMountDevice("storage_sdcard:/");
         nbDevices++;
     }
     if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >=0) {
-        WHBLogPrintf(">mounting storage_slccmpt...");
+        WHBLogPrintf("mounting storage_slccmpt...");
         WHBLogConsoleDraw();
         storage_slccmpt=1;
         VirtualMountDevice("storage_slccmpt:/");
         nbDevices++;
     }
     if (mount_fs("storage_mlc", fsaFd, NULL, "/vol/storage_mlc01") >= 0) {
-        WHBLogPrintf(">mounting storage_mlc...");
+        WHBLogPrintf("mounting storage_mlc...");
         WHBLogConsoleDraw();
         storage_mlc=1;
         VirtualMountDevice("storage_mlc:/");
         nbDevices++;
     }
     if (mount_fs("storage_usb", fsaFd, NULL, "/vol/storage_usb01") >=0) {
-        WHBLogPrintf(">mounting storage_usb...");
+        WHBLogPrintf("mounting storage_usb...");
         WHBLogConsoleDraw();
         storage_usb=1;
         VirtualMountDevice("storage_usb:/");
         nbDevices++;
     }
     if (mount_fs("storage_slc", fsaFd, NULL, "/vol/system") >= 0) {
-        WHBLogPrintf(">mounting storage_slc...");
+        WHBLogPrintf("mounting storage_slc...");
         WHBLogConsoleDraw();
         storage_slc=1;
         VirtualMountDevice("storage_slc:/");
         nbDevices++;
     }    
     if (mount_fs("storage_odd_tickets", fsaFd, "/dev/odd01", "/vol/storage_odd_tickets") >= 0) {
-        WHBLogPrintf(">mounting storage_odd_tickets...");
+        WHBLogPrintf("mounting storage_odd_tickets...");
         WHBLogConsoleDraw();
         storage_odd_tickets=1;
         VirtualMountDevice("storage_odd_tickets:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_updates", fsaFd, "/dev/odd02", "/vol/storage_odd_updates") >=0) {
-        WHBLogPrintf(">mounting storage_odd_updates...");
+        WHBLogPrintf("mounting storage_odd_updates...");
         WHBLogConsoleDraw();
         storage_odd_updates=1;
         VirtualMountDevice("storage_odd_updates:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_content", fsaFd, "/dev/odd03", "/vol/storage_odd_content") >= 0) {
-        WHBLogPrintf(">mounting storage_odd_content...");
+        WHBLogPrintf("mounting storage_odd_content...");
         WHBLogConsoleDraw();
         storage_odd_content=1;
         VirtualMountDevice("storage_odd_content:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_content2", fsaFd, "/dev/odd04", "/vol/storage_odd_content2") >= 0) {
-        WHBLogPrintf(">mounting storage_odd_content2...");
+        WHBLogPrintf("mounting storage_odd_content2...");
         WHBLogConsoleDraw();
         storage_odd_content2=1; 
         VirtualMountDevice("storage_odd_content2:/");
@@ -201,63 +201,63 @@ void UmountVirtualDevices() {
     
     if (storage_sdcard == 1) {
         unmount_fs("storage_sdcard");
-        WHBLogPrintf(">unmounting storage_sdcard...");
+        WHBLogPrintf("unmounting storage_sdcard...");
         WHBLogConsoleDraw();        
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
         storage_sdcard = 0;
     }
     if (storage_slccmpt == 1) {
         unmount_fs("storage_slccmpt");
-        WHBLogPrintf(">unmounting storage_slccmpt...");
+        WHBLogPrintf("unmounting storage_slccmpt...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slccmpt01");
         storage_slccmpt = 0;
     }
     if (storage_mlc == 1) {
         unmount_fs("storage_mlc");
-        WHBLogPrintf(">unmounting storage_mlc...");
+        WHBLogPrintf("unmounting storage_mlc...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_mlc01");
         storage_mlc = 0;
     }
     if (storage_usb == 1) {
         unmount_fs("storage_usb");
-        WHBLogPrintf(">unmounting storage_usb...");
+        WHBLogPrintf("unmounting storage_usb...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_usb01");
         storage_usb = 0;
     }
     if (storage_odd_tickets == 1) {
         unmount_fs("storage_odd_tickets");
-        WHBLogPrintf(">unmounting storage_odd_tickets...");
+        WHBLogPrintf("unmounting storage_odd_tickets...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_tickets");
         storage_odd_tickets = 0;
     }
     if (storage_odd_updates == 1) {
         unmount_fs("storage_odd_updates");
-        WHBLogPrintf(">unmounting storage_odd_updates...");
+        WHBLogPrintf("unmounting storage_odd_updates...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_updates");
         storage_odd_updates = 0;
     }
     if (storage_odd_content == 1) {
         unmount_fs("storage_odd_content");
-        WHBLogPrintf(">unmounting storage_odd_content...");
+        WHBLogPrintf("unmounting storage_odd_content...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content");
         storage_odd_content = 0;
     }
     if (storage_odd_content2 == 1) {
         unmount_fs("storage_odd_content2");
-        WHBLogPrintf(">unmounting storage_odd_content2...");
+        WHBLogPrintf("unmounting storage_odd_content2...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content2");
         storage_odd_content2 = 0;
     }
     if (storage_slc == 1) {
         unmount_fs("storage_slc");
-        WHBLogPrintf(">unmounting storage_slc...");
+        WHBLogPrintf("unmounting storage_slc...");
         WHBLogConsoleDraw();
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slc");
         storage_slc = 0;

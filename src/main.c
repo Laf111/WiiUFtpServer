@@ -5,6 +5,8 @@
   * 2021/05/06:V2.1.0:Laf111: add other controller than gamePad (request/issue #1)
   * 2021/05/07:V2.2.0:Laf111: (request/issue #1) reopen, not work for HBL version
  ***************************************************************************/
+#include <whb/proc.h>
+#include <whb/libmanager.h>
 #include <coreinit/dynload.h>
 #include <coreinit/thread.h>
 #include <coreinit/mcp.h>
@@ -15,7 +17,6 @@
 #include <padscore/kpad.h>
 #include <padscore/wpad.h>
 #include <vpad/input.h>
-#include <whb/proc.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -120,7 +121,7 @@ int main()
     WHBLogPrintf(" -=============================-\n");
     WHBLogPrintf("|    %s     |\n", VERSION_STRING);
     WHBLogPrintf(" -=============================-\n");
-    WHBLogPrintf("[Laf111:2021-04]");
+    WHBLogPrintf("[Laf111:2021-06]");
     WHBLogPrintf(" ");
 
     // Get OS time and save it in ftp static variable 
@@ -151,7 +152,7 @@ int main()
      // Check if a CFW is active
     IOSUHAX_CFW_Family cfw = IOSUHAX_CFW_GetFamily();
     if (cfw == 0) {
-        WHBLogPrintf("ERROR No running CFW detected");
+        WHBLogPrintf("! ERROR : No running CFW detected");
         returnCode = -10;
         goto exit;
     }
@@ -164,14 +165,14 @@ int main()
         res = MCPHookOpen();
     }
     if (res < 0) {
-        WHBLogPrintf("ERROR IOSUHAX_Open failed.");
+        WHBLogPrintf("! ERROR : IOSUHAX_Open failed.");
         returnCode = -11;
         goto exit;        
     }
     
     fsaFd = IOSUHAX_FSA_Open();
     if (fsaFd < 0) {
-        WHBLogPrintf("ERROR IOSUHAX_FSA_Open failed.");
+        WHBLogPrintf("! ERROR : IOSUHAX_FSA_Open failed.");
         if (mcp_hook_fd >= 0) MCPHookClose();
         else IOSUHAX_Close();
         returnCode = -12;
@@ -183,7 +184,7 @@ int main()
 
 	int nbDrives=MountVirtualDevices(fsaFd);    
     if (nbDrives == 0) {
-        WHBLogPrintf("ERROR No virtual devices mounted !");
+        WHBLogPrintf("! ERROR : No virtual devices mounted !");
         returnCode = -20;
         goto exit;
     }
@@ -191,6 +192,7 @@ int main()
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
+	WHBInitializeSocketLibrary();
 	initialise_network();
     uint32_t ip = network_gethostip();     
     WHBLogPrintf(" ");
@@ -210,7 +212,7 @@ int main()
     bool exitApplication = false;
     while (WHBProcIsRunning() && serverSocket >= 0 && !network_down)
     {
-        network_down = process_ftp_events(serverSocket);
+        network_down = process_ftp_events();
         if(network_down)
             break;
         OSSleepTicks(OSMillisecondsToTicks(100));
@@ -285,6 +287,7 @@ int main()
     cleanup_ftp();
     if (serverSocket >= 0) network_close(serverSocket);
 	finalize_network();
+	WHBDeinitializeSocketLibrary();
 
     UmountVirtualDevices();
     

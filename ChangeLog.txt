@@ -70,4 +70,11 @@ HISTORY :
     > always retry on transfert error
     > +15% on network speed by setting a max priority to the thread and 
       MAX_NET_BUFFER_SIZE to 512k
-      
+
+2021/05/28 V3-2 : Enhance display log on server side, multithreading just for the fun... (bottleneck is on network socket not on CPU), 
+                  a real progress should be a SSL server using lib curl (should be more efficient than using select() for FTP sockets as 
+                  the code is already asynchronous I/O)
+    > remove unecessary characters from the logged line (shorter the line)
+    > use default thread on CPU2 for the ftp serveur (priority 1)
+    > set network connections on CPU0 (priority 0)
+    > main process is launched (as usual) on the default thread of CPU1

@@ -17,9 +17,9 @@ extern "C"{
 #endif
 
 #define gettime()               OSGetTime()
-void accept_ftp_client(int32_t server);
-void set_ftp_password(char *new_password);
-bool process_ftp_events(int32_t server);
+
+int32_t create_server(uint16_t port);
+bool process_ftp_events();
 void cleanup_ftp();
 
 void setOsTime(struct tm *tmTime);

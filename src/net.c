@@ -18,11 +18,16 @@
 #include "vrt.h"
 #include "net.h"
 
+#define NET_STACK_SIZE 0x2000
+
 static uint32_t NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
 
 uint32_t hostIpAddress = 0;
 
-void initialise_network()
+// main thread (default thread of CPU0)
+static OSThread *netThread=NULL;
+
+static int netThreadMain(int argc, const char **argv)
 {
     unsigned int nn_startupid;
 
@@ -31,12 +36,30 @@ void initialise_network()
     ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
     
- 	OSThread *netThread = OSGetCurrentThread();
-	OSSetThreadName(netThread, "WiiUFtpServer network thread");	
-	if(!OSSetThreadPriority(netThread, 0))
-		WHBLogPrintf("WARNING: Error changing network thread priority!");
+ 	socket_lib_init();
     
-	socket_lib_init();
+    
+	return 0;
+}
+
+void initialise_network()
+{
+    // use default thread on Core 0
+    netThread=OSGetDefaultThread(0);
+    if (netThread == NULL) {
+		WHBLogPrintf("! ERROR : when getting netThread!");
+		return;
+    }
+	
+	OSSetThreadName(netThread, "network thread on CPU0");
+    OSRunThread(netThread, netThreadMain, 0, NULL);    
+	OSResumeThread(netThread);
+	
+	if (!OSSetThreadPriority(netThread, 0))
+		WHBLogPrintf("! WNG: Error changing net thread priority!");
+
+    
+
 }
 
 void finalize_network()
@@ -173,63 +196,36 @@ int32_t network_close_blocking(int32_t s) {
 	return network_close(s);
 }
 
-int32_t create_server(uint16_t port) {
-	int32_t server = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-	if (server < 0)
-		return -1;
-
-
-	set_blocking(server, false);
-    uint32_t enable = 1;
-	setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
-
-	struct sockaddr_in bindAddress;
-	memset(&bindAddress, 0, sizeof(bindAddress));
-	bindAddress.sin_family = AF_INET;
-	bindAddress.sin_port = htons(port);
-	bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-
-	int32_t ret;
-	if ((ret = network_bind(server, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
-		network_close(server);
-		return ret;
-	}
-
-	if ((ret = network_listen(server, NB_SIMULTANEOUS_CONNEXIONS)) < 0) {
-		network_close(server);
-		return ret;
-	}
-
-	return server;
-}
 
 typedef int32_t (*transferrer_type)(int32_t s, void *mem, int32_t len);
 
 static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_type transferrer) {
 	int32_t result = 0;
+	int buf_size = NET_BUFFER_SIZE;
     
 	int32_t remaining = length;
 	int32_t bytes_transferred;
 	set_blocking(s, true);
 	while (remaining) {
 		try_again_with_smaller_buffer:
-		bytes_transferred = transferrer(s, buf, MIN(remaining, (int) NET_BUFFER_SIZE));
+		bytes_transferred = transferrer(s, buf, MIN(remaining, (int) buf_size));
 		if (bytes_transferred > 0) {
 			remaining -= bytes_transferred;
 			buf += bytes_transferred;
             
             // restore the whole buffer after a successfully network read
-            if (NET_BUFFER_SIZE < MAX_NET_BUFFER_SIZE) NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;        
+            if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;        
             
 		} else if (bytes_transferred < 0) {
-			if (NET_BUFFER_SIZE > MIN_NET_BUFFER_SIZE) {
-				NET_BUFFER_SIZE = NET_BUFFER_SIZE - MIN_NET_BUFFER_SIZE;
-				OSSleepTicks(OSMillisecondsToTicks(100));
+			if (buf_size > MIN_NET_BUFFER_SIZE) {
+				buf_size = buf_size - MIN_NET_BUFFER_SIZE;
+				OSSleepTicks(OSMillisecondsToTicks(500));
 				goto try_again_with_smaller_buffer;
 			}
-            WHBLogPrintf("WARNING : transfer_exact failed, buf=%d", NET_BUFFER_SIZE);
-            WHBLogPrintf("WARNING : NB_SIMULTANEOUS_CONNEXIONS reached ?");
-            OSSleepTicks(OSMillisecondsToTicks(1000));
+            
+            WHBLogPrintf("! WNG : transfer_exact failed, buf=%d", buf_size);
+            WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
+            
 // always retry !
             goto try_again_with_smaller_buffer;
 //			result = bytes_transferred;
@@ -248,19 +244,20 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
 }
 
 int32_t send_from_file(int32_t s, FILE *f) {
-	char * buf = (char *) malloc(FREAD_BUFFER_SIZE);
+	int buf_size = NET_BUFFER_SIZE;
+	char * buf = (char *) malloc(buf_size);
 	if(!buf)
 		return -1;
 
 	int32_t bytes_read;
 	int32_t result = 0;
 
-	bytes_read = fread(buf, 1, FREAD_BUFFER_SIZE, f);
+	bytes_read = fread(buf, 1, buf_size, f);
 	if (bytes_read > 0) {
 		result = send_exact(s, buf, bytes_read);
 		if (result < 0) goto end;
 	}
-	if (bytes_read < FREAD_BUFFER_SIZE) {
+	if (bytes_read < (int32_t) buf_size) {
 		result = -!feof(f);
 		goto end;
 	}
@@ -287,21 +284,21 @@ int32_t recv_to_file(int32_t s, FILE *f) {
 		buf = (uint8_t *)memalign(0x40, buf_size);
 		if (buf) memset(buf, 0x00, buf_size);
 	}while(!buf);    
+    
 	int32_t bytes_read;
 	while (1) {
 		try_again_with_smaller_buffer:
         // network_read call recv() that return the number of bytes read
-		bytes_read = network_read(s, buf, NET_BUFFER_SIZE);
+		bytes_read = network_read(s, buf, buf_size);
 		if (bytes_read < 0) {
-			if (NET_BUFFER_SIZE > MIN_NET_BUFFER_SIZE) {
-				NET_BUFFER_SIZE = NET_BUFFER_SIZE - MIN_NET_BUFFER_SIZE;
-				OSSleepTicks(OSMillisecondsToTicks(1000));
+			if (buf_size > MIN_NET_BUFFER_SIZE) {
+				buf_size = buf_size - MIN_NET_BUFFER_SIZE;
+				OSSleepTicks(OSMillisecondsToTicks(500));
 				goto try_again_with_smaller_buffer;
 			}
-            WHBLogPrintf("WARNING : recv failed, buf=%d", NET_BUFFER_SIZE);
-            WHBLogPrintf("WARNING : NB_SIMULTANEOUS_CONNEXIONS reached ?");
-            OSSleepTicks(OSMillisecondsToTicks(1000));
-            
+            WHBLogPrintf("! WNG : recv failed, buf=%d", buf_size);
+            WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
+// always retry !
             goto try_again_with_smaller_buffer;
 //			free(buf);
 //			return bytes_read;
