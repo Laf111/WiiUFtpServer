@@ -33,7 +33,7 @@ I also **disable the power saving feature** when it runs.
   <img src="timestamps.png">
 </p>
 
-- The FTP method used is I/O multiplexing (single threaded non-blocking I/O).
+- The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
 
 #
 # BUILD :
