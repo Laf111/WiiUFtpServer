@@ -35,6 +35,15 @@ I also **disable the power saving feature** when it runs.
 
 - The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
 
+
+**TODO :**
+
+- use select() function (optimize asynchronous I/O)
+
+- use lib Curl + socket optimization (see [NUSpli](https://github.com/V10lator/NUSspli) : thanks to V10lator for the feedback)
+
+- a thread per client (pool of treads)
+
 #
 # BUILD :
 
