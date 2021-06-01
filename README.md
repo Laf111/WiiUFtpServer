@@ -44,7 +44,7 @@ I also **disable the power saving feature** when it runs.
 
 - use lib Curl + socket optimization (see [NUSpli](https://github.com/V10lator/NUSspli) : thanks to V10lator for the feedback)
 
-- a thread per client (pool of treads)
+- a thread per client (pool of threads)
 
 #
 # BUILD :
