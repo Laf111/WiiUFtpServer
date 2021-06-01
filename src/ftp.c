@@ -131,6 +131,11 @@ int32_t create_server(uint16_t port) {
 		return ret;
 	}
 
+    uint32_t ip = network_gethostip();     
+    WHBLogPrintf(" ");
+    WHBLogPrintf("Listening on %u.%u.%u.%u:%i", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
+    WHBLogConsoleDraw();
+    
 	return listener;
 }
 

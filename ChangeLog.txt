@@ -78,3 +78,6 @@ HISTORY :
     > use default thread on CPU2 for the ftp serveur (priority 1)
     > set network connections on CPU0 (priority 0)
     > main process is launched (as usual) on the default thread of CPU1
+    
+2021/06/01 V4-0 :    
+    > fix ip adress not shown

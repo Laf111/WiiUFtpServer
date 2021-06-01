@@ -22,13 +22,20 @@
 
 static uint32_t NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
 
-uint32_t hostIpAddress = 0;
+static uint32_t hostIpAddress = 0;
 
 // main thread (default thread of CPU0)
 static OSThread *netThread=NULL;
 
 static int netThreadMain(int argc, const char **argv)
 {
+ 	socket_lib_init();
+	return 0;
+}
+
+void initialise_network()
+{
+    
     unsigned int nn_startupid;
 
     ACInitialize();
@@ -36,14 +43,6 @@ static int netThreadMain(int argc, const char **argv)
     ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
     
- 	socket_lib_init();
-    
-    
-	return 0;
-}
-
-void initialise_network()
-{
     // use default thread on Core 0
     netThread=OSGetDefaultThread(0);
     if (netThread == NULL) {
@@ -57,8 +56,6 @@ void initialise_network()
 	
 	if (!OSSetThreadPriority(netThread, 0))
 		WHBLogPrintf("! WNG: Error changing net thread priority!");
-
-    
 
 }
 
