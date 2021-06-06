@@ -25,7 +25,6 @@ I also **disable the power saving feature** when it runs.
 
 **NOTES :**
 
-- Use 3 concurents transferts max per client
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
