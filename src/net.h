@@ -27,11 +27,10 @@ extern "C"{
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
-#define MAX_NET_BUFFER_SIZE (512*1024)
+#define MAX_NET_BUFFER_SIZE (128*1024)
 #define MIN_NET_BUFFER_SIZE 4*1024
-
 // Maximum of simultaneous connexions
-#define NB_SIMULTANEOUS_CONNECTIONS 127
+#define NB_SIMULTANEOUS_CONNECTIONS 32
 
 void initialise_network();
 void finalize_network();

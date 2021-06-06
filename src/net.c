@@ -84,7 +84,7 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
     }
     if (type == SOCK_STREAM)
     {        
-        int tcpsack = 1, winscale = 1, rcvbuf = 128 * 1024;
+        int tcpsack = 1, winscale = 1, rcvbuf = MAX_NET_BUFFER_SIZE;
         setsockopt(sock, SOL_SOCKET, SO_TCPSACK, &tcpsack, sizeof(tcpsack));
         setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &winscale, sizeof(winscale));
         setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
@@ -223,10 +223,8 @@ static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_
             WHBLogPrintf("! WNG : transfer_exact failed, buf=%d", buf_size);
             WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
             
-// always retry !
-            goto try_again_with_smaller_buffer;
-//			result = bytes_transferred;
-//			break;
+			result = bytes_transferred;
+			break;
 		} else {
 			result = -ENODATA;
 			break;
@@ -295,10 +293,9 @@ int32_t recv_to_file(int32_t s, FILE *f) {
 			}
             WHBLogPrintf("! WNG : recv failed, buf=%d", buf_size);
             WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
-// always retry !
-            goto try_again_with_smaller_buffer;
-//			free(buf);
-//			return bytes_read;
+
+			free(buf);
+			return bytes_read;
 		} else if (bytes_read == 0) {
             // get the fd 
             int fd=fileno(f);
