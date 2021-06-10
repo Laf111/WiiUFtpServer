@@ -1,5 +1,5 @@
 # WiiUFtpServer
-FTP server for the Wii-U.
+A new FTP server for the Wii-U that fix files injection and display files timestamps correctly.
 
 I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith (i've created a gitHub branch for that)
 
