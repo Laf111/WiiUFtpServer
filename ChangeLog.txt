@@ -90,5 +90,5 @@ HISTORY :
 2021/06/10 V4-2 :    
     > create a gitHub branch for the HBL version based on first version of dynamic_libs that gives a greater socket bandwith 
       almost 30% more than using the WUT API.
-      This version will replace the HBL version in the future release (channel version is still based on libWut)
+      This version will replace the HBL version in the future release (channel version is still based on libWUT)
     
