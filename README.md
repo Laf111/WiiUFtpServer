@@ -51,6 +51,9 @@ The build process creates : HBL app + RPX package (to create a channel)
 
 - ./build.sh
 
+It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
 
 To create the channel version (HBC), use "toWUP\createChannel.bat"
+
+Then copy the \_sdCard content to your SD card.
 
