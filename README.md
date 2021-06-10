@@ -1,7 +1,7 @@
 # WiiUFtpServer
 FTP server for the Wii-U.
 
-I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith.
+I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith (i've created a gitHub branch for that)
 
 <p align="center">
   <img src="WiiUFtpServer.png">
