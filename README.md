@@ -1,7 +1,7 @@
 # WiiUFtpServer
-FTP server for the Wii-U based on libWUT and libIOSUHAX.
+FTP server for the Wii-U.
 
-(works with MOCHA and HAXCHI/CBHC)
+I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith.
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -12,15 +12,7 @@ It **fixes remaining files injection failures** when using ftp-everywhere.
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-The **performance (bandwidth)** of the server is close to be **doubled** compared to ftpiiU based on WUT (+ FTP buffer increased in WiiU FTP Server).
-
 I also **disable the power saving feature** when it runs.
-
-
-<p align="center">
-  <img src="bandwith.png">
-</p>
-
 
 
 **NOTES :**
@@ -36,14 +28,6 @@ I also **disable the power saving feature** when it runs.
 
 - FTP server is running on CPU2 (thread priority 1), network connections on CPU0 (thread priority 0) and main process is left on the default thread of CPU1
 
-
-**TODO :**
-
-- use select() function (optimize asynchronous I/O)
-
-- use lib Curl + socket optimization (see [NUSpli](https://github.com/V10lator/NUSspli) : thanks to V10lator for the feedback)
-
-- a thread per client (pool of threads)
 
 #
 # BUILD :
