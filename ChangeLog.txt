@@ -91,4 +91,9 @@ HISTORY :
     > create a gitHub branch for the HBL version based on first version of dynamic_libs that gives a greater socket bandwith 
       almost 30% more than using the WUT API.
       This version will replace the HBL version in the future release (channel version is still based on libWUT)
-    
+
+2021/07/23 V4-3 :    
+    > put the 2 codes in the same project :
+        - version using dynamic libs for HBL (best bandwith ~40% faster than WUT version)
+        - building channel using the WUT version
+    > rename WUP package name to WiiuFtpServer
