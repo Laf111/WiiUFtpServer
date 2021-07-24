@@ -64,7 +64,7 @@ REM : main
     pushd !NUSPFolder!
 
     set "INPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_loadiine\0005000010050421""
-    set "OUTPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_sdCard\install\WUP-P-FTPS""
+    set "OUTPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_sdCard\install\WiiuFtpServer""
     if exist !OUTPUTDIRECTORY! rmdir /Q /S !OUTPUTDIRECTORY! > NUL 2>&1
     mkdir !OUTPUTDIRECTORY! > NUL 2>&1
     
