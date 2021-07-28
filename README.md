@@ -25,7 +25,7 @@ I used libWUT for the channel version but kept using dynamic_libs for the HBL ve
   <img src="timestamps.png">
 </p>
 
-- The server (FTP protocol) does not support symlinks. You'll get transfert errors on symlinks that exist on the Wii-U File system in some update or DLC content. 
+- The server (FTP protocol) does not support symlinks. You'll get transfert errors on symlinks that exist on the Wii-U File system in some update or DLC content. Note that CEMU does not use those files and you can just ignore those errors.
 
 - The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
 
