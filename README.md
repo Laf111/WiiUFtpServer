@@ -25,6 +25,8 @@ I used libWUT for the channel version but kept using dynamic_libs for the HBL ve
   <img src="timestamps.png">
 </p>
 
+- The server (FTP protocol) does not support symlinks. You'll get transfert errors on symlinks that exist on the Wii-U File system in some update or DLC content. 
+
 - The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
 
 - FTP server is running on CPU2 (thread priority 1), network connections on CPU0 (thread priority 0) and main process is left on the default thread of CPU1
@@ -56,5 +58,5 @@ It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
 
 To create the channel version (HBC), use "toWUP\createChannel.bat"
 
-Then copy the \_sdCard content to your SD card.
+Then copy the \_sdCard folder content to your SD card.
 
