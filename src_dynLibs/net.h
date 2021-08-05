@@ -36,8 +36,8 @@ extern "C"{
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
-// Maximum of simultaneous connexions 16*OPT_COEF
-#define NB_SIMULTANEOUS_CONNECTIONS MAX_NET_BUFFER_SIZE/MIN_NET_BUFFER_SIZE
+// Maximum of simultaneous connexions 
+#define NB_SIMULTANEOUS_CONNECTIONS (2*MAX_NET_BUFFER_SIZE)/MIN_NET_BUFFER_SIZE
 
 void initialise_network();
 void finalize_network();

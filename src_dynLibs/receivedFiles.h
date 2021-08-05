@@ -14,6 +14,8 @@ struct ENTRY {
     char *path;
     // file descriptor 
     int fd;
+    // optimal buffer size
+    int optBufSize;
 };
 
 void   SetVolPath(char *volPath, int fd);

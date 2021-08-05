@@ -131,9 +131,10 @@ int main()
     WHBLogPrintf(" -=============================-\n");
     WHBLogPrintf("|    %s     |\n", VERSION_STRING);
     WHBLogPrintf(" -=============================-\n");
-    WHBLogPrintf("[Laf111/2021-07/WUT]");
+    WHBLogPrintf("[Laf111/2021-08/WUT]");
     WHBLogPrintf(" ");
     WHBLogConsoleDraw();
+    OSSleepTicks(OSMillisecondsToTicks(1000));
     
     // Get OS time and save it in ftp static variable 
     OSCalendarTime osDateTime;
@@ -161,7 +162,7 @@ int main()
     setOsTime(&tmTime);
     WHBLogPrintf(" ");
     WHBLogConsoleDraw();
-    OSSleepTicks(OSMillisecondsToTicks(2000));
+
 
     /*--------------------------------------------------------------------------*/
     /* IOSUHAX operations and mounting devices                                  */

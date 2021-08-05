@@ -97,3 +97,8 @@ HISTORY :
         - version using dynamic libs for HBL (best bandwith ~40% faster than WUT version)
         - building channel using the WUT version
     > rename WUP package name to WiiuFtpServer
+
+2021/08/05 V4-4 :    
+    > fix regression caused by setvbuf (saves was corrupted because of unexpected behavior due to freeing buffer 
+      before fclose on file)
+    > disable Nagle (socket optimisation)

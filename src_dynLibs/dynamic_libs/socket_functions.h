@@ -32,14 +32,9 @@ extern "C" {
 
 #include "common/types.h"
 
-// tweak only this one for testing
-#define OPT_COEF 2
-
 #define DEFAULT_NET_BUFFER_SIZE 64*1024
 #define MIN_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE/16
-
-// Optimized buffer size
-#define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*OPT_COEF
+#define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*2
 
 #define NET_STACK_SIZE    0x2000
 

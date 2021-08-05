@@ -82,22 +82,18 @@ static uint8_t *ftpThreadStack;
 
 static int ftpThreadMain(int argc, const char **argv)
 {
-//    logLine("DEBUG : network_socket");    
-    
 
     int32_t socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (socket < 0)
         return -1;
 
-//    logLine("DEBUG : network_socket done");    
+    // Set to non-blocking I/O 
     set_blocking(socket, false);
         
     uint32_t enable = 1;
     setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
-    // Set to non-blocking I/O 
 
 
-//    logLine("DEBUG : ftpThreadMain done");    
     
     return socket;
 }
@@ -113,29 +109,20 @@ int32_t create_server(uint16_t port) {
         return -1;
     }
 
-//    logLine("DEBUG : create ftpThread");    
-    
 
-    if (!OSCreateThread(&ftpThread, ftpThreadMain, 0, NULL, ftpThreadStack + FTP_STACK_SIZE, FTP_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU2)) {
+    if (!OSCreateThread(&ftpThread, ftpThreadMain, 0, NULL, ftpThreadStack + FTP_STACK_SIZE, FTP_STACK_SIZE, 1, OS_THREAD_ATTRIB_AFFINITY_CPU2)) {
         WHBLogPrintf("! ERROR : when creating ftpThread!");        
         return -1;
     }
     
     OSSetThreadName(&ftpThread, "ftp thread on CPU2");
-    if (!OSSetThreadPriority(&ftpThread, 1))
-        WHBLogPrintf("! WNG: Error changing ftp thread priority!");
     
-//    logLine("DEBUG : resume ftpThreadMain");    
-    
-        
     OSResumeThread(&ftpThread);
     
     OSJoinThread(&ftpThread, &listener);
     if (listener < 0)
         return -1;
 
-//    logLine("DEBUG : ftpThreadMain finsihed");    
-    
 
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));
@@ -143,18 +130,12 @@ int32_t create_server(uint16_t port) {
     bindAddress.sin_port = htons(port);
     bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 
-//    logLine("DEBUG : network_bind");    
-    
 
     int32_t ret;
     if ((ret = network_bind(listener, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
         network_close(listener);
         return ret;
     }
-
-//    logLine("DEBUG : listen");    
-    
-
     if ((ret = network_listen(listener, NB_SIMULTANEOUS_CONNECTIONS)) < 0) {
         network_close(listener);
         return ret;

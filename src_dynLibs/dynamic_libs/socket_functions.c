@@ -27,8 +27,6 @@
 #include "os_functions.h"
 #include "socket_functions.h"
 
-#define SOCKLIB_BUFSIZE (MAX_NET_BUFFER_SIZE * 4) // For send & receive + double buffering
-
 extern void display(const char *format, ...);
 
 u32 hostIpAddress = 0;
@@ -57,50 +55,12 @@ EXPORT_DECL(s32, inet_aton, const char *cp, struct in_addr *inp);
 EXPORT_DECL(const char *, inet_ntop, s32 af, const void *src, char *dst, s32 size);
 EXPORT_DECL(s32, inet_pton, s32 af, const char *src, void *dst);
 EXPORT_DECL(s32, socketlasterr, void);
-
-// socket optim thread (userspace buffer)
-/*
-    Don't forget to enable it when creating a socket
-    
-    // Activate userspace buffer
-    int enable = 1;
-    setsockopt(sock, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable));
-*/
         
-static OSThread *socketOptThread=NULL;
-static u32 *socketOptThreadStack=NULL;
+static OSThread *socketThread=NULL;
+static u32 *socketThreadStack=NULL;
 
-void socketOptThreadMain(s32 argc, void *argv)
+void socketThreadMain(s32 argc, void *argv)
 {
-    char * buf=NULL;
-    buf = OSAllocFromSystem(SOCKLIB_BUFSIZE, 64);
-    
-//    display("DEBUG : Launching somemopt");
-        
-    // will block until sock_lib_finish() is called (when it will work...)    
-    somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0);
-    
-/*     
-    if (somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0) == -1)
-    {
-        display("! ERROR : somemopt failed!");
-    }
-    
-    display("DEBUG : somemopt ends now");
- */
-    free(buf);
-    
-    ((void (*)())0x01041D6C)(); // OSExitThread()
-}
-
-void InitAcquireSocket(void) {
-    if(coreinit_handle == 0) {
-        InitAcquireOS();
-    };
-    OSDynLoad_Acquire("nsysnet.rpl", &nsysnet_handle);
-}
-
-void InitSocketFunctionPointers(void) {
     u32 *funcPointer = 0;
 
     InitAcquireSocket();
@@ -137,8 +97,7 @@ void InitSocketFunctionPointers(void) {
     OS_FIND_EXPORT(nsysnet_handle, inet_aton);
     OS_FIND_EXPORT(nsysnet_handle, inet_ntop);
     OS_FIND_EXPORT(nsysnet_handle, inet_pton);
-
-
+    
     u32 nn_startupid;
     ACInitialize();
     ACGetStartupId(&nn_startupid);
@@ -147,23 +106,32 @@ void InitSocketFunctionPointers(void) {
    
     socket_lib_init();
     
+    ((void (*)())0x01041D6C)(); // OSExitThread()
+}
+
+void InitAcquireSocket(void) {
+    if(coreinit_handle == 0) {
+        InitAcquireOS();
+    };
+    OSDynLoad_Acquire("nsysnet.rpl", &nsysnet_handle);
+}
+
+void InitSocketFunctionPointers(void) {
+
     // create a thread on CPU0
-    socketOptThread = OSAllocFromSystem(sizeof(OSThread), 8); 
-    if (socketOptThread != NULL) {
+    socketThread = OSAllocFromSystem(sizeof(OSThread), 8); 
+    if (socketThread != NULL) {
      
-        socketOptThreadStack = OSAllocFromSystem(NET_STACK_SIZE, 8);
-        if (socketOptThreadStack != NULL) {
+        socketThreadStack = OSAllocFromSystem(NET_STACK_SIZE, 8);
+        if (socketThreadStack != NULL) {
     
-            // on CPU0
-            OSCreateThread(socketOptThread, (void*)socketOptThreadMain, 0, NULL, (u32)socketOptThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTR_AFFINITY_CORE0);
+            // on CPU0, prio = 0
+            OSCreateThread(socketThread, (void*)socketThreadMain, 0, NULL, (u32)socketThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTR_AFFINITY_CORE0);
             // set name    
-            OSSetThreadName(socketOptThread, "Socket optimizer thread on CPU0");
-            // set ptiority to 0
-            OSSetThreadPriority(socketOptThread, 0);
+            OSSetThreadName(socketThread, "Socket lib thread on CPU0");
             
             // launch the thread
-            OSResumeThread(socketOptThread);
-            sleep(3);
+            OSResumeThread(socketThread);
         }
     }
 }    
@@ -172,9 +140,9 @@ void FreeSocketFunctionPointers(void) {
 
     socket_lib_finish();
     
-     s32 ret;
-    OSJoinThread(socketOptThread, &ret);
+    s32 ret;
+    OSJoinThread(socketThread, &ret);
     
-    if (socketOptThreadStack != NULL) OSFreeToSystem(socketOptThreadStack);
-    if (socketOptThread != NULL) OSFreeToSystem(socketOptThread);   
+    if (socketThreadStack != NULL) OSFreeToSystem(socketThreadStack);
+    if (socketThread != NULL) OSFreeToSystem(socketThread);   
 }

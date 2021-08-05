@@ -23,16 +23,12 @@ extern "C"{
 #ifndef MIN
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
-// tweak only this one for testing
-#define OPT_COEF 2
 
 #define DEFAULT_NET_BUFFER_SIZE 64*1024
 #define MIN_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE/16
+#define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*2
 
-// Optimized buffer size
-#define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*OPT_COEF
-
-#define NB_SIMULTANEOUS_CONNECTIONS MAX_NET_BUFFER_SIZE/MIN_NET_BUFFER_SIZE
+#define NB_SIMULTANEOUS_CONNECTIONS (2*MAX_NET_BUFFER_SIZE)/MIN_NET_BUFFER_SIZE
 
 void initialise_network();
 void finalize_network();

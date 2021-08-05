@@ -32,8 +32,6 @@ misrepresented as being the original software.
 #include "dynamic_libs/socket_functions.h"
 #include "net.h"
 
-static u32 NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
-
 extern u32 hostIpAddress;
 extern void display(const char *format, ...);
 
@@ -71,7 +69,7 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
             {if (!initDone) display("! ERROR : TCP SAck activation failed !");}
 
         // Set I/O buffersize
-        int bufferSize = MAX_NET_BUFFER_SIZE;        
+        int bufferSize = MAX_NET_BUFFER_SIZE;
         if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))==0) 
             {if (!initDone) display("> RCVBUF set to %d", bufferSize);}
         else 
@@ -81,16 +79,14 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
             {if (!initDone) display("> SNDBUF set to %d", bufferSize);}
         else 
             {if (!initDone) display("! ERROR : SNDBUF failed !");}
-        
-        // Activate userspace buffer : it does not work ....
-        setsockopt(sock, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable));
-        
-/* 
-        if (setsockopt(sock, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable))==0) 
-            {if (!initDone) display("> Userspace buffer enabled");}
+ 
+        /* Disable the Nagle (TCP No Delay) algorithm */
+        int flag = 1;
+        if (setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag))==0)
+            {if (!initDone) display("> Nagle disabled");}
         else 
-            {if (!initDone) display("! ERROR userspace buffer activation failed !");}
- */        
+            {if (!initDone) display("! ERROR : disabling the Nagle failed !");}    
+ 
         
         if (!initDone) {
             initDone = true;
@@ -203,7 +199,7 @@ s32 network_close_blocking(s32 s) {
 
 typedef s32 (*transferrer_type)(s32 s, void *mem, s32 len);
 static s32 transfer_exact(s32 s, char *buf, s32 length, transferrer_type transferrer) {
-    int buf_size = NET_BUFFER_SIZE;
+    int buf_size = MAX_NET_BUFFER_SIZE;
 
     s32 result = 0;
     s32 remaining = length;
@@ -217,12 +213,12 @@ static s32 transfer_exact(s32 s, char *buf, s32 length, transferrer_type transfe
             buf += bytes_transferred;
             
             // restore the whole buffer after a successfully network read
-            if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;        
+            if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;
             
         } else if (bytes_transferred < 0) {
             if (buf_size > MIN_NET_BUFFER_SIZE) {
                 buf_size = buf_size - MIN_NET_BUFFER_SIZE;
-                usleep(1000);
+                sleep(1);
                 goto try_again_with_smaller_buffer;
             }
             result = bytes_transferred;
@@ -241,7 +237,7 @@ s32 send_exact(s32 s, char *buf, s32 length) {
 }
 
 s32 send_from_file(s32 s, FILE *f) {
-    int buf_size = NET_BUFFER_SIZE+32;
+    int buf_size = MAX_NET_BUFFER_SIZE+32;
      char * buf=NULL;
 
     // align memory (64bytes = 0x40) when alocating the buffer
@@ -254,9 +250,7 @@ s32 send_from_file(s32 s, FILE *f) {
         if (buf) memset(buf, 0x00, buf_size);
     }while(!buf);
     
-    setvbuf(f, buf, _IOFBF, NET_BUFFER_SIZE); 
-
-     s32 bytes_read;
+    s32 bytes_read;
     s32 result = 0;
 
     bytes_read = fread(buf, 1, buf_size, f);
@@ -276,7 +270,8 @@ s32 send_from_file(s32 s, FILE *f) {
 }
 
 s32 recv_to_file(s32 s, FILE *f) {
-    int buf_size = NET_BUFFER_SIZE+32;
+    
+    int buf_size = MAX_NET_BUFFER_SIZE+32;
      char * buf=NULL;
 
     // align memory (64bytes = 0x40) when alocating the buffer
@@ -289,7 +284,6 @@ s32 recv_to_file(s32 s, FILE *f) {
         if (buf) memset(buf, 0x00, buf_size);
     }while(!buf);
     
-    setvbuf(f, buf, _IOFBF, NET_BUFFER_SIZE);
     
     s32 bytes_read;
     while (1) {
@@ -299,7 +293,7 @@ s32 recv_to_file(s32 s, FILE *f) {
         if (bytes_read < 0) {
             if (buf_size > MIN_NET_BUFFER_SIZE) {
                 buf_size = buf_size - MIN_NET_BUFFER_SIZE;
-                usleep(1000);
+                sleep(1);
                 goto try_again_with_smaller_buffer;
             }
             free(buf);
@@ -319,7 +313,7 @@ s32 recv_to_file(s32 s, FILE *f) {
             return -1;
         }
         // restore the whole buffer after a successfully network read
-        if (NET_BUFFER_SIZE < MAX_NET_BUFFER_SIZE) NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;        
+        if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;
     }
     return -1;
 }

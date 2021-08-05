@@ -190,16 +190,19 @@ int __entry_menu(int argc, char **argv)
     if (thread != NULL) {
         // set the name 
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
-        // set a priority to 0
-        OSSetThreadPriority(thread, 0);
+
+        // set a priority to 2
+        OSSetThreadPriority(thread, 2);
     }
     
     display(" -=============================-\n");
     display("|    %s     |\n", VERSION_STRING);
     display(" -=============================-\n");
-    display("[Laf111/2021-07/dynamic_libs]");
+    display("[Laf111/2021-08/dynamic_libs]");
     display(" ");
- 
+
+    sleep(1);
+    
     // Get OS time and save it in ftp static variable 
     OSCalendarTime osDateTime;
     struct tm tmTime;
@@ -224,7 +227,6 @@ int __entry_menu(int argc, char **argv)
     // save GMT OS Time in ftp.c
     setOsTime(&tmTime);
     display(" ");
-    usleep(2000);
     
     /*--------------------------------------------------------------------------*/
     /* IOSUHAX operations and mounting devices                                  */
@@ -292,8 +294,6 @@ int __entry_menu(int argc, char **argv)
         if(network_down)
             break;
 
-        usleep(1000);
-
         VPADRead(0, &vpad, 1, &vpadError);
 
         if(vpadError == 0 && ((vpad.btns_d | vpad.btns_h) & VPAD_BUTTON_HOME))
@@ -327,13 +327,13 @@ int __entry_menu(int argc, char **argv)
         if (exitApplication) break;            
         }
     }
+        
     /*--------------------------------------------------------------------------*/
     /* Cleanup and exit                                                         */
     /*--------------------------------------------------------------------------*/
     display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     display(" ");   
     display("Stopping server...");   
-    display(" "); 
     display(" "); 
     
     cleanup_ftp();

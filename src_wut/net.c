@@ -23,23 +23,18 @@
 #define SOCKLIB_BUFSIZE (MAX_NET_BUFFER_SIZE * 4) // For send & receive + double buffering
 #define NET_STACK_SIZE 0x2000
 
-static uint32_t NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;
 
-extern int somemopt (int req_type, char* mem, unsigned int memlen, int flags);
 extern void logLine(const char *line);
 
 static uint32_t hostIpAddress = 0;
 
 // main thread (default thread of CPU0)
 static OSThread *netThread=NULL;
-// static int *netThreadStack=NULL;
+static int *netThreadStack=NULL;
 
-// socket optim thread
-// static OSThread socketOptThread;
-// static int *socketOptThreadStack=NULL;
 
 static bool initDone = false;
-// static bool optActive = false;
+
 
 int getsocketerrno()
 {
@@ -51,66 +46,12 @@ int getsocketerrno()
     return res;
 }
 
-/*
-int socketOptThreadMain(int argc, const char **argv)
-{
-
-    char * buf=NULL;
-    buf = MEMAllocFromDefaultHeapEx(SOCKLIB_BUFSIZE, 64);
-
-   
-    optActive=true;
-//    logLine("DEBUG : launching somemopt + optActive=true");
-    
-    // will block until sock_lib_finish() is called
-    if (somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0) == -1 && getsocketerrno() != 50)
-    {
-        logLine("! ERROR : somemopt failed!");
-        return -2;
-    }
-  
-//    logLine("DEBUG : somemopt ends now");
-
-    MEMFreeToDefaultHeap(buf);
-    
-    return 0;
-}
-*/
 
 int netThreadMain(int argc, const char **argv)
 {
 
 
     socket_lib_init();
-
-/*    
-    // create a thread for the socket optimization    
-    socketOptThreadStack = MEMAllocFromDefaultHeapEx(NET_STACK_SIZE, 8);
-    if (socketOptThreadStack == NULL) {
-        WHBLogPrintf("! ERROR : failed to allocate socketOptThreadStack !!!");
-        return -1;
-    } else {
-
-        // on CPU0
-        if ( !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU0) ) {
-            WHBLogPrintf("! ERROR : failed to create socketOptThread !!!");
-            return -2;
-        } else {
-    
-            // set name    
-            OSSetThreadName(&socketOptThread, "WiiuFtpServer socket optimizer");
-    
-            // set ptiority to 0
-            if (!OSSetThreadPriority(&socketOptThread, 0))
-                WHBLogPrintf("! WNG: Error changing net thread priority!");
-
-            // launch the thread
-            OSResumeThread(&socketOptThread);
-            
-            
-         }
-    }     
-*/
 
     return 0;
 }
@@ -123,13 +64,12 @@ void initialise_network()
     ACGetStartupId(&nn_startupid);
     ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
-    
-//    logLine("DEBUG :getting netThread");        
+
         
     // use default thread on Core 0
     netThread=OSGetDefaultThread(0);
     if (netThread == NULL) {
-        WHBLogPrintf("! ERROR : when getting netThread!");
+        logLine("! ERROR : when getting netThread!");
         return;
     }
     
@@ -137,7 +77,7 @@ void initialise_network()
     OSRunThread(netThread, netThreadMain, 0, NULL);    
     
     if (!OSSetThreadPriority(netThread, 0))
-        WHBLogPrintf("! WNG: Error changing net thread priority!");
+        logLine("! WNG: Error changing net thread priority!");
 
     OSResumeThread(netThread);
 
@@ -150,12 +90,8 @@ void finalize_network()
 {
     socket_lib_finish();
 
-/*
-    int ret;
-    OSJoinThread(&socketOptThread, &ret);    
-    if (socketOptThreadStack != NULL) MEMFreeToDefaultHeap(socketOptThreadStack);
     if (netThreadStack != NULL) MEMFreeToDefaultHeap(netThreadStack);
-*/
+
 }
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
@@ -168,33 +104,25 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
     }
     if (type == SOCK_STREAM)
     {
-        if (!initDone) WHBLogPrintf("-------------- socket optimizations --------------");
-        
-        // Activate WinScale and TCP SAck
-        int tcpsack = 1, winscale = 1;
-        if (setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &winscale, sizeof(winscale))==0) 
-            {if (!initDone) WHBLogPrintf("> WinScale enabled");}
-        else 
-            {if (!initDone) WHBLogPrintf("OPT : ERROR WinScale activation failed !");}
-        
-        if (setsockopt(sock, SOL_SOCKET, SO_TCPSACK, &tcpsack, sizeof(tcpsack))==0) 
-            {if (!initDone) WHBLogPrintf("> TCP SAck enabled");}
-        else 
-            {if (!initDone) WHBLogPrintf("! ERROR : TCP SAck activation failed !");}
-        /*        
-        // Activate userspace buffer
+        if (!initDone) logLine("-------------- socket optimizations --------------");
         int enable = 1;
         
-        // while (!optActive) OSSleepTicks(OSMillisecondsToTicks(2000));
-        //. does not work...
-
-       if (setsockopt(sock, SOL_SOCKET, 0x10000, &enable, sizeof(enable))==0) 
-            {if (!initDone) WHBLogPrintf("OPT : userspace buffer enabled");}
+        // Activate WinScale
+        if (setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))==0) 
+            {if (!initDone) logLine("> WinScale enabled");}
         else 
-            {if (!initDone) WHBLogPrintf("OPT : ERROR userspace buffer activation failed !");}
-        */
-        int bufferSize = MAX_NET_BUFFER_SIZE;
+            {if (!initDone) logLine("OPT : ERROR WinScale activation failed !");}
+        
+        // Activate TCP SAck
+        if (setsockopt(sock, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))==0) 
+            {if (!initDone) logLine("> TCP SAck enabled");}
+        else 
+            {if (!initDone) logLine("! ERROR : TCP SAck activation failed !");}
         // Set I/O buffersize
+
+
+        int bufferSize = MAX_NET_BUFFER_SIZE;
+
         if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))==0) 
             {if (!initDone) WHBLogPrintf("> RCVBUF set to %d", bufferSize);}
         else 
@@ -205,13 +133,19 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
             {if (!initDone) WHBLogPrintf("> SNDBUF set to %d", bufferSize);}
         else 
             {if (!initDone) WHBLogPrintf("! ERROR : SNDBUF failed !");}
+ 
+        /* Disable the Nagle (TCP No Delay) algorithm */
+        int flag = 1;
+        if (setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag))==0)
+            {if (!initDone) WHBLogPrintf("> Nagle disabled");}
+        else 
+            {if (!initDone) WHBLogPrintf("! ERROR : disabling the Nagle failed !");}    
+ 
         
         if (!initDone) {
             initDone = true;
             WHBLogPrintf("--------------------------------------------------");
         }
-        
-        // TODO : if OK now, reset CPU2 for FTP thread
         
     }
     return sock;
@@ -323,7 +257,7 @@ typedef int32_t (*transferrer_type)(int32_t s, void *mem, int32_t len);
 
 static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_type transferrer) {
     int32_t result = 0;
-    int buf_size = NET_BUFFER_SIZE;
+    int buf_size = MAX_NET_BUFFER_SIZE;
     
     int32_t remaining = length;
     int32_t bytes_transferred;
@@ -344,10 +278,7 @@ static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_
                 OSSleepTicks(OSMillisecondsToTicks(500));
                 goto try_again_with_smaller_buffer;
             }
-            
-            WHBLogPrintf("! WNG : transfer_exact failed, buf=%d", buf_size);
-            WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
-            
+
             result = bytes_transferred;
             break;
         } else {
@@ -364,12 +295,11 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
 }
 
 int32_t send_from_file(int32_t s, FILE *f) {
-    int buf_size = NET_BUFFER_SIZE;
+    int buf_size = MAX_NET_BUFFER_SIZE;
     char * buf = NULL;
-    buf = MEMAllocFromDefaultHeapEx(NET_BUFFER_SIZE, 64);
+    buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if(!buf)
         return -1;
-    setvbuf(f, buf, _IOFBF, NET_BUFFER_SIZE); 
 
     int32_t bytes_read;
     int32_t result = 0;
@@ -383,9 +313,7 @@ int32_t send_from_file(int32_t s, FILE *f) {
         result = -!feof(f);
         goto end;
     }
-//    WHBLogPrintf("! WNG : send_exact failed, buf_size=%d", buf_size);
-//    WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
-    
+
     free(buf);
     return -EAGAIN;
     
@@ -396,12 +324,11 @@ end:
 
 int32_t recv_to_file(int32_t s, FILE *f) {
     
-    int buf_size = NET_BUFFER_SIZE;
+    int buf_size = MAX_NET_BUFFER_SIZE;
     char * buf = NULL;
-    buf = MEMAllocFromDefaultHeapEx(NET_BUFFER_SIZE, 64);
+    buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if(!buf)
         return -1;
-    setvbuf(f, buf, _IOFBF, NET_BUFFER_SIZE); 
     int32_t bytes_read;
     while (1) {
         try_again_with_smaller_buffer:
@@ -413,8 +340,6 @@ int32_t recv_to_file(int32_t s, FILE *f) {
                 OSSleepTicks(OSMillisecondsToTicks(500));
                 goto try_again_with_smaller_buffer;
             }
-//            WHBLogPrintf("! WNG : recv failed, buf_size=%d", buf_size);
-//            WHBLogPrintf("! WNG : last socket error=%d", getsocketerrno());
 
             free(buf);
             return bytes_read;
@@ -433,7 +358,7 @@ int32_t recv_to_file(int32_t s, FILE *f) {
             return -1;
         }
         // restore the whole buffer after a successfully network read
-        if (NET_BUFFER_SIZE < MAX_NET_BUFFER_SIZE) NET_BUFFER_SIZE = MAX_NET_BUFFER_SIZE;        
+        if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;
     }
     return -1;
 }

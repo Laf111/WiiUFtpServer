@@ -92,7 +92,7 @@ typedef struct client_struct client_t;
 static client_t *clients[MAX_CLIENTS] = { NULL };
 static s32 listener=-1;     // listening socket descriptor
 
-/* 
+
 // FTP thread on CPU2
 static OSThread *ftpThread=NULL;
 static u32 *ftpThreadStack=NULL;
@@ -101,24 +101,23 @@ void ftpThreadMain(int argc, void *argv)
 {
     s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (socket < 0) {
-        // display("DEBUG : network_socket failed and return %d", socket);        
+        display("! ERROR : network_socket failed and return %d", socket);        
     }
-    
-    // display("DEBUG : listener socket created");
     
     u32 enable = 1;
     setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+    
     // Set to non-blocking I/O 
     set_blocking(socket, false);
     
     listener = socket;
     
     ((void (*)())0x01041D6C)(); // OSExitThread()
-} */
+}
 
 s32 create_server(u16 port) {
     
-/*     // create a thread on CPU2
+    // create a thread on CPU2
     ftpThread = OSAllocFromSystem(sizeof(OSThread), 8); 
     if (ftpThread != NULL) {
      
@@ -126,29 +125,27 @@ s32 create_server(u16 port) {
         if (ftpThreadStack != NULL) {
         
             // on CPU2
-            OSCreateThread(ftpThread, (void*)ftpThreadMain, 1, ftpThreadStack, (u32)ftpThreadStack+0x300, 0x300, 0, OS_THREAD_ATTR_AFFINITY_CORE2);
+            OSCreateThread(ftpThread, (void*)ftpThreadMain, 1, ftpThreadStack, (u32)ftpThreadStack+0x300, 0x300, 1, OS_THREAD_ATTR_AFFINITY_CORE2);
             // set name    
             OSSetThreadName(ftpThread, "FTP and network thread on CPU2");
-            // set priority to 1    
-            OSSetThreadPriority(ftpThread, 1);
             // launch thread
             OSResumeThread(ftpThread);
+            
             int ret=0;
             // wait until it ends
             OSJoinThread(ftpThread, &ret);
         }
     }
+
     // check that the listener is created
     if ( listener < 0 ) {
         display("! ERROR: listener not created!");
     }
- */
+
     s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (socket < 0) {
-        // display("DEBUG : network_socket failed and return %d", socket);        
+        display("! ERROR : network_socket failed and return %d", socket);        
     }
-    
-    // display("DEBUG : listener socket created");
     
     u32 enable = 1;
     setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
@@ -168,15 +165,11 @@ s32 create_server(u16 port) {
         network_close(listener);
         return ret;
     }
-
-    // display("DEBUG : socket bind OK");
     
     if ((ret = network_listen(listener, NB_SIMULTANEOUS_CONNECTIONS)) < 0) {
         network_close(listener);
         return ret;
     }
-
-    // display("DEBUG : socket listen OK");
     
     uint32_t ip = network_gethostip();     
     display(" ");
@@ -952,9 +945,9 @@ void cleanup_ftp() {
     if (listener >= 0)
         network_close(listener);
     
-/*     if (ftpThreadStack != NULL) OSFreeToSystem(ftpThreadStack);
+    if (ftpThreadStack != NULL) OSFreeToSystem(ftpThreadStack);
     if (ftpThread != NULL) OSFreeToSystem(ftpThread);
- */    
+   
 }
 
 static bool process_getClients() {

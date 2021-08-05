@@ -8,7 +8,7 @@
 #               add RPX to WUP packaging             
 # ***************************************************************************/
 VERSION_MAJOR=4
-VERSION_MINOR=3
+VERSION_MINOR=4
 VERSION_PATCH=0
 export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
