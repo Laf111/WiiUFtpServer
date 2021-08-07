@@ -14,7 +14,7 @@ The initial performances is more than double :
   <img src="bandwith.png">
 </p>
 
-Channel version (using WUT) is twice slower.
+Channel version (using WUT) is twice slower but still higher than FTP everywhere based on dynamic libs.
 
 **NOTES :**
 
