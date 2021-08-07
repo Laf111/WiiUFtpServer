@@ -1,5 +1,5 @@
 # WiiUFtpServer
-A new FTP server for the Wii-U that fix files injection and display files timestamps correctly.
+A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and use the full bandwith of your local network (wifi if you don't have an ethernet adapter)
 
 <p align="center">
   <img src="WiiUFtpServer.png">
