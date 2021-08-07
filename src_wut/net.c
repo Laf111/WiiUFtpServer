@@ -118,21 +118,6 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
             {if (!initDone) logLine("> TCP SAck enabled");}
         else 
             {if (!initDone) logLine("! ERROR : TCP SAck activation failed !");}
-        // Set I/O buffersize
-
-
-        int bufferSize = MAX_NET_BUFFER_SIZE;
-
-        if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))==0) 
-            {if (!initDone) WHBLogPrintf("> RCVBUF set to %d", bufferSize);}
-        else 
-            {if (!initDone) WHBLogPrintf("! ERROR : RCVBUF failed !");}
-        
-
-        if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))==0)
-            {if (!initDone) WHBLogPrintf("> SNDBUF set to %d", bufferSize);}
-        else 
-            {if (!initDone) WHBLogPrintf("! ERROR : SNDBUF failed !");}
  
         /* Disable the Nagle (TCP No Delay) algorithm */
         int flag = 1;
@@ -301,6 +286,10 @@ int32_t send_from_file(int32_t s, FILE *f) {
     if(!buf)
         return -1;
 
+    int bufferSize=MAX_NET_BUFFER_SIZE;
+    if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))!=0)
+        {logLine("! ERROR : SNDBUF failed !");}
+ 
     int32_t bytes_read;
     int32_t result = 0;
 
@@ -329,6 +318,10 @@ int32_t recv_to_file(int32_t s, FILE *f) {
     buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if(!buf)
         return -1;
+    int bufferSize=MAX_NET_BUFFER_SIZE;
+    if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))!=0)
+        {logLine("! ERROR : RCVBUF failed !");}
+    
     int32_t bytes_read;
     while (1) {
         try_again_with_smaller_buffer:

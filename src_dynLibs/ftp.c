@@ -142,17 +142,6 @@ s32 create_server(u16 port) {
         display("! ERROR: listener not created!");
     }
 
-    s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (socket < 0) {
-        display("! ERROR : network_socket failed and return %d", socket);        
-    }
-    
-    u32 enable = 1;
-    setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
-    // Set to non-blocking I/O 
-    set_blocking(socket, false);
-    
-    listener = socket;
     
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));

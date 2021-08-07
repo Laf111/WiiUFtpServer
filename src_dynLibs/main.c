@@ -191,8 +191,8 @@ int __entry_menu(int argc, char **argv)
         // set the name 
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 2
-        OSSetThreadPriority(thread, 2);
+        // set a priority to 0
+        OSSetThreadPriority(thread, 0);
     }
     
     display(" -=============================-\n");
@@ -272,6 +272,12 @@ int __entry_menu(int argc, char **argv)
 
     int serverSocket = create_server(FTP_PORT);
     if (serverSocket < 0) display("! ERROR : when creating server");
+	
+    display(" ");	
+	display("! Use only one simultaneous transfert on upload");
+	display("! 8 maximum for download");
+    display(" ");
+		
     int network_down = 0;
 
     /*--------------------------------------------------------------------------*/

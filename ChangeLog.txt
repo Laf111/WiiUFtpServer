@@ -102,3 +102,6 @@ HISTORY :
     > fix regression caused by setvbuf (saves was corrupted because of unexpected behavior due to freeing buffer 
       before fclose on file)
     > disable Nagle (socket optimisation)
+
+2021/08/07 V4-5 :    
+    > increase bandwith by 240% by setting buffer optimization specifically to RCV/SND file sockets
