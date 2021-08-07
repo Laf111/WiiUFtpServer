@@ -7,7 +7,8 @@ A new FTP server for the Wii-U that fix files injection and display files timest
 
 It **fixes remaining files injection failures** when using ftp-everywhere : few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith (2 times faster at least)
+I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith. 
+The initial performances is more than double :
 
 <p align="center">
   <img src="bandwith.png">
