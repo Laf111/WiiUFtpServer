@@ -14,7 +14,7 @@ The initial performances is more than double :
   <img src="bandwith.png">
 </p>
 
-Channel version (using WUT) is twice slower but still higher than FTP everywhere based on dynamic libs.
+Channel version (using WUT) is twice slower than HBL version but still faster than FTP everywhere based on dynamic libs (about 30% faster) and twice faster than existing FtpiiU based on WUT.
 
 **NOTES :**
 
