@@ -14,6 +14,13 @@ This version is **2.5 times faster than FTP everywhere** based on dynamic libs :
   <img src="bandwith.png">
 </p>
 
+Gain in upload mode is higher : about 10 times faster
+
+<p align="center">
+  <img src="bandwithUL.png">
+</p>
+
+
 Channel version (using WUT) is twice slower than the HBL version but is still faster than FTP everywhere based on dynamic libs (about 30% faster) and twice faster than existing FtpiiU based on WUT.
 
 **NOTES :**
