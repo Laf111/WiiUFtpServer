@@ -1,5 +1,5 @@
 # WiiUFtpServer
-A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and use the full bandwith of your local network (wifi if you don't have an ethernet adapter)
+A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and use the full bandwith of your local network (or you wifi network if you don't have an ethernet adapter)
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -7,14 +7,14 @@ A new FTP server for the Wii-U that fix files injection, display files timestamp
 
 It **fixes remaining files injection failures** when using ftp-everywhere : few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-I used libWUT for the channel version but kept using dynamic_libs for the HBL version because of greater socket bandwith. 
-The initial performances is more than double :
+I used libWUT for the channel version but kept using **dynamic_libs for the HBL version** because of **greater socket bandwith**. 
+**This version is 2.5 times faster than FTP everywhere** based on dynamic libs :
 
 <p align="center">
   <img src="bandwith.png">
 </p>
 
-Channel version (using WUT) is twice slower than HBL version but still faster than FTP everywhere based on dynamic libs (about 30% faster) and twice faster than existing FtpiiU based on WUT.
+Channel version (using WUT) is twice slower than the HBL version but is still faster than FTP everywhere based on dynamic libs (about 30% faster) and twice faster than existing FtpiiU based on WUT.
 
 **NOTES :**
 
