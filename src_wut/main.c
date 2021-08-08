@@ -1,10 +1,3 @@
-/****************************************************************************
-  * WiiUFtpServer
-  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
-  * 2021/04/30:V2.0.0:Laf111: code for channel
-  * 2021/05/06:V2.1.0:Laf111: add other controller than gamePad (request/issue #1)
-  * 2021/05/07:V2.2.0:Laf111: (request/issue #1) reopen, not work for HBL version
- ***************************************************************************/
 #include <whb/proc.h>
 #include <whb/libmanager.h>
 #include <coreinit/dynload.h>
@@ -116,7 +109,7 @@ int main()
     WHBProcInit();
     WHBLogConsoleInit();
     
-    VPADInit();
+
     KPADInit();
     
     IMDisableAPD(); // Disable auto-shutdown feature
@@ -134,7 +127,6 @@ int main()
     WHBLogPrintf("[Laf111/2021-08/WUT]");
     WHBLogPrintf(" ");
     WHBLogConsoleDraw();
-    OSSleepTicks(OSMillisecondsToTicks(1000));
     
     // Get OS time and save it in ftp static variable 
     OSCalendarTime osDateTime;
@@ -202,7 +194,14 @@ int main()
         goto exit;
     }
     WHBLogPrintf(" ");
-    
+    OSSleepTicks(OSMillisecondsToTicks(2000));
+
+    WHBLogPrintf(" ");
+    WHBLogPrintf("FTP client tips :");    
+	WHBLogPrintf("- ONLY one simultaneous transfert on UPLOAD (safer)");
+	WHBLogPrintf("- 8 slots maximum for DOWNLOAD (2 clients => 4 per clients)");
+    WHBLogPrintf(" ");
+        
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
@@ -214,6 +213,9 @@ int main()
     /*--------------------------------------------------------------------------*/
     int serverSocket = create_server(FTP_PORT);
     if (serverSocket < 0) WHBLogPrintf("! ERROR : when creating server");
+    
+
+    
     int network_down = 0;
     WHBLogConsoleDraw();
 
@@ -300,15 +302,14 @@ int main()
     WHBLogPrintf(" ");   
     WHBLogPrintf("Stopping server...");   
     WHBLogPrintf(" "); 
-    WHBLogPrintf(" "); 
+
     WHBLogConsoleDraw();  
     
     cleanup_ftp();
     
-    VPADShutdown();
     if (serverSocket >= 0) network_close(serverSocket);
     finalize_network();
-
+    VPADShutdown();        
     WHBLogPrintf(" "); 
 
     UmountVirtualDevices();

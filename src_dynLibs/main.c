@@ -21,10 +21,18 @@
 #include "net.h"
 
 #define FTP_PORT                21
+
 #define MAX_CONSOLE_LINES_TV    27
 #define MAX_CONSOLE_LINES_DRC   18
 
+/****************************************************************************/
+// PARAMETERS
+/****************************************************************************/
+// iosuhax file descriptor
+
 static int fsaFd = -1;
+
+// mcp_hook_fd
 static int mcp_hook_fd = -1;
 
 static char * consoleArrayTv[MAX_CONSOLE_LINES_TV];
@@ -94,7 +102,11 @@ void display(const char *format, ...)
     // unset the lock
     displayLock=false;    
 }
+/****************************************************************************/
+// LOCAL FUNCTIONS
+/****************************************************************************/
 
+//--------------------------------------------------------------------------
 //just to be able to call async
 void someFunc(s32 err, void *arg)
 {
@@ -143,7 +155,7 @@ int __entry_menu(int argc, char **argv)
     memoryInitialize();
     InitVPadFunctionPointers();
     InitPadScoreFunctionPointers();    
-    VPADInit();
+
     WPADInit();
 
     // Init screen and screen buffers
@@ -200,8 +212,6 @@ int __entry_menu(int argc, char **argv)
     display(" -=============================-\n");
     display("[Laf111/2021-08/dynamic_libs]");
     display(" ");
-
-    sleep(1);
     
     // Get OS time and save it in ftp static variable 
     OSCalendarTime osDateTime;
@@ -265,19 +275,22 @@ int __entry_menu(int argc, char **argv)
         goto exit;
     }
     display(" ");
+    sleep(2);
 
+	
+    display(" ");
+    display("FTP client tips :");    
+	display("- ONLY one simultaneous transfert on UPLOAD (safer)");
+	display("- 8 slots maximum for DOWNLOAD (2 clients => 4 per clients)");
+    display(" ");
+		
+    
     /*--------------------------------------------------------------------------*/
     /* Create FTP server                                                        */
     /*--------------------------------------------------------------------------*/
 
     int serverSocket = create_server(FTP_PORT);
     if (serverSocket < 0) display("! ERROR : when creating server");
-	
-    display(" ");	
-	display("! Use only one simultaneous transfert on upload");
-	display("! 8 maximum for download");
-    display(" ");
-		
     int network_down = 0;
 
     /*--------------------------------------------------------------------------*/

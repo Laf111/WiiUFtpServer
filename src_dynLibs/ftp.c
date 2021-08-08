@@ -92,7 +92,7 @@ typedef struct client_struct client_t;
 static client_t *clients[MAX_CLIENTS] = { NULL };
 static s32 listener=-1;     // listening socket descriptor
 
-
+/*
 // FTP thread on CPU2
 static OSThread *ftpThread=NULL;
 static u32 *ftpThreadStack=NULL;
@@ -114,9 +114,10 @@ void ftpThreadMain(int argc, void *argv)
     
     ((void (*)())0x01041D6C)(); // OSExitThread()
 }
-
+*/
 s32 create_server(u16 port) {
     
+/*    
     // create a thread on CPU2
     ftpThread = OSAllocFromSystem(sizeof(OSThread), 8); 
     if (ftpThread != NULL) {
@@ -134,14 +135,30 @@ s32 create_server(u16 port) {
             int ret=0;
             // wait until it ends
             OSJoinThread(ftpThread, &ret);
+            
+            OSFreeToSystem(ftpThreadStack);
+            OSFreeToSystem(ftpThread);
         }
     }
+*/
 
+    s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (socket < 0) {
+        display("! ERROR : network_socket failed and return %d", socket);        
+    }
+    
+    u32 enable = 1;
+    setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
+    
+    // Set to non-blocking I/O 
+    set_blocking(socket, false);
+    
+    listener = socket;
+    
     // check that the listener is created
     if ( listener < 0 ) {
         display("! ERROR: listener not created!");
     }
-
     
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));
@@ -919,6 +936,7 @@ static void cleanup_client(client_t *client) {
     free(client);
     num_clients--;
     display("  Client disconnected.\n");
+
 }
 
 void cleanup_ftp() {
@@ -931,12 +949,6 @@ void cleanup_ftp() {
         }
     }
     
-    if (listener >= 0)
-        network_close(listener);
-    
-    if (ftpThreadStack != NULL) OSFreeToSystem(ftpThreadStack);
-    if (ftpThread != NULL) OSFreeToSystem(ftpThread);
-   
 }
 
 static bool process_getClients() {

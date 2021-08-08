@@ -20,7 +20,7 @@
 #include "vrt.h"
 #include "net.h"
 
-#define SOCKLIB_BUFSIZE (MAX_NET_BUFFER_SIZE * 4) // For send & receive + double buffering
+#define BUFFER_SIZE_MAX (MAX_NET_BUFFER_SIZE*2)+32-64
 #define NET_STACK_SIZE 0x2000
 
 
@@ -122,10 +122,22 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         /* Disable the Nagle (TCP No Delay) algorithm */
         int flag = 1;
         if (setsockopt( sock, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(flag))==0)
-            {if (!initDone) WHBLogPrintf("> Nagle disabled");}
+            {if (!initDone) logLine("> Nagle disabled");}
         else 
-            {if (!initDone) WHBLogPrintf("! ERROR : disabling the Nagle failed !");}    
+            {if (!initDone) logLine("! ERROR : disabling the Nagle failed !");}    
  
+          // minimize default I/O buffers size
+        int bufferSize = MIN_NET_BUFFER_SIZE;
+        if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))==0) 
+            {if (!initDone) WHBLogPrintf("> Reserve RCV socket buffer");}
+        else 
+            {if (!initDone) logLine("! ERROR : RCVBUF failed !");}
+        
+        if (setsockopt(sock, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))==0)
+            {if (!initDone) WHBLogPrintf("> Reserve SND socket buffer");}
+        else 
+            {if (!initDone) logLine("! ERROR : SNDBUF failed !");}
+
         
         if (!initDone) {
             initDone = true;
@@ -237,25 +249,21 @@ int32_t network_close_blocking(int32_t s) {
     return network_close(s);
 }
 
-
-typedef int32_t (*transferrer_type)(int32_t s, void *mem, int32_t len);
-
-static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_type transferrer) {
-    int32_t result = 0;
-    int buf_size = MAX_NET_BUFFER_SIZE;
-    
+int32_t send_exact(int32_t s, char *buf, int32_t length) {
+    int buf_size = BUFFER_SIZE_MAX;
+	int32_t result = 0;
     int32_t remaining = length;
     int32_t bytes_transferred;
     set_blocking(s, true);
     while (remaining) {
         try_again_with_smaller_buffer:
-        bytes_transferred = transferrer(s, buf, MIN(remaining, (int) buf_size));
+        bytes_transferred = network_write(s, buf, MIN(remaining, (int) buf_size));
         if (bytes_transferred > 0) {
             remaining -= bytes_transferred;
             buf += bytes_transferred;
             
             // restore the whole buffer after a successfully network read
-            if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;        
+            if (buf_size < BUFFER_SIZE_MAX) buf_size = BUFFER_SIZE_MAX;        
             
         } else if (bytes_transferred < 0) {
             if (buf_size > MIN_NET_BUFFER_SIZE) {
@@ -275,12 +283,8 @@ static int32_t transfer_exact(int32_t s, char *buf, int32_t length, transferrer_
     return result;
 }
 
-int32_t send_exact(int32_t s, char *buf, int32_t length) {
-    return transfer_exact(s, buf, length, (transferrer_type)network_write);
-}
-
 int32_t send_from_file(int32_t s, FILE *f) {
-    int buf_size = MAX_NET_BUFFER_SIZE;
+    int buf_size = BUFFER_SIZE_MAX;
     char * buf = NULL;
     buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if(!buf)
@@ -313,11 +317,12 @@ end:
 
 int32_t recv_to_file(int32_t s, FILE *f) {
     
-    int buf_size = MAX_NET_BUFFER_SIZE;
+    int buf_size = BUFFER_SIZE_MAX;
     char * buf = NULL;
     buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if(!buf)
         return -1;
+
     int bufferSize=MAX_NET_BUFFER_SIZE;
     if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))!=0)
         {logLine("! ERROR : RCVBUF failed !");}
@@ -351,7 +356,7 @@ int32_t recv_to_file(int32_t s, FILE *f) {
             return -1;
         }
         // restore the whole buffer after a successfully network read
-        if (buf_size < MAX_NET_BUFFER_SIZE) buf_size = MAX_NET_BUFFER_SIZE;
+        if (buf_size < BUFFER_SIZE_MAX) buf_size = BUFFER_SIZE_MAX;
     }
     return -1;
 }

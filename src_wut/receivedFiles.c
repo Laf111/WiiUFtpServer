@@ -7,9 +7,9 @@
 #include <unistd.h>
 #include <coreinit/thread.h>
 
-#include "receivedFiles.h"
 #include "ftp.h"
-#include "iosuhax.h"
+#include "receivedFiles.h"
+#include "iosuhax/iosuhax.h"
 
 // iosuhax fd
 static int fsaFd = -1;

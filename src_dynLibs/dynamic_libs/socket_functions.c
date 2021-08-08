@@ -27,6 +27,8 @@
 #include "os_functions.h"
 #include "socket_functions.h"
 
+#define SOCKLIB_BUFSIZE (MAX_NET_BUFFER_SIZE * 4) // For send & receive + double buffering
+
 extern void display(const char *format, ...);
 
 u32 hostIpAddress = 0;
@@ -59,6 +61,46 @@ EXPORT_DECL(s32, socketlasterr, void);
 static OSThread *socketThread=NULL;
 static u32 *socketThreadStack=NULL;
 
+/*
+static OSThread *socketOptThread=NULL;
+static u32 *socketOptThreadStack=NULL;
+
+// Socket memory optimization
+
+    Don't forget to enable it when creating a socket
+    
+    // Activate userspace buffer
+    int enable = 1;
+    setsockopt(sock, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable));
+
+
+void socketOptThreadMain(s32 argc, void *argv)
+{
+
+    int buf_size = SOCKLIB_BUFSIZE;
+    char * buf=NULL;
+
+    // align memory (64bytes = 0x40) when alocating the buffer
+    do{
+        buf_size -= 32;
+
+        buf = (char *)memalign(0x40, buf_size);
+        if (buf) memset(buf, 0x00, buf_size);
+    }while(!buf);
+    
+    // always fail....    
+    if (somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0) == -1)
+    {
+        display("! ERROR : somemopt failed!");
+    }
+   
+    display("DEBUG : somemopt ends now");
+
+    free(buf);
+    
+    ((void (*)())0x01041D6C)(); // OSExitThread()
+}
+*/
 void socketThreadMain(s32 argc, void *argv)
 {
     u32 *funcPointer = 0;
@@ -105,7 +147,25 @@ void socketThreadMain(s32 argc, void *argv)
     ACGetAssignedAddress(&hostIpAddress);
    
     socket_lib_init();
+    /*
+    // create a thread on CPU0
+    socketOptThread = OSAllocFromSystem(sizeof(OSThread), 8); 
+    if (socketOptThread != NULL) {
+     
+        socketOptThreadStack = OSAllocFromSystem(NET_STACK_SIZE, 8);
+        if (socketOptThreadStack != NULL) {
     
+            // on CPU0
+            OSCreateThread(socketOptThread, (void*)socketOptThreadMain, 0, NULL, (u32)socketOptThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTR_AFFINITY_CORE0);
+            // set name    
+            OSSetThreadName(socketOptThread, "Socket optimizer thread on CPU0");
+            
+            // launch the thread
+            OSResumeThread(socketOptThread);
+            sleep(3);
+        }
+    }    
+    */
     ((void (*)())0x01041D6C)(); // OSExitThread()
 }
 
@@ -139,10 +199,17 @@ void InitSocketFunctionPointers(void) {
 void FreeSocketFunctionPointers(void) {
 
     socket_lib_finish();
-    
+
     s32 ret;
+/*    
+    OSJoinThread(socketOptThread, &ret);
+    
+    if (socketOptThreadStack != NULL) OSFreeToSystem(socketOptThreadStack);
+    if (socketOptThread != NULL) OSFreeToSystem(socketOptThread);       
+*/
     OSJoinThread(socketThread, &ret);
     
     if (socketThreadStack != NULL) OSFreeToSystem(socketThreadStack);
-    if (socketThread != NULL) OSFreeToSystem(socketThread);   
+    if (socketThread != NULL) OSFreeToSystem(socketThread); 
+    
 }
