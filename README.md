@@ -31,8 +31,6 @@ Channel version (using WUT) is twice slower than the HBL version but is still fa
 
 - The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
 
-- FTP server is running on CPU2 (thread priority 1), network connections on CPU0 (thread priority 0) and main process is left on the default thread of CPU1
-
 
 #
 # BUILD :
