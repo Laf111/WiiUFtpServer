@@ -34,6 +34,8 @@ Channel version (using WUT) is twice slower than the HBL version but is still fa
   <img src="timestamps.png">
 </p>
 
+But if stat() function fail, current date is displayed. 
+
 - The server (FTP protocol) does not support symlinks. You'll get transfert errors on symlinks that exist on the Wii-U File system in some update or DLC content. Note that CEMU does not use those files and you can just ignore those errors.
 
 - The FTP method used is I/O multiplexing (single threaded non-blocking I/O) like the orginal software (ftpii).
