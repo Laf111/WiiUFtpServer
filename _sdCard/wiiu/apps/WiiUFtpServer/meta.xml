@@ -2,8 +2,8 @@
 <app version="1">
   <name>WiiUFtpServer</name>
   <coder>Laf111</coder>
-  <version>1.1.1</version>
+  <version>5.1.0</version>
   <release_date>20210425040807</release_date>
-  <short_description>FTP server based on WUT + iosuhax. Fix file injection failures of ftpiiu</short_description>
-  <long_description>FTP server based on WUT + iosuhax. Fix file injection failures of ftpiiu</long_description>
+  <short_description>FTP server based on dynamic libs + iosuhax. Fix file injection failures, file timestamps and transferts speeds.</short_description>
+  <long_description>FTP server based on dynamic libs + iosuhax. Fix file injection failures, file timestamps and transferts speeds. This HBL version is twice faster than Channel one</long_description>
 </app>
