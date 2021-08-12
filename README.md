@@ -25,8 +25,7 @@ Channel version (using WUT) is twice slower than the HBL version but is still fa
 
 **NOTES :**
 
-- Use a maximum of 8 concurrents downloads : 1 client connected 8max, 2 clients 4...
-- ONLY one for upload (FTPiiU allows only one slot and i prefer to leave it like this, it is more safe in case of more than one client are connected)
+- 6 simultaneuous transferts allowed for only 1 client (safer)
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
