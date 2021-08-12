@@ -20,7 +20,7 @@
 #include "vrt.h"
 #include "net.h"
 
-#define BUFFER_SIZE_MAX (MAX_NET_BUFFER_SIZE*2)+32-64
+#define BUFFER_SIZE_MAX (MAX_NET_BUFFER_SIZE*2)-64
 #define NET_STACK_SIZE 0x2000
 
 
@@ -76,7 +76,7 @@ void initialise_network()
     OSSetThreadName(netThread, "network thread on CPU0");
     OSRunThread(netThread, netThreadMain, 0, NULL);    
     
-    if (!OSSetThreadPriority(netThread, 0))
+    if (!OSSetThreadPriority(netThread, 1))
         logLine("! WNG: Error changing net thread priority!");
 
     OSResumeThread(netThread);
@@ -126,6 +126,12 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         else 
             {if (!initDone) logLine("! ERROR : disabling the Nagle failed !");}    
  
+        // Suppress delayed ACKs
+        if (setsockopt(sock, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))==0)
+            {if (!initDone) logLine("> Suppress delayed ACKs");}
+        else 
+            {if (!initDone) logLine("! ERROR : Suppress delayed ACKs failed !");}
+        
           // minimize default I/O buffers size
         int bufferSize = MIN_NET_BUFFER_SIZE;
         if (setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))==0) 
@@ -250,27 +256,19 @@ int32_t network_close_blocking(int32_t s) {
 }
 
 int32_t send_exact(int32_t s, char *buf, int32_t length) {
-    int buf_size = BUFFER_SIZE_MAX;
 	int32_t result = 0;
     int32_t remaining = length;
     int32_t bytes_transferred;
     set_blocking(s, true);
     while (remaining) {
-        try_again_with_smaller_buffer:
-        bytes_transferred = network_write(s, buf, MIN(remaining, (int) buf_size));
+        bytes_transferred = network_write(s, buf, remaining);
         if (bytes_transferred > 0) {
             remaining -= bytes_transferred;
             buf += bytes_transferred;
             
             // restore the whole buffer after a successfully network read
-            if (buf_size < BUFFER_SIZE_MAX) buf_size = BUFFER_SIZE_MAX;        
             
         } else if (bytes_transferred < 0) {
-            if (buf_size > MIN_NET_BUFFER_SIZE) {
-                buf_size = buf_size - MIN_NET_BUFFER_SIZE;
-                OSSleepTicks(OSMillisecondsToTicks(500));
-                goto try_again_with_smaller_buffer;
-            }
 
             result = bytes_transferred;
             break;
@@ -293,7 +291,7 @@ int32_t send_from_file(int32_t s, FILE *f) {
     int bufferSize=MAX_NET_BUFFER_SIZE;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))!=0)
         {logLine("! ERROR : SNDBUF failed !");}
- 
+    
     int32_t bytes_read;
     int32_t result = 0;
 
@@ -328,18 +326,13 @@ int32_t recv_to_file(int32_t s, FILE *f) {
         {logLine("! ERROR : RCVBUF failed !");}
     
     int32_t bytes_read;
-    while (1) {
-        try_again_with_smaller_buffer:
-        // network_read call recv() that return the number of bytes read
-        bytes_read = network_read(s, buf, buf_size);
-        if (bytes_read < 0) {
-            if (buf_size > MIN_NET_BUFFER_SIZE) {
-                buf_size = buf_size - MIN_NET_BUFFER_SIZE;
-                OSSleepTicks(OSMillisecondsToTicks(500));
-                goto try_again_with_smaller_buffer;
-            }
+    // network_read call recv() that return the number of bytes read
+    set_blocking(s, true);
+    bytes_read = network_read(s, buf, buf_size);
+    set_blocking(s, false);
 
-            free(buf);
+    if (bytes_read < 0) {
+        free(buf);
             return bytes_read;
         } else if (bytes_read == 0) {
             // get the fd 
@@ -356,8 +349,6 @@ int32_t recv_to_file(int32_t s, FILE *f) {
             return -1;
         }
         // restore the whole buffer after a successfully network read
-        if (buf_size < BUFFER_SIZE_MAX) buf_size = BUFFER_SIZE_MAX;
-    }
-    return -1;
+    return -EAGAIN;
 }
 

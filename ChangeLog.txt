@@ -105,3 +105,16 @@ HISTORY :
 
 2021/08/07 V4-5 :    
     > increase bandwith by 240% by setting buffer optimization specifically to RCV/SND file sockets
+
+2021/08/08 V5 :    
+    > get extra KB/s by lowering more default socket buffers
+    > finalize and merge dynlib / wut codes (WUT version gain 20% of bandwith)
+    > fix issue when disconnecting/stop server (dynlibs)
+
+2021/08/12 V5-1 :    
+    > now allow simultaneous tranferts also for upload (client -> server)
+    > restore FTP thread (fixing v4-5 issue)
+    > fix to 1 client max with 6 connections max
+    > add a socket optimization : Suppress delayed ACKs
+    > bring the channel version transferts speeds close to the HBL one
+

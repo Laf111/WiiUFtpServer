@@ -36,8 +36,6 @@ extern "C" {
 #define MIN_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE/16
 #define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*2
 
-#define NET_STACK_SIZE    0x2000
-
 #define INADDR_ANY      0
 
 #define AF_INET         2
@@ -67,6 +65,9 @@ extern "C" {
 #define SO_OOBINLINE    0x0100      // out-of-band data inline (no effect?)
 #define SO_TCPSACK      0x0200      // set tcp selective acknowledgment
 #define SO_WINSCALE     0x0400      // set tcp window scaling
+
+#define TCP_NOACKDELAY  0x2002    /* suppress delayed ACKs    */
+#define TCP_MAXSEG      0x2003    /* set maximum segment size    */
 
 #define SO_USERBUF      0x10000     // enable userspace buffer
 /*

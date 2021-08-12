@@ -203,8 +203,8 @@ int __entry_menu(int argc, char **argv)
         // set the name 
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 0
-        OSSetThreadPriority(thread, 0);
+        // set a priority to 1
+        OSSetThreadPriority(thread, 1);
     }
     
     display(" -=============================-\n");
@@ -276,14 +276,6 @@ int __entry_menu(int argc, char **argv)
     }
     display(" ");
     sleep(2);
-
-	
-    display(" ");
-    display("FTP client tips :");    
-	display("- ONLY one simultaneous transfert on UPLOAD (safer)");
-	display("- 8 slots maximum for DOWNLOAD (2 clients => 4 per clients)");
-    display(" ");
-		
     
     /*--------------------------------------------------------------------------*/
     /* Create FTP server                                                        */

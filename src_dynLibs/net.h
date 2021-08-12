@@ -37,7 +37,8 @@ extern "C"{
 #endif
 
 // Maximum of simultaneous connexions 
-#define NB_SIMULTANEOUS_CONNECTIONS (2*MAX_NET_BUFFER_SIZE)/MIN_NET_BUFFER_SIZE
+// TODO : force to 12 5(DL)+5(UL)+gui+com
+#define NB_SIMULTANEOUS_CONNECTIONS 12
 
 void initialise_network();
 void finalize_network();

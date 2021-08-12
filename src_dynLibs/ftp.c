@@ -43,9 +43,9 @@ misrepresented as being the original software.
 
 #define UNUSED    __attribute__((unused))
 
-#define FTP_MSG_BUFFER_SIZE 1024
+#define FTP_MSG_BUFFER_SIZE MIN_NET_BUFFER_SIZE/4
 
-#define MAX_CLIENTS NB_SIMULTANEOUS_CONNECTIONS+2
+#define FTP_STACK_SIZE 0x2000
 
 extern void display(const char *format, ...);
 
@@ -54,7 +54,8 @@ static const s32 EQUIT = 696969;
 static const char *CRLF = "\r\n";
 static const u32 CRLF_LENGTH = 2;
 
-static u32 num_clients = 0;
+static u32 nbConnections = 0;
+static char clientIp[15]="";
 static u16 passive_port = 1024;
 static char *password = NULL;
 
@@ -89,71 +90,55 @@ struct client_struct {
 
 typedef struct client_struct client_t;
 
-static client_t *clients[MAX_CLIENTS] = { NULL };
+static client_t *clients[NB_SIMULTANEOUS_CONNECTIONS] = { NULL };
 static s32 listener=-1;     // listening socket descriptor
 
-/*
+
 // FTP thread on CPU2
 static OSThread *ftpThread=NULL;
-static u32 *ftpThreadStack=NULL;
+static u32 *ftpThreadStack;
 
-void ftpThreadMain(int argc, void *argv)
+static int ftpThreadMain(int argc, void *argv)
 {
     s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (socket < 0) {
+    if (socket < 0)
         display("! ERROR : network_socket failed and return %d", socket);        
-    }
-    
-    u32 enable = 1;
-    setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
-    
-    // Set to non-blocking I/O 
-    set_blocking(socket, false);
-    
-    listener = socket;
-    
-    ((void (*)())0x01041D6C)(); // OSExitThread()
-}
-*/
-s32 create_server(u16 port) {
-    
-/*    
-    // create a thread on CPU2
-    ftpThread = OSAllocFromSystem(sizeof(OSThread), 8); 
-    if (ftpThread != NULL) {
-     
-        ftpThreadStack = OSAllocFromSystem(0x300, 0x20);
-        if (ftpThreadStack != NULL) {
-        
-            // on CPU2
-            OSCreateThread(ftpThread, (void*)ftpThreadMain, 1, ftpThreadStack, (u32)ftpThreadStack+0x300, 0x300, 1, OS_THREAD_ATTR_AFFINITY_CORE2);
-            // set name    
-            OSSetThreadName(ftpThread, "FTP and network thread on CPU2");
-            // launch thread
-            OSResumeThread(ftpThread);
-            
-            int ret=0;
-            // wait until it ends
-            OSJoinThread(ftpThread, &ret);
-            
-            OSFreeToSystem(ftpThreadStack);
-            OSFreeToSystem(ftpThread);
-        }
-    }
-*/
 
-    s32 socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (socket < 0) {
-        display("! ERROR : network_socket failed and return %d", socket);        
-    }
+    // Set to non-blocking I/O 
+    set_blocking(socket, false);
     
     u32 enable = 1;
     setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
     
-    // Set to non-blocking I/O 
-    set_blocking(socket, false);
-    
-    listener = socket;
+    return socket;
+}
+
+s32 create_server(u16 port) {
+
+    // create a thread on CPU1
+    ftpThread = OSAllocFromSystem(sizeof(OSThread), 8); 
+    if (ftpThread == NULL) {
+        display("! ERROR : when allocating ftpThread!");        
+        return -1;
+    }
+     
+    ftpThreadStack = OSAllocFromSystem(FTP_STACK_SIZE, 8);
+    if (ftpThreadStack == NULL) {
+        display("! ERROR : when allocating ftpThreadStack!");        
+        return -1;
+    }
+        
+    // on CPU2
+    if (!OSCreateThread(ftpThread, ftpThreadMain, 0, NULL, (u32)ftpThreadStack + FTP_STACK_SIZE, FTP_STACK_SIZE, 1, OS_THREAD_ATTR_AFFINITY_CORE2)) {
+        display("! ERROR : when creating ftpThread!");        
+        return -1;
+    }
+    // set name    
+    OSSetThreadName(ftpThread, "FTP and network thread on CPU2");
+    // launch thread
+    OSResumeThread(ftpThread);
+            
+	OSJoinThread(ftpThread, &listener);
     
     // check that the listener is created
     if ( listener < 0 ) {
@@ -927,28 +912,28 @@ static void cleanup_client(client_t *client) {
     cleanup_data_resources(client);
     close_passive_socket(client);
     int client_index;
-    for (client_index = 0; client_index < MAX_CLIENTS; client_index++) {
+    for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
         if (clients[client_index] == client) {
             clients[client_index] = NULL;
             break;
         }
     }
     free(client);
-    num_clients--;
+    nbConnections--;
     display("  Client disconnected.\n");
-
 }
 
 void cleanup_ftp() {
     int client_index;
-    for (client_index = 0; client_index < MAX_CLIENTS; client_index++) {
+    for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
         client_t *client = clients[client_index];
         if (client) {
             write_reply(client, 421, "  Closing remaining active clients connection.");
             cleanup_client(client);
         }
     }
-    
+    if (ftpThreadStack != NULL) OSFreeToSystem(ftpThreadStack);
+    if (ftpThread != NULL) OSFreeToSystem(ftpThread);
 }
 
 static bool process_getClients() {
@@ -961,10 +946,17 @@ static bool process_getClients() {
             return false;
         }
 
+        if (nbConnections == 0) strcpy(clientIp,inet_ntoa(client_address.sin_addr));
+        if (strcmp(clientIp,inet_ntoa(client_address.sin_addr)) !=0) { 
+            
+            display("! WARNING : %d already connected, close all his connections before trying from %d", clientIp, inet_ntoa(client_address.sin_addr));
+            network_close(peer);
+            return true;
+        }
         display("  Accepted connection from %s!\n", inet_ntoa(client_address.sin_addr));
-
-        if (num_clients == MAX_CLIENTS) {
-            display("! ERROR : Maximum of %u clients reached, not accepting client.\n", MAX_CLIENTS);
+        
+        if (nbConnections == NB_SIMULTANEOUS_CONNECTIONS) {
+            display("! WARNING : Maximum connections number reached (%d), retry after ends one current transfert", NB_SIMULTANEOUS_CONNECTIONS);
             network_close(peer);
             return true;
         }
@@ -996,13 +988,13 @@ static bool process_getClients() {
             network_close_blocking(peer);
             free(client);
         } else {
-            for (client_index = 0; client_index < MAX_CLIENTS; client_index++) {
+            for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
                 if (!clients[client_index]) {
                     clients[client_index] = client;
                     break;
                 }
             }
-            num_clients++;
+            nbConnections++;
         }
     }
     return true;
@@ -1123,7 +1115,7 @@ bool process_ftp_events() {
     
     bool network_down = !process_getClients();    
     u32 client_index;
-    for (client_index = 0; client_index < num_clients; client_index++) {
+    for (client_index = 0; client_index < nbConnections; client_index++) {
         client_t *client = clients[client_index];
         if (client) {
             if (client->data_callback) {

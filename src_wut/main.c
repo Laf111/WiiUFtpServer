@@ -113,6 +113,17 @@ int main()
     KPADInit();
     
     IMDisableAPD(); // Disable auto-shutdown feature
+    OSThread *thread = NULL;
+    // get the current thread (on CPU1)
+    thread = OSGetCurrentThread();
+    
+    if (thread != NULL) {
+        // set the name 
+        OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
+
+        // set a priority to 0
+        OSSetThreadPriority(thread, 1);
+    }
     
     if (isChannel()) {
         // Initialize OSShutdown and OSForceFullRelaunch functions
@@ -193,14 +204,8 @@ int main()
         returnCode = -20;
         goto exit;
     }
-    WHBLogPrintf(" ");
+    logLine(" ");
     OSSleepTicks(OSMillisecondsToTicks(2000));
-
-    WHBLogPrintf(" ");
-    WHBLogPrintf("FTP client tips :");    
-	WHBLogPrintf("- ONLY one simultaneous transfert on UPLOAD (safer)");
-	WHBLogPrintf("- 8 slots maximum for DOWNLOAD (2 clients => 4 per clients)");
-    WHBLogPrintf(" ");
         
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
@@ -236,7 +241,7 @@ int main()
         if(network_down)
             break;
 
-        OSSleepTicks(OSMillisecondsToTicks(100));
+
         WHBLogConsoleDraw();
 
         VPADRead(0, &vpadStatus, 1, &vpadError);
