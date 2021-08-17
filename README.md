@@ -23,7 +23,9 @@ Gain in **upload mode** is higher : about **10 times faster**
 
 **NOTES :**
 
-- I finally fix a maximum of 6 simultaneuous transferts allowed for only 1 client (safer)
+- 6 simultaneuous transferts allowed for only 1 client (safer)
+
+- The server does not support active mode (only passive one, which is now the default on clients)
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
