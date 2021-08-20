@@ -45,9 +45,15 @@ extern "C" {
 #define IPPROTO_TCP     6
 #define IPPROTO_UDP     17
 
+#define TCP_NOACKDELAY  0x2002    /* suppress delayed ACKs    */
+#define TCP_MAXSEG      0x2003    /* set maximum segment size    */
+#define TCP_NODELAY     0x2004
+
 /*
  * SOL_SOCKET options
  */
+#define SO_USERBUF      0x10000     // enable userspace buffer
+
 #define SO_REUSEADDR    0x0004      // reuse address
 #define SO_BROADCAST    0x0020      // broadcast
 #define SO_LINGER       0x0080      // linger (no effect?)
@@ -63,6 +69,7 @@ extern "C" {
 #define SO_NBIO         0x1014      // set socket to NON-blocking mode
 #define SO_BIO          0x1015      // set socket to blocking mode
 #define SO_NONBLOCK     0x1016      // set/get blocking mode via optval param
+#define SO_NOSLOWSTART  0x4000      /* suppress slowstart on this socket */
 
 /*
  * Errors returned by nsysnet socket functions
