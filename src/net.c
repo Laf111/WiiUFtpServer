@@ -19,8 +19,6 @@
 #include <nn/ac.h>
 #include "vrt.h"
 #include "net.h"
-
-#define BUFFER_SIZE_MAX MAX_NET_BUFFER_SIZE
 #define SOCKLIB_BUFSIZE MAX_NET_BUFFER_SIZE*4 // For send & receive + double buffering
 
 #define NET_STACK_SIZE 0x2000
@@ -180,10 +178,7 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
       
         if (!initDone) {
             initDone = true;
-            logLine(" ");
             logLine("Limited to 1 client and 1 slot for up/download !");
-            
-            logLine(" ");
         }
         
     }
@@ -292,7 +287,7 @@ int32_t network_close_blocking(int32_t s) {
 }
 
 int32_t send_exact(int32_t s, char *buf, int32_t length) {
-    int buf_size = BUFFER_SIZE_MAX;
+    int buf_size = MAX_NET_BUFFER_SIZE*2;
 	int32_t result = 0;
     int32_t remaining = length;
     int32_t bytes_transferred;
@@ -326,7 +321,7 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
 }
 
 int32_t send_from_file(int32_t s, FILE *f) {
-    int buf_size = BUFFER_SIZE_MAX;
+    int buf_size = MAX_NET_BUFFER_SIZE*2;
     char * buf = NULL;
     buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if (!buf)
@@ -365,7 +360,7 @@ int32_t send_from_file(int32_t s, FILE *f) {
 
 int32_t recv_to_file(int32_t s, FILE *f) {
     
-    int buf_size = BUFFER_SIZE_MAX;
+    int buf_size = MAX_NET_BUFFER_SIZE*2;
     char * buf = NULL;
     buf = MEMAllocFromDefaultHeapEx(buf_size, 64);
     if (!buf)

@@ -135,7 +135,6 @@ static void cleanUp() {
 		WHBDeinitializeSocketLibrary();
 	    VPADShutdown();
 	}
-    OSSleepTicks(OSMillisecondsToTicks(2000));
 }
 
 bool AppRunning()
@@ -560,11 +559,12 @@ int main()
     else
         logLine("Stopping server and return to Wii-U Menu..."); 
     logLine(" "); 
-	logLine(" ");
-	logLine(" ");
-    WHBLogConsoleDraw();  
+
+ 
 	
 	cleanUp();
+    WHBLogConsoleDraw(); 	
+	OSSleepTicks(OSMillisecondsToTicks(2000));
 	logLine(" ");
 	logLine(" ");
 
