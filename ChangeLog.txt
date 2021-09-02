@@ -4,7 +4,6 @@
 
 FTP server based on libWUT and libIOSUHAX. 
 It fixes remaining files injection failures when using ftp-everywhere (such as saves for WWHD*).
-The performance (bandwidth) of the server is doubled (using WUT+FTP buffers increased).
 
 Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
 No dependencies to set.
@@ -13,7 +12,6 @@ The build process creates : HBL app + WUP package (to install it on the Wii-U me
 
 * Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-TODO : fix wrong files timestamps (set to OS GMT time for display purpose instead of J1970 in ftpiiU)
 ======================================================================================================
 BUILD : (i used Windows)
 
@@ -112,9 +110,22 @@ HISTORY :
     > fix issue when disconnecting/stop server (dynlibs)
 
 2021/08/12 V5-1 :    
-    > now allow simultaneous tranferts also for upload (client -> server)
+    > now allow simultaneous tranfers also for upload (client -> server)
     > restore FTP thread (fixing v4-5 issue)
     > fix to 1 client max with 6 connections max
     > add a socket optimization : Suppress delayed ACKs
     > bring the channel version transferts speeds close to the HBL one
+
+2021/09/01 V5-2 :    
+    > mount NAND paths ONLY if asked (by pressing B) : a very good idea from Masana@GBATemp, thanks!!!
+    > if auto shudown feature is enabled, pressing DOWN toggle the feature OFF/ON
+    > add a verbose mode for server log (disable by default) that can be activated by pressing UP
+    > longer value for internal timeout to avoid data transfer deconnexions
+    > only 1 simultaneous tranfers for up/download (fix deconnexion issues)
+    > WUT is now also used for HBL version (since now it performs like dynamic libs one)
+    > add some socket optimizations : 
+        - Leave received OOB data in line (SO_OOBINLINE)
+        - Disable slow start feature (SO_NOSLOWSTART)
+        - Socket memory optimization (thanks to V10lator@GBATemp for your support!!!) 
+     > now channel version exit to Wii-u Menu 
 
