@@ -129,3 +129,7 @@ HISTORY :
         - Socket memory optimization (thanks to V10lator@GBATemp for your support!!!) 
      > now channel version exit to Wii-u Menu 
 
+2021/09/02 V6 :    
+    > fix a display issue when exit (missing a draw call)
+    > + 10% speed (UL/DL) with using a double sized buffer (corresponding to the size
+      really allocated by the system when using setsockopt on SO_RCVBUF & SO_SNDBUF)
