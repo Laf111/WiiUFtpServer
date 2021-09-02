@@ -70,8 +70,6 @@ extern "C" {
 #define SO_BIO          0x1015      // set socket to blocking mode
 #define SO_NONBLOCK     0x1016      // set/get blocking mode via optval param
 #define SO_NOSLOWSTART  0x4000      /* suppress slowstart on this socket */
-#define SO_SNDTIMEO     0x1005      /* send timeout    */
-#define SO_RCVTIMEO     0x1006      /* receive timeout    */
 
 /*
  * Errors returned by nsysnet socket functions
