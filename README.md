@@ -1,5 +1,5 @@
 # WiiUFtpServer
-A new FTP server for the Wii-U that fix files injection and display files timestamps correctly.
+A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and much more faster than others.
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -10,7 +10,11 @@ It **fixes remaining files injection failures** when using ftp-everywhere.
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-I also **disable the power saving feature** when it runs.
+Speeds compared to FTP-everywhere : 
+
+<p align="center">
+  <img src="bandwith.png">
+</p>
 
 
 **NOTES :**
@@ -54,4 +58,3 @@ It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
 To create the channel version (HBC), use "toWUP\createChannel.bat"
 
 Then copy the \_sdCard content to your SD card.
-
