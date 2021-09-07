@@ -30,7 +30,7 @@ Speeds compared to FTP-everywhere : (Wifi)
 
 - This FTP server is limited to 1 unique client (more safer) and one unqiue transfer slot for up/download (fix deconnexion issues)
 
-- Use Ethernet connection if possible (Wii-U with Ethernet adapter & laptop connected with Ethernet 5)
+- Use Ethernet connection if possible (below : Wii-U with Ethernet adapter & laptop connected with Ethernet 5)
 
 <p align="center">
   <img src="Ethernet.png">
