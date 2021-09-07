@@ -10,7 +10,7 @@ It **fixes remaining files injection failures** when using ftp-everywhere.
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-Speeds compared to FTP-everywhere : 
+Speeds compared to FTP-everywhere : (Wifi)
 
 <p align="center">
   <img src="bandwith.png">
@@ -30,6 +30,11 @@ Speeds compared to FTP-everywhere :
 
 - This FTP server is limited to 1 unique client (more safer) and one unqiue transfer slot for up/download (fix deconnexion issues)
 
+- Use Ethernet connection if possible (Wii-U with Ethernet adapter & laptop connected with Ethernet 5)
+
+<p align="center">
+  <img src="Ethernet.png">
+</p>
 
 #
 # BUILD :
