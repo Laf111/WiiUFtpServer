@@ -62,4 +62,4 @@ It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
 
 To create the channel version (HBC), use "toWUP\createChannel.bat"
 
-Then copy the \_sdCard content to your SD card.
+Then copy the \_sdCard folder content to the root of your SD card.
