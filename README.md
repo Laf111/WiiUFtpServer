@@ -52,7 +52,7 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 **When using Ethernet** : (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
 
 <p align="center">
-  <img src="bandwith.png">
+  <img src="Ethernet.png">
 </p>
 
 
