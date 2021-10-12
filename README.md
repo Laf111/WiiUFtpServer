@@ -10,7 +10,7 @@ It **fixes remaining files injection failures** when using ftp-everywhere.
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-It comes with some extra features : 
+It comes with some **extra features** : 
 
 - support Wiiu PRO and Wiimote controllers
 - you can choose to disable or enable the power saving feature
