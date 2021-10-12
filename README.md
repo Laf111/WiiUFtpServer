@@ -1,5 +1,5 @@
 # WiiUFtpServer
-A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and much more faster than others.
+**A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and much more faster than others.**
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -29,7 +29,7 @@ Files in the partial backup (saved for both choice in fact) will be used to reco
 After the restoration process, you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one)
 
 
-**Speeds compared to FTP-everywhere : ** (Wii-U with Ethernet adapter - NAS - Laptop using Wifi)
+**Speeds compared to FTP-everywhere** : (Wii-U with Ethernet adapter - NAS - Laptop using Wifi)
 
 <p align="center">
   <img src="bandwith.png">
@@ -49,7 +49,7 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 
 - This FTP server is limited to 1 unique client (more safer) and one unqiue transfer slot for up/download (fix deconnexion issues)
 
-**When using Ethernet : ** (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
+**When using Ethernet** : (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
 
 <p align="center">
   <img src="bandwith.png">
