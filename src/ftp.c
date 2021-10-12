@@ -1,6 +1,6 @@
-/**************************************************************************
-* WiiUFtpServer (fork of FTP everywhere by Laf111@2021)                   *
-***************************************************************************/
+/****************************************************************************
+  * WiiUFtpServer
+ ***************************************************************************/
 #include <malloc.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,9 +8,10 @@
 #include <unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <time.h>
+
 #include <coreinit/time.h>
 #include <coreinit/memdefaultheap.h>
-#include <time.h>
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -19,9 +20,7 @@
 
 #define UNUSED    __attribute__((unused))
 
-// IPV6 header is 60 bytes long
-#define FTP_MSG_BUFFER_SIZE MIN_NET_BUFFER_SIZE-60
-
+#define FTP_MSG_BUFFER_SIZE 1024
 #define FTP_STACK_SIZE 0x2000
 
 extern void logLine(const char *line);
@@ -75,21 +74,18 @@ static int listener=-1;     // listening socket descriptor
 
 // FTP thread on CPU2
 static OSThread ftpThread;
-static uint8_t *ftpThreadStack;
+static uint8_t *ftpThreadStack=NULL;
 
 static int ftpThreadMain(int argc, const char **argv)
 {
 
     int32_t socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (socket < 0)
-        WHBLogPrintf("! ERROR : network_socket failed and return %d", socket);        
+        WHBLogPrintf("! ERROR : network_socket failed and return %d", socket);
 
-    // Set to non-blocking I/O 
-    set_blocking(socket, false);
-        
-    uint32_t enable = 1;
-    setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable));
-    
+    // Set to non-blocking I/O
+    set_blocking(socket, false);    
+
     return socket;
 }
 
@@ -99,13 +95,13 @@ void setVerboseMode(bool flag) {
 }
 
 int32_t create_server(uint16_t port) {
-    
-//    logLine("DEBUG : allocate ftpThreadStack");    
-    
-        
+
+//    logLine("DEBUG : allocate ftpThreadStack");
+
+
     ftpThreadStack = MEMAllocFromDefaultHeapEx(FTP_STACK_SIZE, 8);
     if (ftpThreadStack == NULL) {
-        WHBLogPrintf("! ERROR : when allocating ftpThreadStack!");        
+        logLine("! ERROR : when allocating ftpThreadStack!");
         return -1;
     }
 
@@ -113,11 +109,11 @@ int32_t create_server(uint16_t port) {
         WHBLogPrintf("! ERROR : when creating ftpThread!");        
         return -1;
     }
-    
+
     OSSetThreadName(&ftpThread, "ftp thread on CPU2");
-    
+
     OSResumeThread(&ftpThread);
-    
+
     OSJoinThread(&ftpThread, &listener);
     if (listener < 0)
         return -1;
@@ -140,15 +136,16 @@ int32_t create_server(uint16_t port) {
     }
 
     uint32_t ip = network_gethostip();
-    
-    WHBLogPrintf(" ");     
+
+    WHBLogPrintf(" ");
     WHBLogPrintf("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     WHBLogPrintf("    @   Server IP adress = %u.%u.%u.%u ,port = %i   @", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
     WHBLogPrintf("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    WHBLogPrintf(" ");    
+    WHBLogPrintf(" ");
     WHBLogConsoleDraw();
     return listener;
 }
+
 
 // vPath : /storage_usb/path/saveinfo.xml -> vlPath : /vol/storage_usb01/path/saveinfo.xml
 // This function allocate the memory returned.
@@ -160,16 +157,16 @@ static char* virtualToVolPath(char *vPath) {
 
         int dimv=strlen(vPath);
         int dimm=dimv+6+1;
-        
+
         // output
         char *vlPath = NULL;
-        
+
         // allocate vlPath
         vlPath=(char *) malloc(sizeof(char)*dimm);
         if (!vlPath) {
             WHBLogPrintf("! ERROR : When allocation vlPath");
         } else {
-        
+
             char volume[30]="";
             if (strncmp(strchr(vPath, '_'), "_usb", 4) == 0) {
                 strcpy(volume,"/vol/storage_usb01");
@@ -192,17 +189,17 @@ static char* virtualToVolPath(char *vPath) {
             } else {
                 WHBLogPrintf("! ERROR : No volume found for %s", vPath);
             }
-            
+
             strcpy(vlPath, volume);
-            
-            char str[dimm];            
+
+            char str[dimm];
             char *token="";
             strcpy(str,vPath);
-            
+
             token=strtok(str, "/");
             if (token != NULL) {
                 token=strtok(NULL, "/");
-                while (token != NULL) {            
+                while (token != NULL) {
                     strcat(vlPath, "/");
                     strcat(vlPath, token);
                     token=strtok(NULL, "/");
@@ -210,8 +207,8 @@ static char* virtualToVolPath(char *vPath) {
             }
             if (vPath[dimv-1] == '/') strcat(vlPath, "/");
             return vlPath;
-            
-        }        
+
+        }
     }
 
     return "";
@@ -220,30 +217,30 @@ static char* virtualToVolPath(char *vPath) {
 // transform a date from J1980 with microseconds to J1970 (UNIX epoch)
 // GetStat can return 0 with faulty time stamp ! -> add check on time stamp value
 static struct tm getDateEpoch(time_t ts1980) {
-    // output 
+    // output
     struct tm *time=NULL;
     // initialized with timeOs
     if (timeOs == NULL) return *(localtime(NULL));
 
     if (ts1980 == 0) return (*timeOs);
     time=timeOs;
-    
+
     // check ts1980 value (1980 epoch with micro seconds)
     // 01/01/2010 00:00:00 -> 946771200,  with us = 946771200000000
     // 01/01/2038 00:00:00 -> 1830384000, with us = 1830384000000000
     time_t tsMax = tsOs + 86400*2;
-    
+
     if ( ts1980 <= 946771200000000 || ts1980 >= tsMax) return *time;
-    
+
     // compute the timestamp in J1970 Epoch (1972 and 1976 got 366 days)
     time_t ts1970 = ts1980/1000000 + 86400*((366*2) + (365*8));
-    
+
     // get the corresponding tm
     time=localtime(&ts1970);
-    
+
     return (*time);
-    
-}    
+
+}
 static void set_ftp_password(char *new_password) {
     if (password) free(password);
     if (new_password) {
@@ -266,8 +263,9 @@ static bool compare_ftp_password(char *password_attempt) {
 */
 static int32_t write_reply(connection_t *client, uint16_t code, char *msg) {
     uint32_t msglen = 4 + strlen(msg) + CRLF_LENGTH;
+    
     char msgbuf[msglen + 1];
-    if (msgbuf == NULL) return -ENOMEM;
+	if (msgbuf == NULL) return -ENOMEM;
     sprintf(msgbuf, "%u %s\r\n", code, msg);
     if (verboseMode) WHBLogPrintf("> %s", msgbuf);
 
@@ -423,19 +421,19 @@ static int32_t ftp_MKD(connection_t *client, char *path) {
         vrt_chdir(abspath, path); // TODO: error checking
         // TODO: escape double-quotes
         sprintf(msg, "\"%s\" directory created.", abspath);
-        
+
         // compute virtual path /usb/... in a string allocate on the stack
         char vPath[MAXPATHLEN+1] = "";
         if (path) sprintf(vPath, "%s%s", client->cwd, path);
         else sprintf(vPath, "%s", client->cwd);
-        
+
         char *volPath = NULL;
-        volPath = virtualToVolPath(vPath); 
-    
+        volPath = virtualToVolPath(vPath);
+
         // chmod on folder
-        IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x666);        
+        IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x666);
         free(volPath);
-        
+
         return write_reply(client, 257, msg);
     } else {
         return write_reply(client, 550, strerror(errno));
@@ -473,6 +471,7 @@ static int32_t ftp_SIZE(connection_t *client, char *path) {
 }
 
 static int32_t ftp_PASV(connection_t *client, char *rest UNUSED) {
+
     close_passive_socket(client);
     client->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (client->passive_socket < 0) {
@@ -510,7 +509,7 @@ static int32_t ftp_PASV(connection_t *client, char *rest UNUSED) {
 static int32_t ftp_PORT(connection_t *client, char *portspec) {
     uint32_t h1, h2, h3, h4, p1, p2;
     if (sscanf(portspec, "%3d,%3d,%3d,%3d,%3d,%3d", &h1, &h2, &h3, &h4, &p1, &p2) < 6) {
-        
+
         return write_reply(client, 501, "Syntax error in parameters.");
     }
     char addr_str[44] = "";
@@ -530,15 +529,11 @@ static int32_t ftp_PORT(connection_t *client, char *portspec) {
 typedef int32_t (*data_connection_handler)(connection_t *client, data_connection_callback callback, void *arg);
 
 static int32_t prepare_data_connection_active(connection_t *client, data_connection_callback callback UNUSED, void *arg UNUSED) {
-    
+
     int32_t data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (data_socket < 0) return data_socket;
     set_blocking(data_socket, false);
-    
-    int enable = 1;
-    if (!setsockopt(data_socket, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable))==0)
-        {logLine("! ERROR : Socket memory optimization failed !");}
-        
+            
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));
     bindAddress.sin_family = AF_INET;
@@ -568,14 +563,14 @@ static int32_t prepare_data_connection(connection_t *client, void *callback, voi
         if (client->passive_socket >= 0) handler = prepare_data_connection_passive;
         result = handler(client, (data_connection_callback)callback, arg);
         if (result < 0) {
-            WHBLogPrintf("! WARNING : data transfer handler failed , socket error = %d", result);            
+            WHBLogPrintf("! WARNING : data transfer handler failed , socket error = %d", result);
             result = write_reply(client, 520, "Closing data connection, error occurred during transfer.");
         } else {
             client->data_connection_connected = false;
             client->data_callback = callback;
             client->data_connection_callback_arg = arg;
             client->data_connection_cleanup = cleanup;
-            client->data_connection_timer = OSGetTick() + OSSecondsToTicks(1200);
+            client->data_connection_timer = OSGetTick() + OSSecondsToTicks(12);
         }
     }
     return result;
@@ -607,24 +602,26 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
     char filename[MAXPATHLEN] = "";
     char line[MAXPATHLEN + 56 + CRLF_LENGTH + 1];
     struct dirent *dirent = NULL;
-    
+
     while ((dirent = vrt_readdir(iter)) != 0) {
 
+        // use vrt_stat that calls stat or IOSUHAX if a failure occurs
         snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
         struct stat st;
         stat(filename, &st);
+
         // compute date to display : transform a date from J1980 with microseconds to J1970 (UNIX epoch)
         struct tm timeinfo = getDateEpoch((time_t)st.st_mtime);
-        
+
         // dim = 13
         char timestamp[13]="";
-        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", &timeinfo);                        
+        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", &timeinfo);
         snprintf(line, sizeof(line), "%crwxr-xr-x    1 0        0     %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', st.st_size, timestamp, dirent->d_name);
         if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
             break;
         }
-    }    
-        
+    }
+
     return result < 0 ? result : 0;
 }
 
@@ -639,8 +636,18 @@ static int32_t ftp_NLST(connection_t *client, char *path) {
     }
 
     int32_t result = prepare_data_connection(client, send_nlst, dir, vrt_closedir);
+	/*
+    if (result < 0) {
+        vrt_closedir(dir);
+        if (result == -ENOMEM) {
+            logLine("! ERROR : out of memory in prepare_data_connection");
+        }
+    }
+	*/
+	
     if (result < 0) vrt_closedir(dir);
     return result;
+	
 }
 
 static int32_t ftp_LIST(connection_t *client, char *path) {
@@ -656,21 +663,32 @@ static int32_t ftp_LIST(connection_t *client, char *path) {
         path = ".";
     }
 
-    if (path && client->cwd) if (strcmp(path, ".") == 0 && strcmp(client->cwd, "/") == 0) ResetVirtualPaths(); 
+    if (path && client->cwd) if (strcmp(path, ".") == 0 && strcmp(client->cwd, "/") == 0) ResetVirtualPaths();
 
     DIR_P *dir = vrt_opendir(client->cwd, path);
     if (dir == NULL) {
+//        logLine("! ERROR : vrt_opendir failed in ftp_LIST()");
         return write_reply(client, 550, strerror(errno));
     }
 
     int32_t result = prepare_data_connection(client, send_list, dir, vrt_closedir);
+	/*
+    if (result < 0) {
+        vrt_closedir(dir);
+        if (result == -ENOMEM) {
+            logLine("! ERROR : out of memory in ftp_LIST");
+        }
+    }
+	*/
     if (result < 0) vrt_closedir(dir);
     return result;
 }
 
 static int32_t ftp_RETR(connection_t *client, char *path) {
+        
     FILE *f = vrt_fopen(client->cwd, path, "rb");
     if (!f) {
+//        logLine("! ERROR : vrt_fopen failed in ftp_REST()");
         return write_reply(client, 550, strerror(errno));
     }
 
@@ -684,34 +702,52 @@ static int32_t ftp_RETR(connection_t *client, char *path) {
     client->restart_marker = 0;
 
     int32_t result = prepare_data_connection(client, send_from_file, f, fclose);
+	/*
+    if (result < 0) {
+        fclose(f);
+        if (result == -ENOMEM) {
+            logLine("! ERROR : out of memory in ftp_RETR");
+        }
+    }
+	*/
     if (result < 0) fclose(f);
     return result;
+
 }
 
 static int32_t stor_or_append(connection_t *client, char *path, FILE *f) {
+    
     if (!f) {
         return write_reply(client, 550, strerror(errno));
     }
-    
+
     // compute virtual path /usb/... in a string allocate on the stack
     char vPath[MAXPATHLEN+1] = "";
     if (path) sprintf(vPath, "%s%s", client->cwd, path);
     else sprintf(vPath, "%s", client->cwd);
-    
-    // allocate compute and store the volume path (/vol/storage_usb01) 
+
+    // allocate compute and store the volume path (/vol/storage_usb01)
     // needed for IOSUHAX operations
     char *volPath = NULL;
-    volPath = virtualToVolPath(vPath);    
+    volPath = virtualToVolPath(vPath);
     SetVolPath(volPath, fileno(f));
     free(volPath);
-    
+
     int32_t result = prepare_data_connection(client, recv_to_file, f, fclose);
-    
+	/*
+    if (result < 0) {
+        fclose(f);
+        if (result == -ENOMEM) {
+            logLine("! ERROR : out of memory in stor_or_append");
+        }
+    }
+	*/
     if (result < 0) fclose(f);
     return result;
 }
 
 static int32_t ftp_STOR(connection_t *client, char *path) {
+
     FILE *f = vrt_fopen(client->cwd, path, "wb");
     int fd;
     if (f) fd = fileno(f);
@@ -727,7 +763,7 @@ static int32_t ftp_STOR(connection_t *client, char *path) {
 }
 
 static int32_t ftp_APPE(connection_t *client, char *path) {
-    
+
     return stor_or_append(client, path, vrt_fopen(client->cwd, path, "ab"));
 }
 
@@ -764,14 +800,14 @@ static int32_t ftp_SITE_CHMOD(connection_t *client, char *rest UNUSED) {
     // compute virtual path /usb/... in a string allocate on the stack
     char vPath[MAXPATHLEN+1] = "";
     sprintf(vPath, "%s", client->cwd);
-    
+
     char *volPath = NULL;
-    volPath = virtualToVolPath(vPath); 
+    volPath = virtualToVolPath(vPath);
 
     // chmod on folder
-    IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x666);        
+    IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x666);
     free(volPath);
-    
+
     return write_reply(client, 250, "SITE CHMOD command ok.");
 }
 
@@ -923,15 +959,18 @@ static void cleanup_client(connection_t *client) {
 }
 
 void cleanup_ftp() {
-    int client_index;
-    for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
-        connection_t *client = connections[client_index];
-        if (client) {
-            write_reply(client, 421, "Closing remaining active connections connection.");
-            cleanup_client(client);
+    
+    if (listener != -1) {
+        int client_index;
+        for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
+            connection_t *client = connections[client_index];
+            if (client) {
+                write_reply(client, 421, "Closing remaining active connections connection.");
+                cleanup_client(client);
+            }
         }
+        if (ftpThreadStack != NULL) MEMFreeToDefaultHeap(ftpThreadStack);
     }
-    if (ftpThreadStack != NULL) MEMFreeToDefaultHeap(ftpThreadStack);
 }
 
 static bool process_getClients() {
@@ -945,8 +984,8 @@ static bool process_getClients() {
         }
 
         if (nbConnections == 0) strcpy(clientIp,inet_ntoa(client_address.sin_addr));
-        if (strcmp(clientIp,inet_ntoa(client_address.sin_addr)) !=0) { 
-            
+        if (strcmp(clientIp,inet_ntoa(client_address.sin_addr)) !=0) {
+
             WHBLogPrintf("! WARNING : %s already connected, close all his connections", clientIp);
             network_close(peer);
             return true;
@@ -986,14 +1025,14 @@ static bool process_getClients() {
             network_close_blocking(peer);
             free(client);
         } else {
-            
+
             if (nbConnections == NB_SIMULTANEOUS_CONNECTIONS) {
-                char msg[FTP_MSG_BUFFER_SIZE];                
+                char msg[FTP_MSG_BUFFER_SIZE];
                 sprintf(msg, "Maximum connections number reached (%d), retry after ends one current transfert", NB_SIMULTANEOUS_CONNECTIONS);
                 write_reply(client, 520, msg);
                 WHBLogPrintf("! WARNING : %s", msg);
             } else {
-                
+
                 for (client_index = 0; client_index < NB_SIMULTANEOUS_CONNECTIONS; client_index++) {
                     if (!connections[client_index]) {
                         connections[client_index] = client;
@@ -1040,17 +1079,22 @@ static void process_data_events(connection_t *client) {
     } else {
         result = client->data_callback(client->data_socket, client->data_connection_callback_arg);
         if (result < 0 && result != -EAGAIN && result != -ENODATA) {
-            WHBLogPrintf("! WARNING : data transfer callback failed , socket error = %d", result);
+            WHBLogPrintf("! ERROR : data transfer callback failed , socket error = %d", result);
+            if (result == -100) {
+                logLine("! ERROR : Wii-U file system access error : reset virtual paths and retrying...");
+                ResetVirtualPaths();
+                result = -EAGAIN;
+            }
         }
     }
 
     if (result <= 0 && result != -EAGAIN && result != -ENODATA) {
         cleanup_data_resources(client);
         if (result < 0) {
-            WHBLogPrintf("! ERROR : transfer failed, socket error = %d", result);            
+            WHBLogPrintf("! ERROR : transfer failed, socket error = %d", result);
             result = write_reply(client, 520, "Closing data connection, error occurred during transfer.");
         } else {
-            result = write_reply(client, 226, "Closing data connection, transfer successful.");
+            result = write_reply(client, 226, "Transfer successful.");
         }
         if (result < 0) {
             cleanup_client(client);
@@ -1117,14 +1161,14 @@ static void process_control_events(connection_t *client) {
 }
 
 bool process_ftp_events() {
-    
+
     if (timeOs != NULL && tsOs == 0) {
         time_t ts1970=mktime(timeOs);
         // compute the timestamp in J1980 Epoch (1972 and 1976 got 366 days)
-        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);        
-    }        
-    
-    bool network_down = !process_getClients();    
+        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);
+    }
+
+    bool network_down = !process_getClients();
     uint32_t client_index;
     for (client_index = 0; client_index < nbConnections; client_index++) {
         connection_t *client = connections[client_index];
@@ -1145,7 +1189,7 @@ void setOsTime(struct tm *tmTime) {
 
 void setFsaFd(int hfd) {
     fsaFd = hfd;
-}    
+}
 int getFsaFd() {
     return fsaFd;
-}    
+}

@@ -14,27 +14,27 @@ extern "C"{
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-    
+
+/****************************************************************************
+  * WiiUFtpServer
+ ***************************************************************************/
 #include <nsysnet/socket.h>
-
 #include "receivedFiles.h"
-
 
 #ifndef MIN
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
 
 #define DEFAULT_NET_BUFFER_SIZE 64*1024
-#define MIN_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE/16
-#define MAX_NET_BUFFER_SIZE DEFAULT_NET_BUFFER_SIZE*2
 
-// Unlimit the number of connections (hard fixed to 1 for up/download)
-#define NB_SIMULTANEOUS_CONNECTIONS 999999
+// max data connections number : listener + passive_socket + data_socket*2 (two ways)
+#define NB_SIMULTANEOUS_CONNECTIONS 4
 
 void initialize_network();
 void finalize_network();
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol);
+int32_t network_data_socket(uint32_t domain,uint32_t type,uint32_t protocol);
 int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen);
 int32_t network_listen(int32_t s,uint32_t backlog);
 int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen);

@@ -133,3 +133,20 @@ HISTORY :
     > fix a display issue when exit (missing a draw call)
     > + 10% speed (UL/DL) with using a double sized buffer (corresponding to the size
       really allocated by the system when using setsockopt on SO_RCVBUF & SO_SNDBUF)
+
+    > replace WUT calls to MEMAllocFromDefaultHeapEx & MEMFreeToDefaultHeap in recv_to_file and send_from_file 
+      that seems to be not stables (avoid -99 errors)
+    > lower the memory consumption (lower buffers used in ftp.c and net.c)
+    > enhance robustness by removing too agressive socket optimizations
+
+2021/10/12 V6-1 :    
+    > Wii-U PRO controller and WiiMote support. Thanks godreborn@GBATemp for testing!
+    > tweaks for maximum performance :
+        +10% DL speed compare to V6
+        +70% UL speed (UL is now faster than DL)    
+    > enhance robustness (fix errors -99, -100, ENOMEM, ECONABORTED...). thanks Masana@GBATemp for testing!
+    > add a NAND backup/restore process :
+        - when you choose to mount NAND paths, if no backup is found in WiiuFtpServer app folder on the SDcard,
+          create a partial (2MB) or a FULL system files NAND backup (500MB free on SD card are requiered) 
+        - if you brick your Wii-U with NO NETWORK AVAILABLE (so you can't start FTP) : restore only the files 
+          needed (partial backup ones) to get WiiuFtpServer working again (then unbrick as the usual way)

@@ -1,6 +1,5 @@
 /****************************************************************************
   * WiiUFtpServer
-  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
  ***************************************************************************/
 #ifndef _FTP_H_
 #define _FTP_H_
@@ -11,6 +10,8 @@
 #include <time.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#define FTP_PORT            21
 
 #ifdef __cplusplus
 extern "C"{

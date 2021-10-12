@@ -1,6 +1,5 @@
 /****************************************************************************
   * WiiUFtpServer
-  * 2021/04/05:V1.0.0:Laf111: import ftp-everywhere code
  ***************************************************************************/
 #include <errno.h>
 #include <malloc.h>
@@ -14,6 +13,8 @@
 #include "virtualpath.h"
 #include "vrt.h"
 #include "net.h"
+
+extern void logLine(const char *line);
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
@@ -194,8 +195,8 @@ int vrt_stat(char *cwd, char *path, struct stat *st) {
         st->st_size = 31337;
         return 0;
     }
-    
-/*     int srcFd = -1;        
+
+/*     int srcFd = -1;
 
     char *vpath=NULL;
     size_t path_size = strlen(cwd) + strlen(path) + 1;
@@ -206,18 +207,18 @@ int vrt_stat(char *cwd, char *path, struct stat *st) {
 
         int fsaFd=getFSAFD();
         IOSUHAX_FSA_OpenFile(fsaFd, vpath, "rb", &srcFd);
-        
+
         IOSUHAX_FSA_Stat fStat;
-        IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);        
-        
-        st->st_size = fStat.size;    
+        IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
+
+        st->st_size = fStat.size;
         st->st_ctime = fStat.created;
         st->st_mtime = fStat.modified;
-        
+
 
         IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
     } */
-    
+
     free(real_path);
     return (int)with_virtual_path(cwd, stat, path, -1, st, NULL);
 }
@@ -243,6 +244,7 @@ int vrt_chdir(char *cwd, char *path) {
     }
     char *abspath = virtual_abspath(cwd, path);
     if (!abspath) {
+        logLine("!ERROR : vrt::virtual_abspath failed");
         errno = ENOMEM;
         return -1;
     }

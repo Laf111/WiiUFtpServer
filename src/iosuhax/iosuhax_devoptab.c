@@ -33,6 +33,8 @@
 #include <sys/iosupport.h>
 #include "iosuhax.h"
 
+extern void logLine(const char *line);
+
 typedef struct _fs_dev_private_t {
     char *mount_path;
     int fsaFd;
@@ -165,6 +167,8 @@ static int fs_dev_open_r (struct _reent *r, void *fileStruct, const char *path, 
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_open_r fs_dev_real_path failed");
+
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -267,6 +271,7 @@ static ssize_t fs_dev_write_r (struct _reent *r, void *fd, const char *ptr, size
 
     if (!file->write)
     {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_write_r failed");
         r->_errno = EACCES;
         return 0;
     }
@@ -306,6 +311,7 @@ static ssize_t fs_dev_read_r (struct _reent *r, void *fd, char *ptr, size_t len)
 {
     fs_dev_file_state_t *file = (fs_dev_file_state_t *)fd;
     if (!file->dev) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_read_r failed");
         r->_errno = ENODEV;
         return 0;
     }
@@ -430,6 +436,8 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
 {
     fs_dev_private_t *dev = fs_dev_get_device_data(path);
     if (!dev) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_get_device_data failed");
+
         r->_errno = ENODEV;
         return -1;
     }
@@ -441,6 +449,8 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_stat_r fs_dev_real_path failed");
+
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -517,6 +527,8 @@ static int fs_dev_unlink_r (struct _reent *r, const char *name)
 
     char *real_path = fs_dev_real_path(name, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_real_path failed");
+        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -548,6 +560,8 @@ static int fs_dev_chdir_r (struct _reent *r, const char *name)
 
     char *real_path = fs_dev_real_path(name, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_chdir_r fs_dev_real_path failed");
+
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -579,12 +593,14 @@ static int fs_dev_rename_r (struct _reent *r, const char *oldName, const char *n
 
     char *real_oldpath = fs_dev_real_path(oldName, dev);
     if (!real_oldpath) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_rename_r fs_dev_real_path1 failed");        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
     }
     char *real_newpath = fs_dev_real_path(newName, dev);
     if (!real_newpath) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_rename_r fs_dev_real_path2 failed");        
         r->_errno = ENOMEM;
         free(real_oldpath);
         OSUnlockMutex(dev->pMutex);
@@ -620,6 +636,7 @@ static int fs_dev_mkdir_r (struct _reent *r, const char *path, int mode)
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_mkdir_r fs_dev_real_path failed");        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -651,6 +668,7 @@ static int fs_dev_chmod_r (struct _reent *r, const char *path, int mode)
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_chmod_r fs_dev_real_path failed");        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -685,6 +703,7 @@ static int fs_dev_statvfs_r (struct _reent *r, const char *path, struct statvfs 
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_statvfs_r fs_dev_real_path failed");        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return -1;
@@ -748,6 +767,7 @@ static DIR_ITER *fs_dev_diropen_r (struct _reent *r, DIR_ITER *dirState, const c
 
     char *real_path = fs_dev_real_path(path, dev);
     if (!real_path) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_diropen_r fs_dev_real_path failed");        
         r->_errno = ENOMEM;
         OSUnlockMutex(dev->pMutex);
         return NULL;
@@ -926,6 +946,7 @@ static int fs_dev_add_device (const char *name, const char *mount_path, int fsaF
     // Allocate a devoptab for this device
     dev = (devoptab_t *) malloc(sizeof(devoptab_t) + strlen(name) + 1);
     if (!dev) {
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_add_device allocating dev failed");        
         errno = ENOMEM;
         return -1;
     }
@@ -938,6 +959,7 @@ static int fs_dev_add_device (const char *name, const char *mount_path, int fsaF
     fs_dev_private_t *priv = (fs_dev_private_t *)malloc(sizeof(fs_dev_private_t) + strlen(mount_path) + 1);
     if (!priv) {
         free(dev);
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_add_device allocating fs_dev_private_t failed");        
         errno = ENOMEM;
         return -1;
     }
@@ -954,6 +976,7 @@ static int fs_dev_add_device (const char *name, const char *mount_path, int fsaF
     if (!priv->pMutex) {
         free(dev);
         free(priv);
+        logLine("!ERROR : iosuhax_devoptab::fs_dev_add_device failed priv->pMutex NULL");
         errno = ENOMEM;
         return -1;
     }

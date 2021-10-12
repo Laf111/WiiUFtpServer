@@ -1,6 +1,5 @@
 /****************************************************************************
   * WiiUFtpServer
-  * 2021/04/22:V1.1.0:Laf111: creation this THREAD SAFE module
  ***************************************************************************/
 #include <malloc.h>
 #include <string.h>
@@ -25,10 +24,10 @@ static int nbFiles = 0;
 static void lockThread() {
     while (_threadLocked) OSSleepTicks(OSMillisecondsToTicks(10));
     _threadLocked = 1;
-}    
+}
 static void unlockThread() {
     _threadLocked = 0;
-}    
+}
 // module functions
 void SetVolPath(char *volPath, int fd) {
     if (volPath != NULL) {
@@ -39,15 +38,15 @@ void SetVolPath(char *volPath, int fd) {
         } else {
             files = (struct ENTRY **)realloc(files, (nbFiles + 1) * sizeof(struct ENTRY *));
         }
-        
+
         files[nbFiles] = (struct ENTRY*) malloc(sizeof(struct ENTRY));
-        
+
         // set the file descriptor
         files[nbFiles]->fd = fd;
 
-        
-        // allocate and set the full volume path to the file        
-        int len = strlen(volPath)+1;        
+
+        // allocate and set the full volume path to the file
+        int len = strlen(volPath)+1;
         files[nbFiles]->path = (char *) malloc(sizeof(char)*len);
 
         strcpy(files[nbFiles]->path, volPath);
@@ -56,7 +55,7 @@ void SetVolPath(char *volPath, int fd) {
         unlockThread();
 
     }
-}    
+}
 
 
 int ChmodFile(int fd) {
@@ -68,19 +67,19 @@ int ChmodFile(int fd) {
         for (i=nbFiles-1; i>=0; i--) {
             // if fd is found
             if (files[i]->fd == fd) {
-                
+
                 // chmod on file
                 IOSUHAX_FSA_ChangeMode(fsaFd, files[i]->path, 0x666);
 
                 // free the ENTRY
-                
+
                 // free path first
                 free(files[i]->path);
                 // free ENTRY
                 free(files[i]);
                 if (nbFiles > 0) nbFiles=nbFiles-1;
                 else free(files);
-                
+
                 unlockThread();
                 return 0;
             }
@@ -88,4 +87,4 @@ int ChmodFile(int fd) {
         unlockThread();
     }
     return -1;
-}    
+}
