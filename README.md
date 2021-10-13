@@ -24,7 +24,7 @@ The very first time you mount them, you'll be asked to create a NAND system file
 
 You can choose to create a partial one (< 3MB) or a full (system files only) NAND backup (500MB are requiered on the SD card)
 
-Files in the partial backup (saved for both choice in fact) will be used to recover the network in case it don't work anymore.
+**Only files contains in the partial backup** will be used **only** to recover the network in case it don't work anymore.
 
 After the restoration process, you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one)
 
