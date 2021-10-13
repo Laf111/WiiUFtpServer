@@ -150,3 +150,9 @@ HISTORY :
           create a partial (2MB) or a FULL system files NAND backup (500MB free on SD card are requiered) 
         - if you brick your Wii-U with NO NETWORK AVAILABLE (so you can't start FTP) : restore only the files 
           needed (partial backup ones) to get WiiuFtpServer working again (then unbrick as the usual way)
+          
+2021/10/13 V6-2 :    
+    > Restore originals headers in source files
+    > unlimit the incomming connexions (hard limited for UL and DL in net.c)
+
+          
