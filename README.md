@@ -45,9 +45,9 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
   <img src="timestamps.png">
 </p>
 
-- The FTP method used is I/O multiplexing (blocking I/O).
+- The FTP method used is I/O multiplexing (blocking I/O). 
 
-- This FTP server is limited to 1 unique client (more safer) and one unique transfer slot for up/download (fix deconnexion issues) but you can set the number of simultaneous transfers to the max on your FTP client : the connections will not timed out and this will speed the overhall transfer time.
+- This **FTP server is limited to 1 unique client** (more safer) and one unique transfer slot for up/download (fix deconnexion issues) but you can **set the number of simultaneous transfers to the max on your FTP client : the connections will not timed out and this will speed the overhall transfer time**.
 
 **When using Ethernet** : (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
 
