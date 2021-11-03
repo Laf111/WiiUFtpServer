@@ -8,7 +8,8 @@ $(info WiiuFtpServerVersion set to $(WiiuFtpServerVersion), use build.sh instead
 endif
 
 TOPDIR ?= $(CURDIR)
-WUT_ROOT := $(PWD)/libs/wut
+WUT_ROOT := $(DEVKITPRO)/wut
+IOSUHAX_ROOT := $(DEVKITPRO)/iosuhax
 
 include $(WUT_ROOT)/share/wut_rules
 
@@ -21,37 +22,37 @@ include $(WUT_ROOT)/share/wut_rules
 #-------------------------------------------------------------------------------
 TARGET		:=	WiiUFtpServer
 BUILD		:=	build
-SOURCES		:=	src \
-                src/dynamic_libs \
-                src/iosuhax
+SOURCES		:=	src 
                 
 DATA		:=	data
-INCLUDES	:=	src \
-                src/dynamic_libs \
-                src/iosuhax
+INCLUDES	:=	src 
                 
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
-CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
-            -O3 -Wall -Wextra -Wno-unused-parameter
+CFLAGS	:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
+				-fuse-linker-plugin -pipe -DIOAPI_NO_64 \
+                -D__WIIU__ -D__WUT__ \
+                -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
 
-CFLAGS	+=	-D_GNU_SOURCE -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
-
-CFLAGS	+=	$(INCLUDE) -D__WIIU__ -D__wiiu__ -D__WUT__
+CFLAGS	+=	$(INCLUDE)
+# enable log to file storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log
+CFLAGS	+=	-DLOG2FILE
+# enable controller check 
+#CFLAGS	+=	-DCHECK_CONTROLLER
 
 CXXFLAGS	:= $(CFLAGS)
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lwut
+LIBS	:= -lwut -liosuhax
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib
 #-------------------------------------------------------------------------------
-LIBDIRS	:= $(WUT_ROOT)
+LIBDIRS	:= $(WUT_ROOT) $(IOSUHAX_ROOT)
 
 
 #-------------------------------------------------------------------------------

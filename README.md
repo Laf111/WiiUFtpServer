@@ -1,5 +1,5 @@
 # WiiUFtpServer
-**A new FTP server for the Wii-U that fix files injection, display files timestamps correctly and much more faster than others.**
+**A new fork of ftpiiu that fixes files injection, display files timestamps correctly and much more faster than the original software.**
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -61,16 +61,13 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 
 Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section.
 
-Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
-No dependencies to set.
 
+Install devkitPro (in DEVKITPRO_PATH) and download the libIOSUHAX from YaWut repository.
 
-The build process creates : HBL app + RPX package (to create a channel)
+Launch "msys2\msys2_shell.bat" 
+Get WUT with command : pacman -Syu devkitPPC wut-tools wut
 
-
-- Install devkitPro (in DEVKITPRO_PATH)
-
-- Launch "msys2\msys2_shell.bat"
+Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in.
 
 - export DEVKITPRO=$DEVKITPRO_PATH
 

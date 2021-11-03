@@ -22,6 +22,11 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+/****************************************************************************
+  * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
+ ***************************************************************************/
+
 #include <errno.h>
 #include <malloc.h>
 #include <stdarg.h>
@@ -35,7 +40,7 @@ misrepresented as being the original software.
 #include "vrt.h"
 #include "net.h"
 
-extern void logLine(const char *line);
+extern void display(const char *fmt, ...);
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
@@ -265,7 +270,7 @@ int vrt_chdir(char *cwd, char *path) {
     }
     char *abspath = virtual_abspath(cwd, path);
     if (!abspath) {
-        logLine("!ERROR : vrt::virtual_abspath failed");
+        display("!ERROR : vrt::virtual_abspath failed");
         errno = ENOMEM;
         return -1;
     }

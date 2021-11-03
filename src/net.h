@@ -21,6 +21,11 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+/****************************************************************************
+  * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
+ ***************************************************************************/
+
 #ifndef _NET_H_
 #define _NET_H_
 
@@ -34,9 +39,6 @@ extern "C"{
 #include <stdint.h>
 #include <stdbool.h>
 
-/****************************************************************************
-  * WiiUFtpServer
- ***************************************************************************/
 #include <nsysnet/socket.h>
 #include "receivedFiles.h"
 
@@ -46,8 +48,14 @@ extern "C"{
 
 #define DEFAULT_NET_BUFFER_SIZE 64*1024
 
+// socket optimizations
+#define SO_RUSRBUF      0x10000     // enable userspace buffer
+#define SO_NOSLOWSTART  0x4000      // suppress slowstart on this socket
+#define TCP_NOACKDELAY  0x2002      // suppress delayed ACKs
+#define TCP_NODELAY     0x2004      // TCP delay
+
 // max data connections number : unlimit (UP and DL are hard limited to 1 in net.c)
-#define NB_SIMULTANEOUS_CONNECTIONS 99
+#define NB_SIMULTANEOUS_CONNECTIONS 13
 
 void initialize_network();
 void finalize_network();

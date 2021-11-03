@@ -1,18 +1,23 @@
 /****************************************************************************
   * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
  ***************************************************************************/
 #include <time.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <malloc.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <whb/log_udp.h>
 #include <whb/proc.h>
 #include <whb/libmanager.h>
 #include <coreinit/dynload.h>
 #include <coreinit/thread.h>
+#include <coreinit/fastmutex.h>
 #include <coreinit/mcp.h>
 #include <coreinit/core.h>
 #include <coreinit/time.h>
@@ -22,11 +27,12 @@
 #include <proc_ui/procui.h>
 #include <sysapp/launch.h>
 
+#include <iosuhax_disc_interface.h>
+#include <iosuhax_cfw.h>
+
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
-#include "iosuhax_disc_interface.h"
-#include "iosuhax_cfw.h"
 #include "receivedFiles.h"
 #include "nandBackup.h"
 #include "controllers.h"
@@ -64,26 +70,65 @@ static int fsaFd = -1;
 static int mcp_hook_fd = -1;
 
 // lock to make thread safe the display method
-static bool displayLock=false;
+OSFastMutex displayMutex;
+
+// lock to make thread safe the loggin method
+OSFastMutex logMutex;
+
+#ifdef LOG2FILE
+// log file
+static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
+static char logFilePath2[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log2";
+static char *logFilePathPtr=NULL;
+static FILE * logFile=NULL;
+#endif
 
 /****************************************************************************/
 // LOCAL FUNCTIONS
 /****************************************************************************/
 
 //--------------------------------------------------------------------------
-// method to output to gamePad and TV (thread safe)
-void logLine(const char *line)
+
+#ifdef LOG2FILE
+// method to output a message to gamePad and TV (thread safe)
+void writeToLog(const char *fmt, ...)
 {
-    while (displayLock) OSSleepTicks(OSMillisecondsToTicks(100));
+    char buf[MAXPATHLEN];
+	va_list va;
+	va_start(va, fmt);
+    vsprintf(buf, fmt, va);
+    va_end(va);
+    
+	while(!OSFastMutex_TryLock(&logMutex));
+    
+    if (logFile == NULL && logFilePathPtr != NULL) logFile = fopen(logFilePathPtr, "w");
+    if (logFile == NULL) {
+        WHBLogPrintf("! ERROR : Unable to open log file");
+        WHBLogConsoleDraw();
+    }
+    fprintf(logFile, "%s\n", buf);
+    
+    OSFastMutex_Unlock(&logMutex);
+}
+#endif
 
-    // set the lock
-    displayLock=true;
-
-    WHBLogPrintf("%s", line);
+// method to output a message to gamePad and TV (thread safe)
+void display(const char *fmt, ...)
+{
+    char buf[MAXPATHLEN];
+	va_list va;
+	va_start(va, fmt);
+    vsprintf(buf, fmt, va);
+    va_end(va);
+    
+	while(!OSFastMutex_TryLock(&displayMutex));
+    
+    WHBLogPrintf(buf);    
     WHBLogConsoleDraw();
-
-    // unset the lock
-    displayLock=false;
+#ifdef LOG2FILE       
+    writeToLog(buf);
+#endif 
+    OSFastMutex_Unlock(&displayMutex);
 }
 
 //--------------------------------------------------------------------------
@@ -121,8 +166,8 @@ void MCPHookClose() {
 
 //--------------------------------------------------------------------------
 static void cls() {
-    for (int i=0; i<20; i++) WHBLogPrintf(" ");
-    WHBLogConsoleDraw();
+    for (int i=0; i<20; i++) display(" ");
+
 }
 
 //--------------------------------------------------------------------------
@@ -138,7 +183,7 @@ static void cleanUp() {
 
     finalize_network();
 
-    WHBLogPrintf(" ");
+    display(" ");
     UmountVirtualDevices();
 
     IOSUHAX_sdio_disc_interface.shutdown();
@@ -213,7 +258,32 @@ int main()
     WHBLogUdpInit();
     WHBProcInit();
     WHBLogConsoleInit();
+    
+    OSFastMutex_Init(&displayMutex, "Display message mutex");
+    OSFastMutex_Unlock(&displayMutex);
 
+#ifdef LOG2FILE
+    // if log file exists
+    if( access( logFilePath, F_OK ) == 0 ) {
+        // file exists
+        
+        // check if second log file exists
+        if( access( logFilePath2, F_OK ) == 0 ) {
+
+            // remove the first and use it
+            remove(logFilePath);
+            logFilePathPtr=logFilePath;
+        } else {
+            logFilePathPtr=logFilePath2;
+        }
+        
+    } else {
+        logFilePathPtr=logFilePath;
+    }
+    OSFastMutex_Init(&logMutex, "Display message mutex");
+    OSFastMutex_Unlock(&logMutex);    
+#endif    
+    
     // *PAD init
     KPADInit();
     WPADInit();
@@ -243,12 +313,12 @@ int main()
         OSSetThreadPriority(thread, 0);
     }
 
-    WHBLogPrintf(" -=============================-\n");
-    WHBLogPrintf("|    %s     |\n", VERSION_STRING);
-    WHBLogPrintf(" -=============================-\n");
-    WHBLogPrintf("[Laf111/2021-10]");
-    WHBLogPrintf(" ");
-    WHBLogConsoleDraw();
+    display(" -=============================-\n");
+    display("|    %s     |\n", VERSION_STRING);
+    display(" -=============================-\n");
+    display("[Laf111/2021-10]");
+    display(" ");
+
 
     // Get OS time and save it in ftp static variable
     OSCalendarTime osDateTime;
@@ -257,10 +327,10 @@ int main()
 
     // tm_mon is in [0,30]
     int mounth=osDateTime.tm_mon+1;
-    WHBLogPrintf("Wii-U date (GMT) : %02d/%02d/%04d %02d:%02d:%02d",
+    display("Wii-U date (GMT) : %02d/%02d/%04d %02d:%02d:%02d",
             osDateTime.tm_mday, mounth, osDateTime.tm_year,
-            osDateTime.tm_hour, osDateTime.tm_min, osDateTime.tm_sec);
-
+            osDateTime.tm_hour, osDateTime.tm_min, osDateTime.tm_sec);      
+            
     tmTime.tm_sec   =   osDateTime.tm_sec;
     tmTime.tm_min   =   osDateTime.tm_min;
     tmTime.tm_hour  =   osDateTime.tm_hour;
@@ -273,11 +343,11 @@ int main()
 
     // save GMT OS Time in ftp.c
     setOsTime(&tmTime);
-    logLine(" ");
-    logLine(" ");
-    logLine(" ");
-    WHBLogConsoleDraw();
-    logLine(" ");
+    display(" ");
+    display(" ");
+    display(" ");
+
+    display(" ");
 
     /*--------------------------------------------------------------------------*/
     /* IOSUHAX operations and mounting devices                                  */
@@ -285,7 +355,7 @@ int main()
     // Check if a CFW is active
     IOSUHAX_CFW_Family cfw = IOSUHAX_CFW_GetFamily();
     if (cfw == 0) {
-        WHBLogPrintf("! ERROR : No running CFW detected");
+        display("! ERROR : No running CFW detected");
         goto exit;
     }
 
@@ -293,13 +363,13 @@ int main()
     if (res < 0)
         res = MCPHookOpen();
     if (res < 0) {
-        WHBLogPrintf("! ERROR : IOSUHAX_Open failed.");
+        display("! ERROR : IOSUHAX_Open failed.");
         goto exit;
     }
 
     fsaFd = IOSUHAX_FSA_Open();
     if (fsaFd < 0) {
-        WHBLogPrintf("! ERROR : IOSUHAX_FSA_Open failed.");
+        display("! ERROR : IOSUHAX_FSA_Open failed.");
         if (mcp_hook_fd >= 0) MCPHookClose();
         else IOSUHAX_Close();
         goto exit;
@@ -307,36 +377,36 @@ int main()
 
     setFsaFd(fsaFd);
 
-/*
+#ifdef CHECK_CONTROLLER
     // Check your controller
-    logLine(" ");
-    logLine("Check the current controller : ");
-	logLine(" ");
+    display(" ");
+    display("Check the current controller : ");
+	display(" ");
     if (!checkController(&vpadStatus)) {
-        logLine("This controller is not supported, exiting in 10 sec");
+        display("This controller is not supported, exiting in 10 sec");
         OSSleepTicks(OSMillisecondsToTicks(10000));
         goto exit;
     }    
-*/ 
+#endif
 
     cls();
-    logLine("Please PRESS : (timeout in 10 sec)");
-	logLine(" ");
+    display("Please PRESS : (timeout in 10 sec)");
+	display(" ");
     if (autoShutDown) {
-        logLine("   > DOWN, disable/toggle auto shutdown (currently enabled)");
+        display("   > DOWN, disable/toggle auto shutdown (currently enabled)");
     }
-    logLine("   > UP, disable/toggle verbose mode (OFF by default)");
-    logLine("   > A, for only USB and SDCard (default after timeout)");
-    logLine("   > B, mount ALL paths (use at your own risk)");
+    display("   > UP, disable/toggle verbose mode (OFF by default)");
+    display("   > A, for only USB and SDCard (default after timeout)");
+    display("   > B, mount ALL paths (use at your own risk)");
     if (!autoShutDown) {
-        logLine(" ");
+        display(" ");
     }
 
     bool buttonPressed = false;
     bool mountMlc=false;
     bool verbose=false;
     int cpt=0;
-    while (!buttonPressed && (cpt < 10000))
+    while (!buttonPressed && (cpt < 400))
     {
         listenControlerEvent(&vpadStatus);
 
@@ -348,20 +418,20 @@ int main()
         }
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_UP) {
             if (verbose) {
-                logLine("(verbose mode OFF)");
+                display("(verbose mode OFF)");
                 verbose=false;
             } else {
-                logLine("(verbose mode ON)");
+                display("(verbose mode ON)");
                 verbose=true;
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
         }
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_DOWN) {
             if (autoShutDown) {
-                logLine("(auto-shutdown OFF)");
+                display("(auto-shutdown OFF)");
                 IMDisableAPD(); // Disable auto-shutdown feature
             } else {
-                logLine("(auto-shutdown ON)");
+                display("(auto-shutdown ON)");
                 IMEnableAPD(); // Disable auto-shutdown feature
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
@@ -376,18 +446,18 @@ int main()
 
     // verbose mode (disabled by default)
     if (verbose) setVerboseMode(verbose);
-    logLine(" ");
+    display(" ");
 
     int nbDrives=MountVirtualDevices(fsaFd, mountMlc);
     if (nbDrives == 0) {
-        WHBLogPrintf("! ERROR : No virtual devices mounted !");
+        display("! ERROR : No virtual devices mounted !");
         goto exit;
     }
 	OSSleepTicks(OSMillisecondsToTicks(1000));
-    logLine(" ");
-    logLine(" ");
-    logLine(" ");
-    logLine(" ");
+    display(" ");
+    display(" ");
+    display(" ");
+    display(" ");
     
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
     setFsaFdCopyFiles(fsaFd);
@@ -395,40 +465,40 @@ int main()
     if (mountMlc) {
         if (backupExist != 1) {
             cls();
-            logLine("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");            
-            logLine(" ");
-            logLine("No NAND backup was found !");
-            logLine(" ");
-            logLine("There's always a risk of brick");
-            logLine("(specially if you edit system files from your FTP client)");
-            logLine(" ");
-            logLine(" ");
-            logLine("Create a complete system (press A) or partial (B) backup?");
-            logLine(" ");
-            logLine("- COMPLETE system requires 500MB free space on SD card !");
-            logLine("- PARTIAL one will be only used to unbrick the Wii-U network");
-            logLine("  in order to start WiiuFtpServer");
-            logLine(" ");
+            display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");            
+            display(" ");
+            display("No NAND backup was found !");
+            display(" ");
+            display("There's always a risk of brick");
+            display("(specially if you edit system files from your FTP client)");
+            display(" ");
+            display(" ");
+            display("Create a complete system (press A) or partial (B) backup?");
+            display(" ");
+            display("- COMPLETE system requires 500MB free space on SD card !");
+            display("- PARTIAL one will be only used to unbrick the Wii-U network");
+            display("  in order to start WiiuFtpServer");
+            display(" ");
             if (readUserAnswer(&vpadStatus)) {
-                logLine("Creating FULL NAND backup...");
+                display("Creating FULL NAND backup...");
                 createNandBackup(1);
-                logLine("");
-                logLine("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                display("");
+                display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
             } else {
-                logLine("Creating partial NAND backup...");
+                display("Creating partial NAND backup...");
                 createNandBackup(0);
-                logLine("");
-                logLine("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-                logLine("This backup is only a PARTIAL one used to unbrick");
-                logLine("the Wii-U network in order to start WiiuFtpServer");
-                logLine("");
-                logLine("It is highly recommended to create a FULL backup");
-                logLine("on your own");
+                display("");
+                display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+                display("This backup is only a PARTIAL one used to unbrick");
+                display("the Wii-U network in order to start WiiuFtpServer");
+                display("");
+                display("It is highly recommended to create a FULL backup");
+                display("on your own");
             }
             
-            logLine("");                
-            logLine("Press A or B button to continue");
-            logLine("");                
+            display("");                
+            display("Press A or B button to continue");
+            display("");                
             readUserAnswer(&vpadStatus);
             cls();
         }
@@ -446,7 +516,7 @@ int main()
     /* Create FTP server                                                        */
     /*--------------------------------------------------------------------------*/
     serverSocket = create_server(FTP_PORT);
-    if (serverSocket < 0) logLine("! ERROR : when creating server");
+    if (serverSocket < 0) display("! ERROR : when creating server");
 
     // check that network availability
     struct in_addr addr;
@@ -455,21 +525,21 @@ int main()
     if (strcmp(inet_ntoa(addr),"0.0.0.0") == 0 && !isChannel()) {
         network_down = 1;
         cls();
-        logLine(" ");
-        logLine("! ERROR : network is OFF on the wii-U, FTP is impossible");
-        logLine(" ");
+        display(" ");
+        display("! ERROR : network is OFF on the wii-U, FTP is impossible");
+        display(" ");
         if (backupExist != 1) {
-            logLine("Do you need to restore the partial NAND backup?");
-            logLine(" ");
-            logLine("Press A for YES, B for NO ");
-            logLine("");
+            display("Do you need to restore the partial NAND backup?");
+            display(" ");
+            display("Press A for YES, B for NO ");
+            display("");
             if (readUserAnswer(&vpadStatus)) {
-                logLine("NAND backup will be restored, please confirm");
-                logLine("");
+                display("NAND backup will be restored, please confirm");
+                display("");
                 if (readUserAnswer(&vpadStatus)) restoreNandBackup();
-                logLine("");
+                display("");
                 // reboot
-                logLine("Shutdowning...");
+                display("Shutdowning...");
                 OSSleepTicks(OSMillisecondsToTicks(2000));
                 OSDynLoad_Module coreinitHandle = NULL;
                 int32_t (*OSShutdown)(int32_t status);
@@ -480,12 +550,10 @@ int main()
                 goto exit;
             }
         } else {
-            logLine("ERROR : Can't start the FTP server, exiting");
+            display("ERROR : Can't start the FTP server, exiting");
         }
-        logLine("");
+        display("");
     }
-
-    WHBLogConsoleDraw();
 
     bool exitApplication = false;
     while (WHBProcIsRunning() && !network_down && !exitApplication)
@@ -493,39 +561,36 @@ int main()
         network_down = process_ftp_events();
         if (network_down)
             break;
-        
-        WHBLogConsoleDraw();
-
         listenControlerEvent(&vpadStatus);
 
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
         if (exitApplication) break;
-    }
 
-    WHBLogConsoleDraw();
+    }
 
     /*--------------------------------------------------------------------------*/
     /* Cleanup and exit                                                         */
     /*--------------------------------------------------------------------------*/
-    logLine("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-    logLine(" ");
+    display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+    display(" ");
     if (!isChannel())
-        logLine("Stopping server and return to HBL Menu...");
+        display("Stopping server and return to HBL Menu...");
     else
-        logLine("Stopping server and return to Wii-U Menu...");
-    logLine(" ");
+        display("Stopping server and return to Wii-U Menu...");
+    display(" ");
 
 exit:
 
 	cleanUp();
 
-    WHBLogConsoleDraw();
-	OSSleepTicks(OSMillisecondsToTicks(2000));
-	logLine(" ");
-	logLine(" ");
 
-    // TODO : check if channel exit still work (move WHB* behind if NO)
+	OSSleepTicks(OSMillisecondsToTicks(2000));
+	display(" ");
+	display(" ");
+#ifdef LOG2FILE
+    if (logFile != NULL) fclose(logFile);
+#endif
     if (isChannel()) {
         SYSLaunchMenu();
 		while (app != APP_STATE_STOPPED) {

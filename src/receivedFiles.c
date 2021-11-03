@@ -1,39 +1,39 @@
 /****************************************************************************
   * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
  ***************************************************************************/
 #include <malloc.h>
 #include <string.h>
 #include <unistd.h>
 #include <coreinit/thread.h>
+#include <coreinit/fastmutex.h>
 
 #include "ftp.h"
 #include "receivedFiles.h"
-#include "iosuhax/iosuhax.h"
+#include <iosuhax.h>
 
 // iosuhax fd
 static int fsaFd = -1;
 
-// thread lock
-static int _threadLocked = 0;
+OSFastMutex rfMutex;
 
 // array of ENTRY struct
 static struct ENTRY **files = NULL;
 static int nbFiles = 0;
 
-// thread safety functions
-static void lockThread() {
-    while (_threadLocked) OSSleepTicks(OSMillisecondsToTicks(10));
-    _threadLocked = 1;
-}
-static void unlockThread() {
-    _threadLocked = 0;
-}
 // module functions
+
+// TODO : implement a mutex , use another way for allocating ? mutex also for display ? 
 void SetVolPath(char *volPath, int fd) {
+    
     if (volPath != NULL) {
-        lockThread();
+        while(!OSFastMutex_TryLock(&rfMutex));
         if (files == NULL) {
             fsaFd = getFsaFd();
+            
+            OSFastMutex_Init(&rfMutex, "Set received file path mutex");
+            OSFastMutex_Unlock(&rfMutex);
+    
             files = (struct ENTRY **)malloc(sizeof(struct ENTRY *));
         } else {
             files = (struct ENTRY **)realloc(files, (nbFiles + 1) * sizeof(struct ENTRY *));
@@ -52,7 +52,7 @@ void SetVolPath(char *volPath, int fd) {
         strcpy(files[nbFiles]->path, volPath);
 
         nbFiles=nbFiles+1;
-        unlockThread();
+        OSFastMutex_Unlock(&rfMutex);
 
     }
 }
@@ -63,28 +63,28 @@ int ChmodFile(int fd) {
     if (files != NULL) {
         // backward loop on the array elements
         int i=0;
-        lockThread();
+        while(!OSFastMutex_TryLock(&rfMutex));
         for (i=nbFiles-1; i>=0; i--) {
             // if fd is found
             if (files[i]->fd == fd) {
 
                 // chmod on file
-                IOSUHAX_FSA_ChangeMode(fsaFd, files[i]->path, 0x666);
+                IOSUHAX_FSA_ChangeMode(fsaFd, files[i]->path, 0x644);
 
                 // free the ENTRY
 
                 // free path first
-                free(files[i]->path);
+                if (files[i]->path != NULL) free(files[i]->path);
                 // free ENTRY
-                free(files[i]);
+                if (files[i] != NULL) free(files[i]);
                 if (nbFiles > 0) nbFiles=nbFiles-1;
-                else free(files);
+                else if (files != NULL) free(files);
 
-                unlockThread();
+                OSFastMutex_Unlock(&rfMutex);
                 return 0;
             }
         }
-        unlockThread();
+        OSFastMutex_Unlock(&rfMutex);
     }
     return -1;
 }

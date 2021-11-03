@@ -1,5 +1,6 @@
 /****************************************************************************
   * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
  ***************************************************************************/
 #include <stdbool.h>
 #include <string.h>
@@ -11,7 +12,7 @@
  
 #include "controllers.h"
 
-extern void logLine(const char *format, ...);
+extern void display(const char *fmt, ...);
 
 
 static bool checkButton(VPADStatus *vpadStatus, int button) {
@@ -32,8 +33,8 @@ static bool checkButton(VPADStatus *vpadStatus, int button) {
         OSSleepTicks(OSMillisecondsToTicks(1));
         cpt=cpt+1;
     }
-    if (cpt >= 5000) logLine("! WARNING : controller A BUTTON check timed out !");
-    if (!exitWhile) logLine("! ERROR : controller A BUTTON check failed !");
+    if (cpt >= 5000) display("! WARNING : controller A BUTTON check timed out !");
+    if (!exitWhile) display("! ERROR : controller A BUTTON check failed !");
     
     return status;
 }    
@@ -53,14 +54,15 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
             break;
         }
         case VPAD_READ_INVALID_CONTROLLER: {
-            logLine("Controller disconnected!");
+            display("Controller disconnected!");
             break;
         }
         default: {
-            WHBLogPrintf("Unknown PAD error! %08X", vpadError);
+            display("Unknown PAD error! %08X", vpadError);
             return;
         }
     }
+	// do not remove this draw ! 
     WHBLogConsoleDraw();
     for (int i = 0; i < 4; i++)
     {
@@ -73,7 +75,7 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
         memset(&kpadStatus, 0, sizeof(kpadStatus));
 
         if (KPADRead(i, &kpadStatus, 1) < 0)  {
-                logLine("Unknown KPAD error!");
+                display("Unknown KPAD error!");
                 return;
         } else {
 
@@ -81,7 +83,6 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
             switch (controllerType) {
 
                 case WPAD_EXT_CLASSIC:
-//                case WPAD_EXT_MPLUS_CLASSIC:
                 {
                     if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_A) {
                         vpadStatus->trigger = VPAD_BUTTON_A;
@@ -183,7 +184,6 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
                 }
                 
                 case WPAD_EXT_NUNCHUK:
-//                case WPAD_EXT_MPLUS_NUNCHUK:
                 {
                     if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_A) {
                         vpadStatus->trigger = VPAD_BUTTON_A;
@@ -217,7 +217,7 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
                 }
                 default:
                 {
-                    logLine("! ERROR : controller not recognized");
+                    display("! ERROR : controller not recognized");
                     break;
                 }
             }
@@ -253,63 +253,63 @@ bool checkController(VPADStatus *vpadStatus) {
     bool globalStatus = true;
     
     // A BUTTTON
-    logLine("Please PRESS A button...");
+    display("Please PRESS A button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_A);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
 
     // B BUTTTON
-    logLine("Please PRESS B button...");
+    display("Please PRESS B button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_B);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
     
     // UP BUTTTON
-    logLine("Please PRESS UP button...");
+    display("Please PRESS UP button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_UP);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
     
     // DOWN BUTTTON
-    logLine("Please PRESS DOWN button...");
+    display("Please PRESS DOWN button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_DOWN);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
 
     // HOME BUTTTON
-    logLine("Please PRESS HOME button...");
+    display("Please PRESS HOME button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_HOME);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
     
     // RIGHT BUTTTON
-    logLine("Please PRESS RIGHT button...");
+    display("Please PRESS RIGHT button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_RIGHT);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
     
     // LEFT BUTTTON
-    logLine("Please PRESS LEFT button...");
+    display("Please PRESS LEFT button...");
     status = checkButton(vpadStatus, VPAD_BUTTON_LEFT);
     if (!status) {
         globalStatus = false;
-        logLine("> KO !!!");
-    } else logLine("> OK");
+        display("> KO !!!");
+    } else display("> OK");
             
-    if (globalStatus) logLine("Current controller check ends successfully");
-    else  logLine("! ERROR : Current controller check failed !");
+    if (globalStatus) display("Current controller check ends successfully");
+    else  display("! ERROR : Current controller check failed !");
     
     return globalStatus;
 }

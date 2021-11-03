@@ -5,9 +5,6 @@
 FTP server based on libWUT and libIOSUHAX. 
 It fixes remaining files injection failures when using ftp-everywhere (such as saves for WWHD*).
 
-Comes with all necessary files (emebeded libWut and compile sources of libIOSUHAX). 
-No dependencies to set.
-
 The build process creates : HBL app + WUP package (to install it on the Wii-U menu as a channel)
 
 * Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
@@ -15,11 +12,25 @@ The build process creates : HBL app + WUP package (to install it on the Wii-U me
 ======================================================================================================
 BUILD : (i used Windows)
 
-Install devkitPro (in DEVKITPRO_PATH)
-Launch "msys2\msys2_shell.bat"
-export DEVKITPRO=$DEVKITPRO_PATH
-cd WiiUFtpServer
-./build.sh
+Install devkitPro (in DEVKITPRO_PATH) and download the libIOSUHAX from YaWut repository.
+
+Launch "msys2\msys2_shell.bat" 
+Get WUT with command : pacman -Syu devkitPPC wut-tools wut
+
+Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in.
+
+- export DEVKITPRO=$DEVKITPRO_PATH
+
+- cd WiiUFtpServer
+
+- ./build.sh
+
+It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
+
+To create the channel version (HBC), use "toWUP\createChannel.bat"
+
+Then copy the \_sdCard content to your SD card.
+
 
 ======================================================================================================
 HISTORY : 
@@ -155,4 +166,12 @@ HISTORY :
     > Restore originals headers in source files
     > unlimit the incomming connexions (hard limited for UL and DL in net.c)
 
-          
+2021/10/20 V6-3 :    
+    > fix wrong timeout value when mounting devices
+    > fix socket memory optimization failure
+    > set rights to 644 (instead of 666)
+    > externalize dependencies (libIOSUHAX from yaWut and WUT library)
+    > get extra 10% speed on upload by adjusting file's buffer
+    > use fastMutex in receivedFiles and main for thread safe handle
+    > add a two level log file (created in storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log)
+    > add optimized compilation flags

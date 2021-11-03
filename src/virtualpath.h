@@ -27,6 +27,12 @@
  *
  * for WiiXplorer 2010
  ***************************************************************************/
+ 
+ /****************************************************************************
+  * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
+ ***************************************************************************/
+
 #ifndef _VIRTUALPATH_H_
 #define _VIRTUALPATH_H_
 
@@ -37,8 +43,8 @@ extern "C"{
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "iosuhax.h"
-#include "iosuhax_devoptab.h"
+#include <iosuhax.h>
+#include <iosuhax_devoptab.h>
 
 typedef struct {
     char *name;

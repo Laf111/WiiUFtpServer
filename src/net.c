@@ -21,12 +21,18 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+/****************************************************************************
+  * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
+ ***************************************************************************/
+ 
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
 #include <unistd.h>
+
 #include <whb/log.h>
 #include <whb/log_console.h>
 
@@ -38,15 +44,16 @@ misrepresented as being the original software.
 #include "vrt.h"
 #include "net.h"
 
-// fail when DEFAULT_NET_BUFFER_SIZE*10 and over
-#define SOCKLIB_BUFSIZE DEFAULT_NET_BUFFER_SIZE*9
+#define SOCKLIB_BUFSIZE DEFAULT_NET_BUFFER_SIZE*12
 
-#define SOCKET_MOPT_STACK_SIZE 0x2000
+#define SOCKET_MOPT_STACK_SIZE DEFAULT_NET_BUFFER_SIZE
 
 extern int somemopt (int req_type, char* mem, unsigned int memlen, int flags);
-extern void logLine(const char *line);
+extern void display(const char *fmt, ...);
 
 static uint32_t hostIpAddress = 0;
+
+static const int retriesNumber = 20;
 
 static OSThread *socketThread=NULL;
 
@@ -70,13 +77,13 @@ int socketOptThreadMain(int argc, const char **argv)
     void *buf = MEMAllocFromDefaultHeapEx(SOCKLIB_BUFSIZE, 64);
     if (buf == NULL)
     {
-        logLine("Socket optimizer: OUT OF MEMORY!");
+        display("Socket optimizer: OUT OF MEMORY!");
         return 1;
     }
 
     if (somemopt(0x01, buf, SOCKLIB_BUFSIZE, 0) == -1 && socketlasterr() != 50)
     {
-        logLine("somemopt failed!");
+        display("somemopt failed!");
         return 1;
     }
 
@@ -112,11 +119,11 @@ void initialize_network()
     // use default thread on Core 0
     socketThread=OSGetDefaultThread(0);
     if (socketThread == NULL) {
-        logLine("! ERROR : when getting socketThread!");
+        display("! ERROR : when getting socketThread!");
         return;
     }
     if (!OSSetThreadPriority(socketThread, 1))
-        logLine("! WARNING: Error changing net thread priority!");
+        display("! WARNING: Error changing net thread priority!");
 
     OSSetThreadName(socketThread, "Network thread on CPU0");
     OSRunThread(socketThread, socketThreadMain, 0, NULL);
@@ -151,30 +158,33 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
     if (type == SOCK_STREAM)
     {
         int enable = 1;
-
-        // SO_KEEPALIVE
-        if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &enable, sizeof(enable))!=0) 
-            {if (!initDone) logLine("! ERROR : SO_KEEPALIVE activation failed !");}        
-        
+            
         // Reuse opened buffers (avoid TIME_WAIT)
         if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
-            {if (!initDone) logLine("! ERROR : SO_REUSEADDR activation failed !");}
+            {if (!initDone) display("! ERROR : SO_REUSEADDR activation failed !");}
         
         // Activate WinScale
         if (setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
-            {logLine("! ERROR : WinScale activation failed !");}
+            {if (!initDone) display("! ERROR : WinScale activation failed !");}
 
         // SO_NOSLOWSTART
         if (setsockopt(sock, SOL_SOCKET, SO_NOSLOWSTART, &enable, sizeof(enable))!=0) 
-            {logLine("! ERROR : Disable slow start feature failed !");}    
+            {if (!initDone) display("! ERROR : Disable slow start feature failed !");}    
         
         // socket memory optimization
-        if (!setsockopt(sock, SOL_SOCKET, SO_USERBUF, &enable, sizeof(enable))==0)
-            {logLine("! ERROR : Socket memory optimization failed !");}
+        int nbTries=0;
+        try_again_someopt:
+        if (setsockopt(sock, SOL_SOCKET, SO_RUSRBUF, &enable, sizeof(enable))!=0) 
+        {
+            OSSleepTicks(OSMillisecondsToTicks(200));
+            nbTries++;
+            if (nbTries <= retriesNumber) goto try_again_someopt;
+            else if (!initDone) display("! ERROR : Socket memory optimization failed !");
+        }
         
         if (!initDone) {
             initDone = true;
-            logLine("Limited to 1 client and 1 slot for up/download !");
+            display("Limited to 1 client and 1 slot for up/download !");
         }
         
     }
@@ -246,7 +256,7 @@ uint32_t network_gethostip()
 int32_t network_write(int32_t s, const void *mem, int32_t len)
 {
     int32_t transfered = 0;
-
+    
     while (len)
     {
         int ret = send(s, mem, len, 0);
@@ -289,12 +299,10 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
     int32_t result = 0;
     int32_t remaining = length;
     int32_t bytes_transferred;
-    
+	set_blocking(s, true);
     while (remaining) {
 
-        set_blocking(s, true);
         bytes_transferred = network_write(s, buf, MIN(remaining, (int) buf_size));
-        set_blocking(s, false);
         
         if (bytes_transferred > 0) {
             remaining -= bytes_transferred;
@@ -303,17 +311,19 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
         } else if (bytes_transferred < 0) {
 
             if (bytes_transferred == -ENOMEM) {
-                logLine("! ERROR : out of memory in send_exact");
+                display("! ERROR : out of memory in send_exact");
             }
             // ERROR
             result = bytes_transferred;
             break;
         } else {
-            // SUCCESS
-            result = 0;
+            // Should never happen
+            result = -ENODATA;
+			display("DEBUG : send_exact return ENODATA!");
             break;
         }
     }
+	set_blocking(s, false);
     return result;
 }
 
@@ -342,7 +352,7 @@ int32_t send_from_file(int32_t s, FILE *f) {
     do {
         buf_size -= 32;
         if (buf_size < 0) {
-			logLine("! ERROR : failed to allocate buf!");
+			display("! ERROR : failed to allocate buf!");
             return -ENOMEM;
         }
         buf = (char *)memalign(0x40, buf_size);
@@ -350,13 +360,13 @@ int32_t send_from_file(int32_t s, FILE *f) {
     } while(!buf);
 
     if (!buf) {
-		logLine("! ERROR : failed to allocate buf!");
+		display("! ERROR : failed to allocate buf!");
         return -ENOMEM;
     }
     // fail over DEFAULT_NET_BUFFER_SIZE*2
     int bufferSize = DEFAULT_NET_BUFFER_SIZE*2;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))!=0)
-        {logLine("! ERROR : SNDBUF failed !");}
+        {display("! ERROR : SNDBUF failed !");}
     
     setvbuf(f, NULL, _IOFBF, buf_size);
 	int32_t bytes_read = fread(buf, 1, buf_size, f);
@@ -364,20 +374,19 @@ int32_t send_from_file(int32_t s, FILE *f) {
     if (bytes_read  < buf_size) {
         // end of file ? or failed to read f ?
         if (!feof(f)) {
-            logLine("! ERROR : failed to read file!");
-            WHBLogPrintf("! ERROR : failed to read file!, fread = %d", bytes_read);
-            WHBLogPrintf("! ERROR : errno = %d", errno);        
+            display("! ERROR : failed to read file!");
+            display("! ERROR : fread = %d and bytes = %d", bytes_read, buf_size);
+            display("! ERROR : errno = %d", errno);        
             return-100;
         }
     }
     
     // will loop on sending network packets to reach buf_size data sent
     int32_t remaining = bytes_read;
+    set_blocking(s, true);
     while (remaining) {
 
-        set_blocking(s, true);        
         int32_t bytes_transferred = network_write(s, buf, remaining);
-        set_blocking(s, false);        
 
         if (bytes_transferred > 0) {
             remaining -= bytes_transferred;
@@ -386,14 +395,14 @@ int32_t send_from_file(int32_t s, FILE *f) {
         } else if (bytes_transferred < 0) {
 
             if (bytes_transferred == -ENOMEM) {
-                logLine("! ERROR : out of memory in send_exact");
+                display("! ERROR : out of memory in send_exact");
             }
             // ERROR
             result = bytes_transferred;
             break;
         } 
     }
-
+    set_blocking(s, false);
     if (!buf) free(buf);
     return result;
 }
@@ -404,14 +413,14 @@ int32_t recv_to_file(int32_t s, FILE *f) {
     int32_t result = 0;
     
     // buf_size is set to max data network recv size
-    int buf_size = DEFAULT_NET_BUFFER_SIZE*9+32;
+    int buf_size = DEFAULT_NET_BUFFER_SIZE*10+32;
     char * buf=NULL;
 
     // align memory (64bytes = 0x40) when alocating the buffer
     do {
         buf_size -= 32;
         if (buf_size < 0) {
-            logLine("! ERROR : failed to allocate buf!");
+            display("! ERROR : failed to allocate buf!");
             return -ENOMEM;
         }
         buf = (char *)memalign(0x40, buf_size);
@@ -419,7 +428,7 @@ int32_t recv_to_file(int32_t s, FILE *f) {
     } while(!buf);
 
     if (!buf) {
-        logLine("! ERROR : failed to allocate buf!");
+        display("! ERROR : failed to allocate buf!");
         return -ENOMEM;
     }
     
@@ -427,43 +436,40 @@ int32_t recv_to_file(int32_t s, FILE *f) {
     int enable = 1;
      // Activate TCP SAck
     if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-        {logLine("! ERROR : TCP SAck activation failed !");}
+        {display("! ERROR : TCP SAck activation failed !");}
     
     // SO_OOBINLINE
     if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
-        {logLine("! ERROR : Force to leave received OOB data in line failed !");}
+        {display("! ERROR : Force to leave received OOB data in line failed !");}
     
     // TCP_NODELAY 
     if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-        {logLine("! ERROR : Disable Nagle's algorithm failed !");}
+        {display("! ERROR : Disable Nagle's algorithm failed !");}
 
     // Suppress delayed ACKs
     if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
-        {logLine("! ERROR : Suppress delayed ACKs failed !");}
+        {display("! ERROR : Suppress delayed ACKs failed !");}
         
     // set the max buffer recv size (system will double this value => so = buf_size)
-    int bufferSize = DEFAULT_NET_BUFFER_SIZE*4.5;    
+    int bufferSize = DEFAULT_NET_BUFFER_SIZE*5;    
     if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))!=0)
-        {logLine("! ERROR : RCVBUF failed !");}
+        {display("! ERROR : RCVBUF failed !");}
 
     int32_t bytes_received = buf_size;
-    setvbuf(f, NULL, _IOFBF, buf_size);
+    setvbuf(f, NULL, _IOFBF, bufferSize);
+    set_blocking(s, true);
 
     // this while loop hard limiting to 1 slot for upload on client side
     while (bytes_received) {
-    
-        set_blocking(s, true);
-        bytes_received = network_read(s, buf, buf_size);
-        set_blocking(s, false);
         
+        bytes_received = network_read(s, buf, buf_size);       
         if (bytes_received < 0) {
 
             if (bytes_received == -ENOMEM) {
-                logLine("! ERROR : out of memory in recv_to_file");
+                display("! ERROR : out of memory in recv_to_file");
             }
 
             // still fail, exit code
-            if (!buf) free(buf);
             // error
             result = bytes_received;
             
@@ -472,7 +478,6 @@ int32_t recv_to_file(int32_t s, FILE *f) {
             // get the fd
             int fd=fileno(f);
             ChmodFile(fd);
-            if (!buf) free(buf);
             // FINISHED : file sucessfully uploaded and chmoded
             result = 0;
         }
@@ -482,11 +487,14 @@ int32_t recv_to_file(int32_t s, FILE *f) {
         if (bytes_written < bytes_received)
         {
             // error when writing f
-            if (!buf) free(buf);
+            display("! ERROR : failed to write file!");
+            display("! ERROR : fwrite = %d and bytes=%d", bytes_written, bytes_received);
+            display("! ERROR : errno = %d", errno);
+
             result = -100;
         }
     }
-
+    set_blocking(s, false);
     if (!buf) free(buf);
     return result;
 }

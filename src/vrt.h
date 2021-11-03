@@ -22,6 +22,11 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+/****************************************************************************
+  * WiiUFtpServer
+  * 2021-10-20:Laf111:V6-3
+ ***************************************************************************/
+
 #ifndef _VRT_H_
 #define _VRT_H_
 
