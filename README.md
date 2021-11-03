@@ -12,11 +12,11 @@ Few games such as WWHD check the save files'rights and refuse to import them if 
 
 It comes with some **extra features** : 
 
-- support Wiiu PRO and Wiimote controllers
-- you can choose to disable or enable the power saving feature
-- enable / disable VERBOSE mode on server side
-- mount NAND paths only if you ask for it
-- a network unbrick feature 
+- **support Wiiu PRO and Wiimote controllers**
+- **you can choose to disable or enable the power saving feature**
+- **enable / disable VERBOSE mode on server side**
+- **mount NAND paths only if you ask for it**
+- **a network unbrick feature** 
  
 By default, NAND paths are not mounted. 
 
