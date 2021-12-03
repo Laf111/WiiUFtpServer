@@ -122,26 +122,15 @@ uint32_t copyFile(char* srcFilePath, const char* targetFilePath) {
 		IOSUHAX_FSA_Stat fStat;
 		IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
 		if ((ret = IOSUHAX_FSA_OpenFile(fsaFd, targetFilePath, "wb", &destFd)) >= 0) {
-			int result, sizew = 0;
-//            int sizef = fStat.size;
-			int fwrite = 0;
-			uint32_t passedMs = 1;
-    		uint64_t startTime = OSGetTime();
 
+			int result = 0, fwrite = 0;
 			while ((result = IOSUHAX_FSA_ReadFile(fsaFd, pBuffer, 0x01, buf_size, srcFd, 0)) > 0) {
 				if ((fwrite = IOSUHAX_FSA_WriteFile(fsaFd, pBuffer, 0x01, result, destFd, 0)) < 0) {
-//					display("Write %d,%s", fwrite, targetFilePath);
 					IOSUHAX_FSA_CloseFile(fsaFd, destFd);
 					IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
 					free(pBuffer);
 					return -1;
 				}
-				sizew += fwrite;
-				passedMs = (OSGetTime() - startTime) * 4000ULL / BUS_SPEED;
-        		if(passedMs == 0)
-            		passedMs = 1;
-
-//				display("Bytes Copied: %d of %d (%i kB/s)", sizew, sizef,  (uint32_t)(((uint64_t)sizew * 1000) / ((uint64_t)1024 * passedMs)));
 			}
 		} else {
 			display("! ERROR : Failed to write rc=%d,%s", ret, targetFilePath);
@@ -253,7 +242,7 @@ uint32_t createNandBackup(bool fullFlag) {
     }
 
     if (grc == 0) display("Backup created in wiiu/apps/WiiuFtpServer/NandBackup");
-    else display("!ERROR : failed to create NAND backup");
+    else display("! ERROR : failed to create NAND backup");
     display(" ");
 
     return grc;
@@ -293,7 +282,7 @@ uint32_t restoreNandBackup() {
     }
 
     if (grc == 0) display("NAND network files restored successfully !");
-    else display("!ERROR : failed to restore NAND backup");
+    else display("! ERROR : failed to restore NAND backup");
     display(" ");
 
     return grc;

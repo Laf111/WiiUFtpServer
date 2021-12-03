@@ -1,16 +1,18 @@
 # WiiUFtpServer
-**A new fork of ftpiiu that fixes files injection, display files timestamps correctly and much more faster than the original software.**
+**Based on ftpiiu but with the following issues fixed : 
+- connections failures and crashs
+- files timestamps
+- remove the one slot limitation on upload and unlock up to 8 simultaneous transfers (download/upload)
+- much more faster than the original**
 
 <p align="center">
   <img src="WiiUFtpServer.png">
 </p>
 
 
-It **fixes remaining files injection failures** when using ftp-everywhere.
-
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
-It comes with some **extra features** : 
+WiiuFtpServer comes also with some **extra features** : 
 
 - **support Wiiu PRO and Wiimote controllers**
 - **you can choose to disable or enable the power saving feature**
@@ -38,16 +40,13 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 
 **NOTES :**
 
+- No user/password requiered, only one client allowed with 8 simultaneous transfers max
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
 <p align="center">
   <img src="timestamps.png">
 </p>
-
-- The FTP method used is I/O multiplexing (blocking I/O). 
-
-- This **FTP server is limited to 1 unique client** (more safer) and one unique transfer slot for up/download (fix deconnexion issues) but you can **set the number of simultaneous transfers to the max on your FTP client : the connections will not timed out and this will speed the overhall transfer time**.
 
 **When using Ethernet** : (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
 

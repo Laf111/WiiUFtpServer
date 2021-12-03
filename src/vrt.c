@@ -31,16 +31,25 @@ misrepresented as being the original software.
 #include <malloc.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sys/param.h>
 #include <sys/dirent.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <dirent.h>
 
+#include "transferedFiles.h"
 #include "virtualpath.h"
-#include "vrt.h"
 #include "net.h"
+#include "vrt.h"
 
 extern void display(const char *fmt, ...);
+
+#ifdef LOG2FILE
+    extern void writeToLog(const char *fmt, ...);
+#endif
+
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
@@ -206,7 +215,9 @@ static void *with_virtual_path(void *virtual_cwd, void *void_f, char *virtual_pa
 }
 
 FILE *vrt_fopen(char *cwd, char *path, char *mode) {
-    return with_virtual_path(cwd, fopen, path, 0, mode, NULL);
+    FILE *f = NULL;
+    f = with_virtual_path(cwd, fopen, path, 0, mode, NULL);
+    return f;
 }
 
 int vrt_stat(char *cwd, char *path, struct stat *st) {
@@ -215,83 +226,85 @@ int vrt_stat(char *cwd, char *path, struct stat *st) {
     {
         return -1;
     }
-    else if (!*real_path || (strcmp(path, ".") == 0) || (strlen(cwd) == 1) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
+    else if (!*real_path || (strcmp(path, ".") == 0) || ((strlen(cwd) == 1) && (strcmp(cwd, "/") != 0)) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
     {
         st->st_mode = S_IFDIR;
         st->st_size = 31337;
         return 0;
     }
 
-/*     int srcFd = -1;
-
-    char *vpath=NULL;
-    size_t path_size = strlen(cwd) + strlen(path) + 1;
-    if (path_size < MAXPATHLEN) {
-        vpath = malloc(path_size);
-        strcpy(vpath, cwd);
-        strcat(vpath, path);
-
-        int fsaFd=getFSAFD();
-        IOSUHAX_FSA_OpenFile(fsaFd, vpath, "rb", &srcFd);
-
-        IOSUHAX_FSA_Stat fStat;
-        IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
-
-        st->st_size = fStat.size;
-        st->st_ctime = fStat.created;
-        st->st_mtime = fStat.modified;
-
-
-        IOSUHAX_FSA_CloseFile(fsaFd, srcFd);
-    } */
-
     free(real_path);
-    return (int)with_virtual_path(cwd, stat, path, -1, st, NULL);
+    
+    int res = (int)with_virtual_path(cwd, stat, path, -1, st, NULL);
+    return res; 
 }
 
-static int vrt_checkdir(char *cwd, char *path) {
+int vrt_checkdir(char *cwd, char *path) {
     char *real_path = to_real_path(cwd, path);
+    
+
     if (!real_path)
     {
+#ifdef LOG2FILE
+        display("! WARNING : vrt_checkdir realPath null, cwd=%s, path=%s", cwd, path);
+#endif                        
         return -1;
     }
-    else if (!*real_path || (strcmp(path, ".") == 0) || (strlen(cwd) == 1) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
+    else if (!*real_path || (strcmp(path, ".") == 0) || ((strlen(cwd) == 1) && (strcmp(cwd, "/") != 0)) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
     {
         return 0;
     }
     free(real_path);
-    return (int)with_virtual_path(cwd, checkdir, path, -1, NULL);
+    
+    int res = (int)with_virtual_path(cwd, checkdir, path, -1, NULL);
+    return res;
 }
 
 int vrt_chdir(char *cwd, char *path) {
 
     if (vrt_checkdir(cwd, path)) {
+/* #ifdef LOG2FILE
+        display("! ERROR : vrt_checkdir failed in vrt_chdir on cwd=%s, path=%s", cwd, path);
+        display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
+#endif                        
+ */
         return -1;
     }
     char *abspath = virtual_abspath(cwd, path);
     if (!abspath) {
-        display("!ERROR : vrt::virtual_abspath failed");
+        display("! ERROR : virtual_abspath failed in vrt_chdir on cwd=%s, path=%s", cwd, path);
+        display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
         errno = ENOMEM;
         return -1;
     }
+    
     strcpy(cwd, abspath);
+    
     if (cwd[1]) strcat(cwd, "/");
+    
     free(abspath);
     return 0;
 }
 
 int vrt_unlink(char *cwd, char *path) {
-    return (int)with_virtual_path(cwd, unlink, path, -1, NULL);
+        
+    int res = (int)with_virtual_path(cwd, unlink, path, -1, NULL);
+        
+    return res;
 }
 
 int vrt_mkdir(char *cwd, char *path, mode_t mode) {
-    return (int)with_virtual_path(cwd, mkdir, path, -1, mode, NULL);
+    int result = (int)with_virtual_path(cwd, mkdir, path, -1, mode, NULL);
+    return result;
 }
 
 int vrt_rename(char *cwd, char *from_path, char *to_path) {
     char *real_to_path = to_real_path(cwd, to_path);
     if (!real_to_path || !*real_to_path) return -1;
+    
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
+    
+
     free(real_to_path);
     return result;
 }
@@ -326,7 +339,6 @@ DIR_P *vrt_opendir(char *cwd, char *path)
         iter->virt_root = 1; // we are at the virtual root
         return iter;
     }
-
     iter->dir = with_virtual_path(cwd, opendir, path, 0, NULL);
     if (!iter->dir)
     {

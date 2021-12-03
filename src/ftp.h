@@ -40,6 +40,10 @@ misrepresented as being the original software.
 
 #define FTP_PORT            21
 
+// Number max of simultaneous connections from the client : 
+// 1 for communication with the client + NB_SIMULTANEOUS_TRANSFERS
+#define FTP_NB_SIMULTANEOUS_TRANSFERS 1+NB_SIMULTANEOUS_TRANSFERS
+
 #ifdef __cplusplus
 extern "C"{
 #endif

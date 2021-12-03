@@ -40,34 +40,60 @@ extern "C"{
 #include <stdbool.h>
 
 #include <nsysnet/socket.h>
-#include "receivedFiles.h"
+#include "transferedFiles.h"
+
+#define UNUSED    __attribute__((unused))
 
 #ifndef MIN
     #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #endif
+#ifndef MAX
+    #define MAX(x, y) ((x) > (y) ? (x) : (y))
+#endif
 
-#define DEFAULT_NET_BUFFER_SIZE 64*1024
+// number max of concurrents transfer slots 
+#define NB_SIMULTANEOUS_TRANSFERS 6
 
-// socket optimizations
-#define SO_RUSRBUF      0x10000     // enable userspace buffer
-#define SO_NOSLOWSTART  0x4000      // suppress slowstart on this socket
+// Timeout for retrying the calls to the network API
+#define NET_TIMEOUT 2
+#define NET_RETRY_TIME_STEP_MILLISECS 500
+
+
+// socket extra definitions
+#define SO_RUSRBUF      0x10000     // enable userspace socket buffer
+#define SO_NOSLOWSTART  0x4000      // suppress slowstart
 #define TCP_NOACKDELAY  0x2002      // suppress delayed ACKs
-#define TCP_NODELAY     0x2004      // TCP delay
+#define TCP_NODELAY     0x2004      // suppress TCP delay
 
-// max data connections number : unlimit (UP and DL are hard limited to 1 in net.c)
-#define NB_SIMULTANEOUS_CONNECTIONS 13
+// user buffers (file and IO) defs
+#define UNSCALED_BUFFER_SIZE 8*1024
+// 131072 bytes (128 x 1024) = 2*64*1024
+#define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
+
+#define DL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE
+#define UL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*2
+
+#define SOMEMOPT_BUFFER_SIZE 4*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
+
 
 void initialize_network();
+
 void finalize_network();
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol);
-int32_t network_data_socket(uint32_t domain,uint32_t type,uint32_t protocol);
+
 int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen);
+
 int32_t network_listen(int32_t s,uint32_t backlog);
+
 int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen);
+
 int32_t network_connect(int32_t s,struct sockaddr *,int32_t);
+
 int32_t network_read(int32_t s,void *mem,int32_t len);
+
 int32_t network_close(int32_t s);
+
 uint32_t network_gethostip();
 
 int32_t set_blocking(int32_t s, bool blocking);

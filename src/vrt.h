@@ -35,6 +35,7 @@ extern "C"{
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -51,6 +52,7 @@ char *to_real_path(char *virtual_cwd, char *virtual_path);
 
 FILE *vrt_fopen(char *cwd, char *path, char *mode);
 int vrt_stat(char *cwd, char *path, struct stat *st);
+int vrt_checkdir(char *cwd, char *path);
 int vrt_chdir(char *cwd, char *path);
 int vrt_unlink(char *cwd, char *path);
 int vrt_mkdir(char *cwd, char *path, mode_t mode);

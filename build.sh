@@ -3,8 +3,8 @@
 #/****************************************************************************
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
-VERSION_MAJOR=6
-VERSION_MINOR=3
+VERSION_MAJOR=7
+VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -19,6 +19,7 @@ echo - WiiUFtpServer $WiiuFtpServerVersion                           -
 echo =======================
 echo " "
 echo checking env ...
+echo -----------------------------------------------------
 
 check=$(env | grep "DEVKITPRO")
 if [ "$check" == "" ]; then
@@ -28,10 +29,13 @@ if [ "$check" == "" ]; then
     exit 100
 else
     if [ -d $DEVKITPRO ]; then
-
-        echo ">DEVKITPRO=$DEVKITPRO"
         if [ -f $DEVKITPRO/installed.ini ]; then
-            echo ">"$(more $DEVKITPRO/installed.ini | grep -i "Version=")
+            echo "DEVKITPRO  : ["$(more $DEVKITPRO/installed.ini | grep -i "Version=" | sed "s|Version=||g")"]        in $DEVKITPRO"
+            line=$(more $DEVKITPRO/wut/include/wut.h | grep "* wut")
+            # wutVersion=${line##*" * wut "}
+            wutVersion="1.0.0-beta10"
+            echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
+            echo "libIOSUHAX : [YaWut version] in $DEVKITPRO/iosuhax"
         fi
     else
         echo "$DEVKITPRO is invalid"
@@ -70,12 +74,10 @@ if [ $? -eq 0 ]; then
     echo "HBL package in ./_sdCard/wiiu/apps/WiiUFtpServer : "$(ls ./_sdCard/wiiu/apps/WiiUFtpServer)
     
     mv -f ./WiiUFtpServer.rpx ./_loadiine/0005000010050421/code > /dev/null 2>&1
-    echo "RPX package in ./_loadiine/0005000010050421 : "$(ls ./_loadiine/0005000010050421)
+    echo "RPX package in ./_loadiine/0005000010050421      : "$(ls ./_loadiine/0005000010050421)
     echo ""
     echo "Use ./toWUP/createChannel.bat in a windows cmd to create the WUP package"
-    echo ""
 else
-    echo ""
     echo ERRORS happened when building RPX file, exit 2
     exit 2
 fi

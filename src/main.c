@@ -17,7 +17,6 @@
 #include <whb/libmanager.h>
 #include <coreinit/dynload.h>
 #include <coreinit/thread.h>
-#include <coreinit/fastmutex.h>
 #include <coreinit/mcp.h>
 #include <coreinit/core.h>
 #include <coreinit/time.h>
@@ -33,7 +32,7 @@
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
-#include "receivedFiles.h"
+#include "transferedFiles.h"
 #include "nandBackup.h"
 #include "controllers.h"
 
@@ -55,7 +54,7 @@ typedef enum
 /****************************************************************************/
 
 // path used to check if a NAND backup exists on SDCard
-const char backupCheckedPath[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
+const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
 
 // gamepad inputs
 static VPADStatus vpadStatus;
@@ -69,17 +68,16 @@ static int fsaFd = -1;
 // mcp_hook_fd
 static int mcp_hook_fd = -1;
 
-// lock to make thread safe the display method
-OSFastMutex displayMutex;
+// lock to limit to one acess at the time for the display method
+static bool displayLocked = false;
 
-// lock to make thread safe the loggin method
-OSFastMutex logMutex;
+// lock to limit to one acess at the time for the loggin method
+static bool logLocked = false;
 
 #ifdef LOG2FILE
 // log file
 static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
-static char logFilePath2[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log2";
-static char *logFilePathPtr=NULL;
+static char previous[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.old";
 static FILE * logFile=NULL;
 #endif
 
@@ -99,16 +97,22 @@ void writeToLog(const char *fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     
-	while(!OSFastMutex_TryLock(&logMutex));
+	while (logLocked == true);
+    logLocked = true;
     
-    if (logFile == NULL && logFilePathPtr != NULL) logFile = fopen(logFilePathPtr, "w");
+    if (logFile == NULL) logFile = fopen(logFilePath, "w");
     if (logFile == NULL) {
         WHBLogPrintf("! ERROR : Unable to open log file");
         WHBLogConsoleDraw();
     }
-    fprintf(logFile, "%s\n", buf);
-    
-    OSFastMutex_Unlock(&logMutex);
+ 
+    fprintf(logFile, "%s\n", buf);        
+    if (fflush(logFile) != 0) {
+        WHBLogPrintf("! ERROR : failed to flush log file");    
+        WHBLogConsoleDraw();
+    }    
+
+    logLocked = false;
 }
 #endif
 
@@ -121,19 +125,21 @@ void display(const char *fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     
-	while(!OSFastMutex_TryLock(&displayMutex));
-    
+	while (displayLocked == true);
+    displayLocked = true;
+      
     WHBLogPrintf(buf);    
-    WHBLogConsoleDraw();
 #ifdef LOG2FILE       
     writeToLog(buf);
 #endif 
-    OSFastMutex_Unlock(&displayMutex);
+   
+    WHBLogConsoleDraw();
+    displayLocked = false;
 }
 
 //--------------------------------------------------------------------------
 //just to be able to call asyn
-void someFunc(IOSError err, void *arg) {
+void someFunc(IOSError err UNUSED, void *arg) {
     (void)arg;
 }
 
@@ -209,7 +215,7 @@ bool AppRunning()
 		switch(ProcUIProcessMessages(true))
 		{
 			case PROCUI_STATUS_EXITING:
-				// Being closed, deinit, free, and prepare to exit
+				// Being closed, prepare to exit
 				app = APP_STATE_STOPPED;
 				break;
 			case PROCUI_STATUS_RELEASE_FOREGROUND:
@@ -241,7 +247,7 @@ bool AppRunning()
 }
 
 //--------------------------------------------------------------------------
-uint32_t homeButtonCallback(void *dummy)
+uint32_t homeButtonCallback(void *dummy UNUSED)
 {
     app = APP_STATE_STOPPING;
 	return 0;
@@ -253,35 +259,31 @@ uint32_t homeButtonCallback(void *dummy)
 /****************************************************************************/
 int main()
 {
-
     // Console init
     WHBLogUdpInit();
     WHBProcInit();
     WHBLogConsoleInit();
     
-    OSFastMutex_Init(&displayMutex, "Display message mutex");
-    OSFastMutex_Unlock(&displayMutex);
-
 #ifdef LOG2FILE
     // if log file exists
-    if( access( logFilePath, F_OK ) == 0 ) {
+    if (access(logFilePath, F_OK) == 0) {
         // file exists
-        
-        // check if second log file exists
-        if( access( logFilePath2, F_OK ) == 0 ) {
 
-            // remove the first and use it
-            remove(logFilePath);
-            logFilePathPtr=logFilePath;
-        } else {
-            logFilePathPtr=logFilePath2;
+        // check if second log file exists
+        if (access(previous, F_OK) == 0) {
+            // remove previous
+            if (remove(previous) != 0) {
+                WHBLogPrintf("! ERROR : Failed to remove old log file");
+            }
         }
-        
-    } else {
-        logFilePathPtr=logFilePath;
+
+        // backup : log -> previous
+        if (rename(logFilePath, previous) != 0) {
+            WHBLogPrintf("! ERROR : Failed to rename log file");
+            
+        }
     }
-    OSFastMutex_Init(&logMutex, "Display message mutex");
-    OSFastMutex_Unlock(&logMutex);    
+    WHBLogConsoleDraw();  
 #endif    
     
     // *PAD init
@@ -313,10 +315,10 @@ int main()
         OSSetThreadPriority(thread, 0);
     }
 
-    display(" -=============================-\n");
-    display("|    %s     |\n", VERSION_STRING);
-    display(" -=============================-\n");
-    display("[Laf111/2021-10]");
+    display(" -=============================-");
+    display("|    %s     |", VERSION_STRING);
+    display(" -=============================-");
+    display("[Laf111/2021-12]");
     display(" ");
 
 
@@ -430,9 +432,11 @@ int main()
             if (autoShutDown) {
                 display("(auto-shutdown OFF)");
                 IMDisableAPD(); // Disable auto-shutdown feature
+				autoShutDown = 0;
             } else {
                 display("(auto-shutdown ON)");
                 IMEnableAPD(); // Disable auto-shutdown feature
+				autoShutDown = 1;
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
         }
@@ -440,8 +444,6 @@ int main()
         OSSleepTicks(OSMillisecondsToTicks(1));
         cpt=cpt+1;
 
-        // get last autoShutDown status
-        IMIsAPDEnabled(&autoShutDown);
     }
 
     // verbose mode (disabled by default)
@@ -461,7 +463,7 @@ int main()
     
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
     setFsaFdCopyFiles(fsaFd);
-    int backupExist = checkEntry(backupCheckedPath);
+    int backupExist = checkEntry(backupCheck);
     if (mountMlc) {
         if (backupExist != 1) {
             cls();
@@ -510,8 +512,11 @@ int main()
     WHBInitializeSocketLibrary();
     
     initialize_network();
-    int network_down = 0;
+    int networkDown = 0;
 
+#ifdef LOG2FILE
+    writeToLog("Network initialized");
+#endif
     /*--------------------------------------------------------------------------*/
     /* Create FTP server                                                        */
     /*--------------------------------------------------------------------------*/
@@ -523,7 +528,7 @@ int main()
 	addr.s_addr = network_gethostip();
 
     if (strcmp(inet_ntoa(addr),"0.0.0.0") == 0 && !isChannel()) {
-        network_down = 1;
+        networkDown = 1;
         cls();
         display(" ");
         display("! ERROR : network is OFF on the wii-U, FTP is impossible");
@@ -550,23 +555,37 @@ int main()
                 goto exit;
             }
         } else {
-            display("ERROR : Can't start the FTP server, exiting");
+            display("! ERROR : Can't start the FTP server, exiting");
         }
         display("");
     }
 
-    bool exitApplication = false;
-    while (WHBProcIsRunning() && !network_down && !exitApplication)
+#ifdef LOG2FILE
+    writeToLog("Server created, adress = %s", inet_ntoa(addr));
+#endif
+    bool userExitRequest = false;
+//    while (WHBProcIsRunning() && !networkDown && !userExitRequest)
+    while (!networkDown && !userExitRequest)
     {
-        network_down = process_ftp_events();
-        if (network_down)
+        networkDown = process_ftp_events();        
+        if (networkDown) {
+            display("! ERROR : FTP server stopped !");
+            display("! ERROR : errno = %d (%s)", errno, strerror(errno));            
+            display("");
+            display(" > Press A or B to exit...");
+            display("");
+
+            readUserAnswer(&vpadStatus);
             break;
+        }
+        
         listenControlerEvent(&vpadStatus);
-
+        
         // check button pressed and/or hold
-        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) exitApplication = true;
-        if (exitApplication) break;
-
+        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
+        
+        // TODO : WHBProcIsRunning() needed ?
+        if (userExitRequest) break;
     }
 
     /*--------------------------------------------------------------------------*/
@@ -593,6 +612,7 @@ exit:
 #endif
     if (isChannel()) {
         SYSLaunchMenu();
+        // loop to exit to the Wii-U Menu
 		while (app != APP_STATE_STOPPED) {
 	        AppRunning();
 	    }
