@@ -1,9 +1,10 @@
 # WiiUFtpServer
-**Based on ftpiiu but with the following issues fixed : 
-- connections failures and crashs
+Based on ftpiiu but with the following issues fixed : 
+- **connections failures and crashs**
+- files injections (saves import failure)
 - files timestamps
-- remove the one slot limitation on upload and unlock up to 8 simultaneous transfers (download/upload)
-- much more faster than the original**
+- remove the one slot limitation on upload and unlock **up to 8 simultaneous transfers (download/upload)**
+- **much more faster than the original**
 
 <p align="center">
   <img src="WiiUFtpServer.png">
