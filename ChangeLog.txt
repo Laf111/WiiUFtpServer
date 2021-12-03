@@ -175,3 +175,6 @@ HISTORY :
     > use fastMutex in receivedFiles and main for thread safe handle
     > add a two level log file (created in storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log)
     > add optimized compilation flags
+
+    
+TODO : count files DL/UL in transferedFiles
