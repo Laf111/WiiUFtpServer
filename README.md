@@ -57,11 +57,12 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section.
 
 
-Install devkitPro (in DEVKITPRO_PATH) and download the libIOSUHAX from YaWut repository.
+Install devkitPro (in DEVKITPRO_PATH).
+Get WUT >= beta12 from https://github.com/devkitPro/wut and libIOSUHAX from https://github.com/yawut/libiosuhax.
 
 Launch "msys2\msys2_shell.bat" 
-Get WUT with command : pacman -Syu devkitPPC wut-tools wut
 
+Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in.
 Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in.
 
 - export DEVKITPRO=$DEVKITPRO_PATH
