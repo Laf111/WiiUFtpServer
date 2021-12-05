@@ -2,8 +2,8 @@
 <app version="1">
   <name>WiiUFtpServer</name>
   <coder>Laf111</coder>
-  <version>5.2.0</version>
+  <version>7.0.0</version>
   <release_date>20210425040807</release_date>
-  <short_description>FTP server that fix file injection failures, file timestamps and transfers speeds.</short_description>
-  <long_description>FTP server that fix file injection failures, file timestamps and transfers speeds.</long_description>
+  <short_description>Robust and optimized FTP server for the Wii-U</short_description>
+  <long_description>Based on FTPiiU server, fix file injection failures, file timestamps, transfers number and speeds.</long_description>
 </app>
