@@ -121,7 +121,7 @@ HISTORY :
     > fix issue when disconnecting/stop server (dynlibs)
 
 2021/08/12 V5-1 :    
-    > now allow simultaneous tranfers also for upload (client -> server)
+    > now allow simultaneous transfers also for upload (client -> server)
     > restore FTP thread (fixing v4-5 issue)
     > fix to 1 client max with 6 connections max
     > add a socket optimization : Suppress delayed ACKs
@@ -132,7 +132,7 @@ HISTORY :
     > if auto shudown feature is enabled, pressing DOWN toggle the feature OFF/ON
     > add a verbose mode for server log (disable by default) that can be activated by pressing UP
     > longer value for internal timeout to avoid data transfer deconnexions
-    > only 1 simultaneous tranfers for up/download (fix deconnexion issues)
+    > only 1 simultaneous transfers for up/download (fix deconnexion issues)
     > WUT is now also used for HBL version (since now it performs like dynamic libs one)
     > add some socket optimizations : 
         - Leave received OOB data in line (SO_OOBINLINE)
@@ -176,5 +176,11 @@ HISTORY :
     > add a two level log file (created in storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log)
     > add optimized compilation flags
 
-    
-TODO : count files DL/UL in transferedFiles
+2021/12/05 V7-0 :    
+    > dived further in the code and rework the original sources (ftpiiu) to :
+        - complete the work left (TODO) that essentially fix the limitation to one upload slot (vrt_chdir failure in ftp_MKD)
+        - now server allows 6 simultaneous transfers on both ways (UL/DL)
+        - add a transfer file design (asynchronous calls safe) to handle files transfering
+        - add an IO optimization on file by using a user buffer (socket one already implemented)
+        - transfer speeds now are over 3MB/s in both ways (UL/DL)
+    > add a 2 level log file saved on the SDcard (disable by default if you compile sources because it impacts server performance) 
