@@ -54,25 +54,31 @@ After the restoration process, you will be able to start WiiuFtpServer and unbri
 #
 # BUILD :
 
-Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section.
+(Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section)
 
+To build from scratch :
 
-Install devkitPro (in DEVKITPRO_PATH).
-Get WUT >= beta12 from https://github.com/devkitPro/wut and libIOSUHAX from https://github.com/yawut/libiosuhax.
+- install devkitPro (in DEVKITPRO_PATH)
+- get WUT >= beta12 from https://github.com/devkitPro/wut 
+- libIOSUHAX from https://github.com/yawut/libiosuhax.
+
 
 Launch "msys2\msys2_shell.bat" 
 
-Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in.
-Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in.
-
 - export DEVKITPRO=$DEVKITPRO_PATH
 
-- cd WiiUFtpServer
+- Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in
+
+- Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in
+
+- cd to WiiUFtpServer folder
 
 - ./build.sh
+
 
 It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
 
 To create the channel version (HBC), use "toWUP\createChannel.bat"
 
-Then copy the \_sdCard folder content to your SD card.
+
+Then just copy the \_sdCard folder content to your SD card.
