@@ -10,7 +10,7 @@ Based on ftpiiu but with the following issues fixed :
 - file's dates (timestamps)
 - **file injection (add rights on files received using IOSUHAX lib)**
 - remove the one slot limitation on upload and unlock up to **6 simultaneous transfers (download/upload)**
-- **much more faster than the original (over 3MB/s both ways)**
+- **much more faster than the original (over 3MB/s in both ways)**
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
