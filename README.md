@@ -3,7 +3,7 @@
   <img src="WiiUFtpServer.png">
 </p>
 
-**Now a true FTP server for the WiiU !**
+**A robust and optimized FTP server for the WiiU !**
 
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
