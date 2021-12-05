@@ -33,14 +33,6 @@ In any case, **only files contained in the partial backup** will be used and **o
 
 After the restoration process, you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one)
 
-
-**Speeds compared to FTP-everywhere** : (Wii-U with Ethernet adapter - NAS - Laptop using Wifi)
-
-<p align="center">
-  <img src="bandwith.png">
-</p>
-
-
 **NOTES :**
 
 - No user/password requiered, only one client allowed with 8 simultaneous transfers max
