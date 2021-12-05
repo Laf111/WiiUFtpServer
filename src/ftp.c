@@ -35,10 +35,12 @@ misrepresented as being the original software.
 #include <unistd.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <time.h>
 
 #include <coreinit/time.h>
 #include <coreinit/memdefaultheap.h>
-#include <time.h>
+#include <nsysnet/_socket.h>
+
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -47,7 +49,7 @@ misrepresented as being the original software.
 
 #define UNUSED    __attribute__((unused))
 
-#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*15
+#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*7
 
 #define FTP_MSG_BUFFER_SIZE 1024
 #define FTP_STACK_SIZE 32*1024
@@ -355,8 +357,8 @@ static int32_t ftp_CWD(connection_t *client, char *path) {
     if (!vrt_chdir(client->cwd, path)) {
         result = write_reply(client, 250, "CWD command successful.");
     } else  {
-//        display("! WARNING : error in vrt_chdir in ftp_CWD : %s+%s", client->cwd, path);            
-//        display("! WARNING : errno = %d (%s)", errno, strerror(errno));         
+//        display("~ WARNING : error in vrt_chdir in ftp_CWD : %s+%s", client->cwd, path);            
+//        display("~ WARNING : errno = %d (%s)", errno, strerror(errno));         
 
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when CWD to %s%s : err = %s", client->cwd, path, strerror(errno)); 
@@ -385,7 +387,7 @@ static int32_t ftp_DELE(connection_t *client, char *path) {
     if (!vrt_unlink(client->cwd, path)) {
         return write_reply(client, 250, "File or directory removed.");
     } else {
-        display("! WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));                            
+        display("~ WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));                            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when DELE %s%s : err = %s", client->cwd, path, strerror(errno)); 
         return write_reply(client, 550, msg);
@@ -542,8 +544,8 @@ static int32_t prepare_data_connection_active(connection_t *client, data_connect
         network_close(data_socket);
         
         char msg[FTP_MSG_BUFFER_SIZE];
-        sprintf(msg, "failed to bind active socket %d : %d (%s), retry in %d sec...", client->data_socket, errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
-        display("! WARNING : %s", msg);
+        sprintf(msg, "failed to bind active socket %d : %d (%s), retry in %d msec...", client->data_socket, errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
+        display("~ WARNING : %s", msg);
         OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
         write_reply(client, 421, msg);
                 
@@ -968,7 +970,7 @@ static void cleanup_client(connection_t *client) {
     }
     free(client);
     activeConnectionsNumber--;
-    display("- %s connection %d closed", clientIp, client_index+1);
+    display("- %s connection [%d] closed", clientIp, client_index+1);
 }
 
 void cleanup_ftp() {
@@ -999,8 +1001,8 @@ static bool process_getClients() {
             if (activeConnectionsNumber >=1 ) {
                 connection_t *client = connections[FTP_NB_SIMULTANEOUS_TRANSFERS-1];
                 char msg[FTP_MSG_BUFFER_SIZE];
-                sprintf(msg, "Error accepting connection: err=%d (%s), retry in %d sec...", -peer, strerror(-peer), NET_RETRY_TIME_STEP_MILLISECS);
-                display("! WARNING : %s", msg);
+                sprintf(msg, "Error accepting connection: err=%d (%s), retry in %d msec...", -peer, strerror(-peer), NET_RETRY_TIME_STEP_MILLISECS);
+                display("~ WARNING : %s", msg);
                 OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));                
                 return write_reply(client, 520, msg);
             }
@@ -1008,9 +1010,9 @@ static bool process_getClients() {
         }
 
         if (activeConnectionsNumber == 0) strcpy(clientIp,inet_ntoa(client_address.sin_addr));
-        if (strcmp(clientIp,inet_ntoa(client_address.sin_addr)) !=0) {
+        if (strcmp(clientIp,inet_ntoa(client_address.sin_addr)) !=0 ) {
 
-            display("! WARNING : %s already connected, close his connections first", clientIp);
+            display("~ WARNING : Sorry %s, %s is already connected ! close all his connections first !", inet_ntoa(client_address.sin_addr), clientIp);
             network_close(peer);
             return true;
         }
@@ -1018,9 +1020,9 @@ static bool process_getClients() {
         if (activeConnectionsNumber == FTP_NB_SIMULTANEOUS_TRANSFERS) {
             connection_t *client = connections[FTP_NB_SIMULTANEOUS_TRANSFERS-1];
             char msg[FTP_MSG_BUFFER_SIZE];
-            sprintf(msg, "Maximum connections number reached [%d], retry after ends one current transfert", FTP_NB_SIMULTANEOUS_TRANSFERS);
+            sprintf(msg, "Maximum connections number reached [%d], retry after ends one current transfert", FTP_NB_SIMULTANEOUS_TRANSFERS-1);
             write_reply(client, 520, msg);
-            display("! WARNING : %s", msg);
+            display("~ WARNING : %s", msg);
         }
 
         connection_t *client = malloc(sizeof(connection_t));
@@ -1056,15 +1058,15 @@ static bool process_getClients() {
 
             if (activeConnectionsNumber == FTP_NB_SIMULTANEOUS_TRANSFERS) {
                 char msg[FTP_MSG_BUFFER_SIZE];
-                sprintf(msg, "Maximum connections number reached [%d], retry after ends one current transfert", FTP_NB_SIMULTANEOUS_TRANSFERS);
-                write_reply(client, 520, msg);
-                display("! WARNING : %s", msg);
+                sprintf(msg, "Maximum connections number reached [%d], retry after ends one current transfert", FTP_NB_SIMULTANEOUS_TRANSFERS-1);
+                write_reply(client, 550, msg);
+                display("~ WARNING : %s", msg);
             } else {
                 for (client_index = 0; client_index < FTP_NB_SIMULTANEOUS_TRANSFERS; client_index++) {
                     if (!connections[client_index]) {
                         connections[client_index] = client;
                         
-                        display("- %s open connection %d", clientIp, client_index+1);
+                        display("- %s open connection [%d]", clientIp, client_index+1);
                         break;
                     }
                 }
@@ -1090,8 +1092,8 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
                 client->data_connection_connected = true;
             } else {
                 char msg[FTP_MSG_BUFFER_SIZE];
-                sprintf(msg, "Error accepting connection : %d (%s), retry in %d sec...", errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
-                display("! WARNING : %s", msg);
+                sprintf(msg, "Error accepting connection : %d (%s), retry in %d msec...", errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
+                display("~ WARNING : %s", msg);
                 OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
                 write_reply(client, 421, msg);
             }
@@ -1115,7 +1117,7 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
             
         } else if (OSGetTick() > (int) client->data_connection_timer) {
             result = -99;
-            display("! WARNING : Timed out for data socket %d", client->data_socket);
+            display("~ WARNING : Timed out for data socket %d", client->data_socket);
             write_reply(client, 421, "Timed out waiting for data connection.");
         }
         // here result = 1 or -2
@@ -1139,7 +1141,7 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
                 display("! ERROR : transfer failed, socket error = %d", result);            
                 write_reply(client, 520, "Data connection closed, error occurred during transfer.");
             } else {
-                display("! WARNING : connection %d timed out", client_index);            
+                display("~ WARNING : connection %d timed out", client_index);            
                 write_reply(client, 421, "Data connection closed, timeout reached.");
             }
         } else {
@@ -1171,7 +1173,7 @@ static void process_control_events(connection_t *client) {
         client->buf[client->offset] = '\0';
 
         if (strchr(offset_buf, '\0') != (client->buf + client->offset)) {
-            display("! WARNING : Received a null byte from client, closing connection ;-)"); // i have decided this isn't allowed =P
+            display("~ WARNING : Received a null byte from client, closing connection ;-)"); // i have decided this isn't allowed =P
             goto recv_loop_end;
         }
 
@@ -1180,7 +1182,7 @@ static void process_control_events(connection_t *client) {
         for (next = client->buf; (end = strstr(next, CRLF)) && !client->data_callback; next = end + CRLF_LENGTH) {
             *end = '\0';
             if (strchr(next, '\n')) {
-                display("! WARNING : Received a line-feed from client without preceding carriage return, closing connection ;-)"); // i have decided this isn't allowed =P
+                display("~ WARNING : Received a line-feed from client without preceding carriage return, closing connection ;-)"); // i have decided this isn't allowed =P
                 goto recv_loop_end;
             }
 

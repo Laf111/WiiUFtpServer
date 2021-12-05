@@ -38,6 +38,7 @@ misrepresented as being the original software.
 
 #include <errno.h>
 #include <sys/fcntl.h>
+#include <nsysnet/_socket.h>
 #include <coreinit/memdefaultheap.h>
 
 #include <nn/ac.h>
@@ -66,15 +67,6 @@ static uint8_t *socketOptThreadStack=NULL;
 
 static bool initDone = false;
 
-int32_t getsocketerrno()
-{
-    int res = socketlasterr();
-    if (res == NSN_EAGAIN)
-    {
-        res = EAGAIN;
-    }
-    return res;
-}
 
 int socketOptThreadMain(int argc UNUSED, const char **argv UNUSED)
 {
@@ -85,11 +77,8 @@ int socketOptThreadMain(int argc UNUSED, const char **argv UNUSED)
         return -ENOMEM;
     }
 
-    if (somemopt(0x01, buf, SOMEMOPT_BUFFER_SIZE, 0) == -1 && socketlasterr() != 50)
-    {
-        display("! ERROR : somemopt failed!");
-        return 1;
-    }
+    if (somemopt(0x01, buf, SOMEMOPT_BUFFER_SIZE, 0) == -1 && errno != 50)
+    {if (!initDone) display("! ERROR : somemopt failed !");}
 
     MEMFreeToDefaultHeap(buf);
 
@@ -98,14 +87,13 @@ int socketOptThreadMain(int argc UNUSED, const char **argv UNUSED)
 
 int socketThreadMain(int argc UNUSED, const char **argv UNUSED)
 {
-    socket_lib_init();
 
     socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
 
     if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU0))
         return 1;
 
-    OSSetThreadName(&socketOptThread, "Socket optimizer socket");
+    OSSetThreadName(&socketOptThread, "Socket memory optimizer thread");
     OSResumeThread(&socketOptThread);
 
     #ifdef LOG2FILE    
@@ -128,7 +116,7 @@ static bool retry(int32_t socketError) {
         socketError == -EISCONN) status = true;
 
     #ifdef LOG2FILE    
-        if (status) display("! WARNING : Retrying transfer after = %d (%s)", socketError, strerror(socketError));
+        if (status) display("~ WARNING : Retrying transfer after = %d (%s)", socketError, strerror(socketError));
     #endif
     return status;
 }
@@ -148,27 +136,40 @@ void initialize_network()
         display("! ERROR : when getting socketThread!");
         return;
     }
-    if (!OSSetThreadPriority(socketThread, 1))
-        display("! WARNING: Error changing net thread priority!");
+    if (!OSSetThreadPriority(socketThread, 0))
+        display("~ WARNING: Error changing net thread priority!");
 
     OSSetThreadName(socketThread, "Network thread on CPU0");
     OSRunThread(socketThread, socketThreadMain, 0, NULL);
 
     OSResumeThread(socketThread);
 
+    #ifdef LOG2FILE    
+        writeToLog("socketThreadMain ready");
+    #endif
+    
+    // wait a few time...
+    OSSleepTicks(OSMillisecondsToTicks(100));
+    
     int ret;
     OSJoinThread(socketThread, &ret);
 
+    #ifdef LOG2FILE    
+        writeToLog("socketThreadMain Launched");
+    #endif    
+    
 }
 
 void finalize_network()
 {
-    display(" ");
-    display(" Files received : %d", nbFilesUL);
-    display(" Files sent     : %d", nbFilesDL);
+    display(" ");    
+    display("------------------------------------------------------------");
+    display("   Files received : %d", nbFilesUL);
+    display("   Files sent     : %d", nbFilesDL);
+    display("------------------------------------------------------------");
     
     if (socketOptThreadStack != NULL) socket_lib_finish();
-
+    
     int ret;
     OSJoinThread(&socketOptThread, &ret);
     if (socketOptThreadStack != NULL) MEMFreeToDefaultHeap(socketOptThreadStack);
@@ -177,21 +178,10 @@ void finalize_network()
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
 {
-    int sock = -999;
-    int nbTries=0;
-
-    retryToGetSocket :
-    sock = socket(domain, type, protocol); 
-    if (sock < 0)
-    {        
-        int err = -getsocketerrno();
-        if (err != -EAGAIN)
-        {
-            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-            nbTries++;
-            if (nbTries <= retriesNumber) goto retryToGetSocket;
-            else display("! ERROR : network_socket failed = %d , err = %d (%s) !", sock, err, strerror(-err));
-        }
+    int sock = socket(domain, type, protocol);
+    if(sock < 0)
+    {
+        int err = -errno;
         return (err < 0) ? err : sock;
     }
     
@@ -201,7 +191,7 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
 		
 		// Reuse socket
 	    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
-	        {display("! ERROR : SO_REUSEADDR activation failed !");}
+	        {if (!initDone) display("! ERROR : SO_REUSEADDR activation failed !");}
         
         // Activate WinScale
         if (setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
@@ -223,33 +213,41 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         }
         if (!initDone) {
             initDone = true;
-            display("  Limited to 1 client using %d slots for up/download !", NB_SIMULTANEOUS_TRANSFERS);
+            display("  1 client only using a max of %d slots for up/download !", NB_SIMULTANEOUS_TRANSFERS);
         }
 
 	}
     return sock;
 }
 
+static void setExtraSocketOptimizations(int32_t s)
+{
+    int enable = 1;
+     // Activate TCP SAck
+    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
+        {if (!initDone) display("! ERROR : TCP SAck activation failed !");}
+        
+    // SO_OOBINLINE
+    if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
+        {if (!initDone) display("! ERROR : Force to leave received OOB data in line failed !");}
+        
+    // TCP_NODELAY 
+    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
+        {if (!initDone) display("! ERROR : Disable Nagle's algorithm failed !");}
+
+    // Suppress delayed ACKs
+    if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
+        {if (!initDone) display("! ERROR : Suppress delayed ACKs failed !");}
+}
+
 int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen)
 {
-    
-    int nbTries=0;
-
-    retryToBind :
     int res = bind(s, name, namelen);
     if (res < 0)
-    {        
-        int err = -getsocketerrno();
-        if (err != -EAGAIN)
-        {
-            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-            nbTries++;
-            if (nbTries <= retriesNumber) goto retryToBind;
-            else display("! ERROR : network_bind failed = %d , err = %d (%s) !", res, err, strerror(-err));
-        }
+    {
+        int err = -errno;
         return (err < 0) ? err : res;
     }
-
     return res;
 }
 
@@ -258,7 +256,7 @@ int32_t network_listen(int32_t s,uint32_t backlog)
     int res = listen(s, backlog);
     if (res < 0)
     {
-        int err = -getsocketerrno();
+        int err = -errno;
         return (err < 0) ? err : res;
     }
     return res;
@@ -267,21 +265,10 @@ int32_t network_listen(int32_t s,uint32_t backlog)
 int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen)
 {
     socklen_t addrl=(socklen_t) *addrlen;
-    
-    int nbTries=0;
-
-    retryToAccept :
     int res = accept(s, addr, &addrl);
     if (res < 0)
-    {        
-        int err = -getsocketerrno();
-        if (err != -EAGAIN)
-        {
-            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-            nbTries++;
-            if (nbTries <= retriesNumber) goto retryToAccept;
-            else display("! ERROR : network_accept failed = %d , err = %d (%s) !", res, err, strerror(-err));
-        }
+    {
+        int err = -errno;
         return (err < 0) ? err : res;
     }
     return res;
@@ -289,21 +276,10 @@ int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen)
 
 int32_t network_connect(int32_t s,struct sockaddr *addr, int32_t addrlen)
 {
-    
-    int nbTries=0;
-
-    retryToConnect :
     int res = connect(s, addr, addrlen);
     if (res < 0)
-    {        
-        int err = -getsocketerrno();
-        if (err != -EAGAIN)
-        {
-            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-            nbTries++;
-            if (nbTries <= retriesNumber) goto retryToConnect;
-            else display("! ERROR : network_connect failed = %d , err = %d (%s) !", res, err, strerror(-err));
-        }
+    {
+        int err = -errno;
         return (err < 0) ? err : res;
     }
     return res;
@@ -314,7 +290,7 @@ int32_t network_read(int32_t s,void *mem,int32_t len)
     int res = recv(s, mem, len, 0);
     if (res < 0)
     {
-        int err = -getsocketerrno();
+        int err = -errno;
         return (err < 0) ? err : res;
     }
     return res;
@@ -334,7 +310,7 @@ int32_t network_write(int32_t s, const void *mem, int32_t len)
         int ret = send(s, mem, len, 0);
         if (ret < 0)
         {
-            int err = -getsocketerrno();
+            int err = -errno;
             transfered = (err < 0) ? err : ret;
             break;
         }
@@ -350,7 +326,7 @@ int32_t network_close(int32_t s)
 {
     if (s < 0)
         return -1;
-    return socketclose(s);
+    return close(s);
 }
 
 int32_t set_blocking(int32_t s, bool blocking) {
@@ -421,23 +397,6 @@ int32_t send_from_file(int32_t s, FILE *f) {
     }    
 
     if (ftell(f) == 0) {    
-
-        int enable = 1;
-         // Activate TCP SAck
-        if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : TCP SAck activation failed !");}
-        
-        // SO_OOBINLINE
-        if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : Force to leave received OOB data in line failed !");}
-        
-        // TCP_NODELAY 
-        if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : Disable Nagle's algorithm failed !");}
-
-        // Suppress delayed ACKs
-        if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
-            {display("! ERROR : Suppress delayed ACKs failed !");}
         
         int bufferSize = DL_USER_BUFFER_SIZE;  
         if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))!=0)
@@ -504,25 +463,9 @@ int32_t recv_to_file(int32_t s, FILE *f) {
 
     if (ftell(f) == 0) {    
     
-        // some optmizations that affect upload speed (and lower download one)
-        int enable = 1;
-         // Activate TCP SAck
-        if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : TCP SAck activation failed !");}
-        
-        // SO_OOBINLINE
-        if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : Force to leave received OOB data in line failed !");}
-        
-        // TCP_NODELAY 
-        if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : Disable Nagle's algorithm failed !");}
-
-        // Suppress delayed ACKs
-        if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
-            {display("! ERROR : Suppress delayed ACKs failed !");}
+		setExtraSocketOptimizations(s);
            
-        // set the max buffer recv size (system will double this value => so = buf_size)
+        // set the max buffer recv size (system will double this value)
         int bufferSize = UL_USER_BUFFER_SIZE;    
         if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))!=0)
             {display("! ERROR : RCVBUF failed !");}

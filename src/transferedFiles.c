@@ -265,19 +265,10 @@ FILE* openFile(char *cwd, char *path, uint32_t userBufferSize, char *mode) {
 int32_t getUserBuffer(FILE *f, char **buf) {
     int32_t buf_size = -1;
 
-    // get the fd
-    int fd = -1;
-    fd = fileno(f);
-    if (fd < 0) {
-        display("! ERROR : failed to get fd in getUserBuffer");
-        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-        return buf_size;
-    }    
-
     // reverse loop
     for (int n=0; n<NB_SIMULTANEOUS_TRANSFERS; n++)
     {
-        if (files[n].fd == fd && files[n].f == f && files[n].path != NULL)
+        if (files[n].f == f && files[n].path != NULL)
         {
             // first request : allocating and setting file's user buffer
             if (files[n].userBuffer == NULL) {            
@@ -288,7 +279,7 @@ int32_t getUserBuffer(FILE *f, char **buf) {
                 do {
                     buf_size -= 32;
                     if (buf_size < 0) {
-                        display("! ERROR : failed to allocate user buffer for fd = %d", fd);
+                        display("! ERROR : failed to allocate user buffer for %s", files[n].path);
                         return -ENOMEM;
                     }
                     files[n].userBuffer = (char *)memalign(0x40, buf_size);
@@ -296,7 +287,7 @@ int32_t getUserBuffer(FILE *f, char **buf) {
                 } while(!files[n].userBuffer);
 
                 if (!files[n].userBuffer) {
-                    display("! ERROR : failed to allocate user buffer for fd = %d", fd);
+                    display("! ERROR : failed to allocate user buffer for %s", files[n].path);
                     return -ENOMEM;
                 }
             } else buf_size = files[n].bufferSize;
@@ -307,7 +298,7 @@ int32_t getUserBuffer(FILE *f, char **buf) {
     }
 
     if (buf_size == -1) {
-		display("! ERROR : failed to get user buffer for fd = %d !", fd);
+		display("! ERROR : failed to get user buffer for %d", fileno(f));
         #ifdef LOG2FILE
             displayList();
         #endif

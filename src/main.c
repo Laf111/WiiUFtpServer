@@ -25,6 +25,7 @@
 #include <coreinit/title.h>
 #include <proc_ui/procui.h>
 #include <sysapp/launch.h>
+#include <nsysnet/_socket.h>
 
 #include <iosuhax_disc_interface.h>
 #include <iosuhax_cfw.h>
@@ -71,8 +72,10 @@ static int mcp_hook_fd = -1;
 // lock to limit to one acess at the time for the display method
 static bool displayLocked = false;
 
+#ifdef LOG2FILE
 // lock to limit to one acess at the time for the loggin method
 static bool logLocked = false;
+#endif
 
 #ifdef LOG2FILE
 // log file
@@ -100,18 +103,19 @@ void writeToLog(const char *fmt, ...)
 	while (logLocked == true);
     logLocked = true;
     
-    if (logFile == NULL) logFile = fopen(logFilePath, "w");
+    if (logFile == NULL) logFile = fopen(logFilePath, "a");
     if (logFile == NULL) {
-        WHBLogPrintf("! ERROR : Unable to open log file");
+		// TODO : check if SDCard is read only
+        WHBLogPrintf("! ERROR : Unable to reopen log file?");
         WHBLogConsoleDraw();
-    }
+    } else {
  
-    fprintf(logFile, "%s\n", buf);        
-    if (fflush(logFile) != 0) {
-        WHBLogPrintf("! ERROR : failed to flush log file");    
-        WHBLogConsoleDraw();
-    }    
+	    fprintf(logFile, "%s\n", buf);        
 
+	    fclose(logFile);
+	    logFile = NULL;
+	}
+    
     logLocked = false;
 }
 #endif
@@ -199,12 +203,8 @@ static void cleanUp() {
     if (mcp_hook_fd >= 0) MCPHookClose();
     else IOSUHAX_Close();
 
-    // TODO : check if channel version does not work without the "if (!isChannel())"
-//	if (!isChannel()) {
-		WHBDeinitializeSocketLibrary();
-        WPADShutdown();
-	    VPADShutdown();
-//	}
+    WPADShutdown();
+    VPADShutdown();
 }
 
 //--------------------------------------------------------------------------
@@ -264,6 +264,8 @@ int main()
     WHBProcInit();
     WHBLogConsoleInit();
     
+    // TODO : check readonly SDCard (NAND backup + logFile)
+    
 #ifdef LOG2FILE
     // if log file exists
     if (access(logFilePath, F_OK) == 0) {
@@ -283,6 +285,16 @@ int main()
             
         }
     }
+    logFile = fopen(logFilePath, "w");
+    if (logFile == NULL) {
+        WHBLogPrintf("! ERROR : Unable to open log file, is your sdcard readonly ?");
+        WHBLogPrintf("          Disable logging to file");
+        #undef LOG2FILE
+    } else {
+		fprintf(logFile, "\n");
+	    fclose(logFile);
+	}
+    
     WHBLogConsoleDraw();  
 #endif    
     
@@ -312,7 +324,7 @@ int main()
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
         // set a priority to 0
-        OSSetThreadPriority(thread, 0);
+        OSSetThreadPriority(thread, 2);
     }
 
     display(" -=============================-");
@@ -345,6 +357,8 @@ int main()
 
     // save GMT OS Time in ftp.c
     setOsTime(&tmTime);
+	
+	OSSleepTicks(OSMillisecondsToTicks(1200));
     display(" ");
     display(" ");
     display(" ");
@@ -509,7 +523,6 @@ int main()
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
-    WHBInitializeSocketLibrary();
     
     initialize_network();
     int networkDown = 0;

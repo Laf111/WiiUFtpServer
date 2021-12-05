@@ -39,7 +39,7 @@ extern "C"{
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <nsysnet/socket.h>
+#include <sys/socket.h>
 #include "transferedFiles.h"
 
 #define UNUSED    __attribute__((unused))
@@ -55,9 +55,8 @@ extern "C"{
 #define NB_SIMULTANEOUS_TRANSFERS 6
 
 // Timeout for retrying the calls to the network API
-#define NET_TIMEOUT 2
-#define NET_RETRY_TIME_STEP_MILLISECS 500
-
+#define NET_TIMEOUT 4
+#define NET_RETRY_TIME_STEP_MILLISECS 1900
 
 // socket extra definitions
 #define SO_RUSRBUF      0x10000     // enable userspace socket buffer
@@ -71,9 +70,9 @@ extern "C"{
 #define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
 
 #define DL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE
-#define UL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*2
+#define UL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*5
 
-#define SOMEMOPT_BUFFER_SIZE 4*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
+#define SOMEMOPT_BUFFER_SIZE 2*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
 
 
 void initialize_network();

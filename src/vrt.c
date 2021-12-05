@@ -246,7 +246,7 @@ int vrt_checkdir(char *cwd, char *path) {
     if (!real_path)
     {
 #ifdef LOG2FILE
-        display("! WARNING : vrt_checkdir realPath null, cwd=%s, path=%s", cwd, path);
+        display("~ WARNING : vrt_checkdir realPath null, cwd=%s, path=%s", cwd, path);
 #endif                        
         return -1;
     }

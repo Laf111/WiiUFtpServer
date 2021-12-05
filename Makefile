@@ -36,7 +36,7 @@ CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
                 -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
 
 # enable log to file storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log
-CFLAGS	+=	-DLOG2FILE
+#CFLAGS	+=	-DLOG2FILE
 # enable controller check 
 #CFLAGS	+=	-DCHECK_CONTROLLER
 
