@@ -1,6 +1,6 @@
 /****************************************************************************
   * WiiUFtpServer
-  * 2021-10-20:Laf111:V6-3
+  * 2021-12-05:Laf111:V7-0: files handler (asynchronous safe) with user buffer space optimization
  ***************************************************************************/
 #include <malloc.h>
 #include <string.h>

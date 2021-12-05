@@ -1,11 +1,12 @@
 # WiiUFtpServer
+**Now a true FTP server for the WiiU !**
+
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
 - file's dates (timestamps)
-- **file injection (add rights on files using IOSUHAX lib)**
+- **file injection (add rights on files received using IOSUHAX lib)**
 - remove the one slot limitation on upload and unlock up to **6 simultaneous transfers (download/upload)**
 - **much more faster than the original (over 3MB/s both ways)**
-
 
 <p align="center">
   <img src="WiiUFtpServer.png">

@@ -184,3 +184,5 @@ HISTORY :
         - add an IO optimization on file by using a user buffer (socket one already implemented)
         - transfer speeds now are over 3MB/s in both ways (UL/DL)
     > add a 2 level log file saved on the SDcard (disable by default if you compile sources because it impacts server performance) 
+    > upgrade to Wut beta12
+    > add LICENSE.txt file (forgot on my first fork...)
