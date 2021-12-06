@@ -56,6 +56,7 @@ extern "C"{
 
 // Timeout for retrying the calls to the network API
 #define NET_TIMEOUT 4
+# define NB_NET_TIME_OUT 9
 #define NET_RETRY_TIME_STEP_MILLISECS 1900
 
 // socket extra definitions

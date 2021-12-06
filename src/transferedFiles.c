@@ -7,12 +7,13 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <coreinit/memdefaultheap.h>
+#include <iosuhax.h>
 
 #include "vrt.h"
 #include "net.h"
 #include "ftp.h"
 #include "transferedFiles.h"
-#include <iosuhax.h>
 
 #define UNUSED    __attribute__((unused))
 
@@ -135,7 +136,8 @@ static int removeFile(FILE * f)
             files[n].fd = -1;
             
             // free user buffer allocated
-            if (files[n].userBuffer != NULL) free(files[n].userBuffer);
+            if (files[n].userBuffer != NULL) MEMFreeToDefaultHeap(files[n].userBuffer);
+
             files[n].userBuffer = NULL;
             files[n].bufferSize = -1;
             
@@ -270,26 +272,19 @@ int32_t getUserBuffer(FILE *f, char **buf) {
     {
         if (files[n].f == f && files[n].path != NULL)
         {
+            buf_size = files[n].bufferSize;
+            
             // first request : allocating and setting file's user buffer
-            if (files[n].userBuffer == NULL) {            
-                // buf_size
-                buf_size = files[n].bufferSize+32;
+            if (files[n].userBuffer == NULL) {
 
-                // align memory (64bytes = 0x40) when alocating the buffer
-                do {
-                    buf_size -= 32;
-                    if (buf_size < 0) {
-                        display("! ERROR : failed to allocate user buffer for %s", files[n].path);
-                        return -ENOMEM;
-                    }
-                    files[n].userBuffer = (char *)memalign(0x40, buf_size);
-                    if (files[n].userBuffer) memset(files[n].userBuffer, 0x00, buf_size);
-                } while(!files[n].userBuffer);
-
+                files[n].userBuffer = MEMAllocFromDefaultHeapEx(files[n].bufferSize, 64);
                 if (!files[n].userBuffer) {
                     display("! ERROR : failed to allocate user buffer for %s", files[n].path);
                     return -ENOMEM;
                 }
+            
+                // buf_size
+
             } else buf_size = files[n].bufferSize;
             
             *buf = files[n].userBuffer;

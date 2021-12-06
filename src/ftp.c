@@ -49,7 +49,7 @@ misrepresented as being the original software.
 
 #define UNUSED    __attribute__((unused))
 
-#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*7
+#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*NB_NET_TIME_OUT
 
 #define FTP_MSG_BUFFER_SIZE 1024
 #define FTP_STACK_SIZE 32*1024
@@ -639,10 +639,9 @@ static int32_t ftp_NLST(connection_t *client, char *path) {
     DIR_P *dir = vrt_opendir(client->cwd, path);
     if (dir == NULL) {
         display("! ERROR : error from vrt_opendir in ftp_NLST : %s", strerror(errno));
-//        char msg[MAXPATHLEN + 40] = "";
-//        sprintf(msg, "Error when NLIST %s%s : err = %s", client->cwd, path, strerror(errno)); 
-//        return write_reply(client, 550, msg);
-		return write_reply(client, 550, strerror(errno));
+        char msg[MAXPATHLEN + 40] = "";
+        sprintf(msg, "Error when NLIST %s%s : err = %s", client->cwd, path, strerror(errno)); 
+        return write_reply(client, 550, msg);
     }
 
     int32_t result = prepare_data_connection(client, send_nlst, dir, vrt_closedir);
@@ -680,12 +679,10 @@ static int32_t ftp_LIST(connection_t *client, char *path) {
     DIR_P *dir = vrt_opendir(client->cwd, path);
     if (dir == NULL) {
         display("! ERROR : vrt_opendir failed in ftp_LIST() on %s", path);
-        display("! ERROR : errno=%d (%s)", errno, strerror(errno));
         
-//        char msg[MAXPATHLEN + 40] = "";
-//        sprintf(msg, "Error when LIST %s%s : err = %s", client->cwd, path, strerror(errno)); 
-//        return write_reply(client, 550, msg);
-		  return write_reply(client, 550, strerror(errno));
+        char msg[MAXPATHLEN + 40] = "";
+        sprintf(msg, "Error when LIST %s%s : err = %s", client->cwd, path, strerror(errno)); 
+        return write_reply(client, 550, msg);
     }
 
     int32_t result = prepare_data_connection(client, send_list, dir, vrt_closedir);
@@ -1047,7 +1044,7 @@ static bool process_getClients() {
         client->data_connection_timer = 0;
         memcpy(&client->address, &client_address, sizeof(client_address));
         int client_index;
-        if (write_reply(client, 220, "------===={ WiiUFtpServer }====------") < 0) {
+        if (write_reply(client, 220, "---------====={ WiiUFtpServer }=====---------") < 0) {
             display("! ERROR : Error writing greeting.");
             network_close_blocking(peer);
             free(client);

@@ -164,8 +164,8 @@ void finalize_network()
 {
     display(" ");    
     display("------------------------------------------------------------");
-    display("   Files received : %d", nbFilesUL);
-    display("   Files sent     : %d", nbFilesDL);
+    display(" Files received : %d", nbFilesUL);
+    display(" Files sent     : %d", nbFilesDL);
     display("------------------------------------------------------------");
     
     if (socketOptThreadStack != NULL) socket_lib_finish();
@@ -213,7 +213,8 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         }
         if (!initDone) {
             initDone = true;
-            display("  1 client only using a max of %d slots for up/download !", NB_SIMULTANEOUS_TRANSFERS);
+            display("  1 client only using a max of %d slots for up/download!", NB_SIMULTANEOUS_TRANSFERS);
+            display("   (set your client's timeout greater than %d seconds)", NET_TIMEOUT*(NB_NET_TIME_OUT+1));
         }
 
 	}

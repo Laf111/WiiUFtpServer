@@ -473,7 +473,6 @@ int main()
     display(" ");
     display(" ");
     display(" ");
-    display(" ");
     
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
     setFsaFdCopyFiles(fsaFd);
