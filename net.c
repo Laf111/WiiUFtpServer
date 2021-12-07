@@ -208,6 +208,7 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
             if (nbTries <= retriesNumber) goto try_again_someopt;
             else if (!initDone) display("! ERROR : Socket memory optimization failed !");
         }
+
         if (!initDone) {
             initDone = true;
             display("  1 client only using a max of %d slots for up/download!", NB_SIMULTANEOUS_TRANSFERS);

@@ -100,7 +100,6 @@ void writeToLog(const char *fmt, ...)
     
     if (logFile == NULL) logFile = fopen(logFilePath, "a");
     if (logFile == NULL) {
-		// TODO : check if SDCard is read only
         WHBLogPrintf("! ERROR : Unable to reopen log file?");
         WHBLogConsoleDraw();
     } else {
@@ -114,6 +113,7 @@ void writeToLog(const char *fmt, ...)
     logLocked = false;
 }
 
+// function to init log file creation and use
 static void initLogFile() {
     
     // if log file exists
@@ -146,6 +146,8 @@ static void initLogFile() {
     
     WHBLogConsoleDraw(); 
 }
+
+
 // method to output a message to gamePad and TV (thread safe)
 void display(const char *fmt, ...)
 {
@@ -457,7 +459,9 @@ int main()
     // verbose mode (disabled by default)
     if (verbose) setVerboseMode(verbose);
     else {
-        // also disable logging to file
+        
+        // disable logging to file
+        writeToLog("Disable logging to this file, press BUTTON UP to enable verbose mode and to log in this file");
         #undef LOG2FILE
     }
     display(" ");
@@ -574,7 +578,6 @@ int main()
     writeToLog("Server created, adress = %s", inet_ntoa(addr));
 #endif
     bool userExitRequest = false;
-//    while (WHBProcIsRunning() && !networkDown && !userExitRequest)
     while (!networkDown && !userExitRequest)
     {
         networkDown = process_ftp_events();        
@@ -594,7 +597,6 @@ int main()
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
         
-        // TODO : WHBProcIsRunning() needed ?
         if (userExitRequest) break;
     }
 

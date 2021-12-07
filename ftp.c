@@ -25,7 +25,7 @@ misrepresented as being the original software.
 */
 /****************************************************************************
   * WiiUFtpServer
-  * 2021-12-05:Laf111:V7-0: complete the TODO left
+  * 2021-12-05:Laf111:V7-0: complete some TODO left
  ***************************************************************************/
 
 #include <malloc.h>
