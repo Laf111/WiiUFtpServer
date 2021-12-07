@@ -33,7 +33,7 @@ else
             echo "DEVKITPRO  : ["$(more $DEVKITPRO/installed.ini | grep -i "Version=" | sed "s|Version=||g")"]        in $DEVKITPRO"
             line=$(more $DEVKITPRO/wut/include/wut.h | grep "* wut")
             # wutVersion=${line##*" * wut "}
-            wutVersion="1.0.0-beta10"
+            wutVersion="1.0.0-beta12"
             echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
             echo "libIOSUHAX : [YaWut version] in $DEVKITPRO/iosuhax"
         fi
@@ -42,6 +42,9 @@ else
         exit 101
     fi
 fi
+
+more makefile | grep "#" | grep "DLOG2FILE" > /dev/null 2>&1 && echo "(log file deactivated)"
+
 check=$(env | grep "DEVKITPPC")
 if [ "$check" == "" ]; then
     export DEVKITPPC=$DEVKITPRO/devkitPPC

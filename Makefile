@@ -34,9 +34,10 @@ CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
                 -Ofast -Wall -Wextra -Wno-strict-aliasing \
                 -D__WIIU__ -D__WUT__ \
                 -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
+                
+# keep it, the log file is disabled by default and enabled if verbose mode is acfivated
+CFLAGS	+=	-DLOG2FILE
 
-# enable log to file storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log
-#CFLAGS	+=	-DLOG2FILE
 # enable controller check 
 #CFLAGS	+=	-DCHECK_CONTROLLER
 
