@@ -75,10 +75,12 @@ static bool displayLocked = false;
 // lock to limit to one acess at the time for the loggin method
 static bool logLocked = false;
 
+#ifdef LOG2FILE
 // log file
 static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
 static char previous[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.old";
 static FILE * logFile=NULL;
+#endif
 
 /****************************************************************************/
 // LOCAL FUNCTIONS
@@ -86,6 +88,7 @@ static FILE * logFile=NULL;
 
 //--------------------------------------------------------------------------
 
+#ifdef LOG2FILE
 // method to output a message to gamePad and TV (thread safe)
 void writeToLog(const char *fmt, ...)
 {
@@ -112,41 +115,7 @@ void writeToLog(const char *fmt, ...)
     
     logLocked = false;
 }
-
-// function to init log file creation and use
-static void initLogFile() {
-    
-    // if log file exists
-    if (access(logFilePath, F_OK) == 0) {
-        // file exists
-
-        // check if second log file exists
-        if (access(previous, F_OK) == 0) {
-            // remove previous
-            if (remove(previous) != 0) {
-                WHBLogPrintf("! ERROR : Failed to remove old log file");
-            }
-        }
-
-        // backup : log -> previous
-        if (rename(logFilePath, previous) != 0) {
-            WHBLogPrintf("! ERROR : Failed to rename log file");
-            
-        }
-    }
-    logFile = fopen(logFilePath, "w");
-    if (logFile == NULL) {
-        WHBLogPrintf("! ERROR : Unable to open log file, is your sdcard readonly ?");
-        WHBLogPrintf("          Disable logging to file");
-        #undef LOG2FILE
-    } else {
-		fprintf(logFile, "\n");
-	    fclose(logFile);
-	}
-    
-    WHBLogConsoleDraw(); 
-}
-
+#endif
 
 // method to output a message to gamePad and TV (thread safe)
 void display(const char *fmt, ...)
@@ -292,7 +261,29 @@ int main()
     WHBProcInit();
     WHBLogConsoleInit();
     
-    initLogFile(); 
+    // TODO : check readonly SDCard (NAND backup + logFile)
+    
+#ifdef LOG2FILE
+    // if log file exists
+    if (access(logFilePath, F_OK) == 0) {
+        // file exists
+
+        // check if second log file exists
+        if (access(previous, F_OK) == 0) {
+            // remove previous
+            if (remove(previous) != 0) {
+                WHBLogPrintf("! ERROR : Failed to remove old log file");
+            }
+        }
+
+        // backup : log -> previous
+        if (rename(logFilePath, previous) != 0) {
+            WHBLogPrintf("! ERROR : Failed to rename log file");
+            
+        }
+    }
+    WHBLogConsoleDraw();  
+#endif    
     
     // *PAD init
     KPADInit();
@@ -358,7 +349,6 @@ int main()
     display(" ");
     display(" ");
     display(" ");
-
     display(" ");
 
     /*--------------------------------------------------------------------------*/
@@ -458,12 +448,6 @@ int main()
 
     // verbose mode (disabled by default)
     if (verbose) setVerboseMode(verbose);
-    else {
-        
-        // disable logging to file
-        writeToLog("Disable logging to this file, press BUTTON UP to enable verbose mode and to log in this file");
-        #undef LOG2FILE
-    }
     display(" ");
 
     int nbDrives=MountVirtualDevices(fsaFd, mountMlc);

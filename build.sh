@@ -42,8 +42,7 @@ else
         exit 101
     fi
 fi
-
-more makefile | grep "#" | grep "DLOG2FILE" > /dev/null 2>&1 && echo "(log file deactivated)"
+more makefile | grep -v "#" | grep "CFLAGS" | grep "DLOG2FILE" > /dev/null 2>&1 && echo " " && echo "> logging to sd/wiiu/apps/WiiUFtpServer/WiiuFtpServer.log !"
 
 check=$(env | grep "DEVKITPPC")
 if [ "$check" == "" ]; then
