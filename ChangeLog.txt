@@ -166,16 +166,6 @@ HISTORY :
     > Restore originals headers in source files
     > unlimit the incomming connexions (hard limited for UL and DL in net.c)
 
-2021/10/20 V6-3 :    
-    > fix wrong timeout value when mounting devices
-    > fix socket memory optimization failure
-    > set rights to 644 (instead of 666)
-    > externalize dependencies (libIOSUHAX from yaWut and WUT library)
-    > get extra 10% speed on upload by adjusting file's buffer
-    > use fastMutex in receivedFiles and main for thread safe handle
-    > add a two level log file (created in storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log)
-    > add optimized compilation flags
-
 2021/12/08 V7-0 :    
     > dived further in the code and rework the original sources (ftpiiu) to :
         - complete the work left (TODO) that essentially fix the limitation to one upload slot (vrt_chdir failure in ftp_MKD)
@@ -183,6 +173,10 @@ HISTORY :
         - add a transfer file module (asynchronous calls safe) to handle files transfering
         - add IO optimization on file (using a user buffer, socket one already implemented)
         - transfer speeds now are over 3MB/s in both ways (UL/DL)
+    > set rights to 644 (instead of 666)
+    > externalize dependencies (libIOSUHAX from yaWut and WUT library)
     > add a 2 level log file saved on the SDcard (disable by default if you compile sources because it impacts server performance) 
     > add LICENSE.txt file (forgot on my first fork...)
     > upgrade to Wut beta12
+    > fix wrong timeout value when mounting devices
+    > fix socket memory optimization failure
