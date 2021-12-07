@@ -176,13 +176,13 @@ HISTORY :
     > add a two level log file (created in storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log)
     > add optimized compilation flags
 
-2021/12/05 V7-0 :    
+2021/12/08 V7-0 :    
     > dived further in the code and rework the original sources (ftpiiu) to :
         - complete the work left (TODO) that essentially fix the limitation to one upload slot (vrt_chdir failure in ftp_MKD)
         - now server allows 6 simultaneous transfers on both ways (UL/DL)
-        - add a transfer file design (asynchronous calls safe) to handle files transfering
-        - add an IO optimization on file by using a user buffer (socket one already implemented)
+        - add a transfer file module (asynchronous calls safe) to handle files transfering
+        - add IO optimization on file (using a user buffer, socket one already implemented)
         - transfer speeds now are over 3MB/s in both ways (UL/DL)
     > add a 2 level log file saved on the SDcard (disable by default if you compile sources because it impacts server performance) 
-    > upgrade to Wut beta12
     > add LICENSE.txt file (forgot on my first fork...)
+    > upgrade to Wut beta12
