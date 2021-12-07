@@ -4,6 +4,6 @@
   <coder>Laf111</coder>
   <version>7.0.0</version>
   <release_date>20210425040807</release_date>
-  <short_description>Robust and optimized FTP server for the Wii-U</short_description>
-  <long_description>Based on FTPiiU server, fix file injection failures, file timestamps, transfers number and speeds.</long_description>
+  <short_description>A robust and optimized FTP server for the Wii-U</short_description>
+  <long_description>Based on FTPiiU server. Fix : file injection failures, file timestamps, transfers number and speeds.</long_description>
 </app>
