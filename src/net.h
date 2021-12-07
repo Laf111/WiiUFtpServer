@@ -55,9 +55,9 @@ extern "C"{
 #define NB_SIMULTANEOUS_TRANSFERS 6
 
 // Timeout for retrying the calls to the network API
-#define NET_TIMEOUT 4
-# define NB_NET_TIME_OUT 9
-#define NET_RETRY_TIME_STEP_MILLISECS 1900
+#define NET_TIMEOUT 9
+#define NB_NET_TIME_OUT 4
+#define NET_RETRY_TIME_STEP_MILLISECS 3900
 
 // socket extra definitions
 #define SO_RUSRBUF      0x10000     // enable userspace socket buffer
@@ -70,11 +70,11 @@ extern "C"{
 // 131072 bytes (128 x 1024) = 2*64*1024
 #define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
 
-#define DL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE
+#define DL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*2
 #define UL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*5
 
-#define SOMEMOPT_BUFFER_SIZE 2*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
-
+// close to the max (3MB) : 4*(5*128*1024) = 2 621 440 bytes
+#define SOMEMOPT_BUFFER_SIZE 4*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
 
 void initialize_network();
 

@@ -73,15 +73,14 @@ static int mcp_hook_fd = -1;
 static bool displayLocked = false;
 
 #ifdef LOG2FILE
-// lock to limit to one acess at the time for the loggin method
-static bool logLocked = false;
-#endif
-
-#ifdef LOG2FILE
 // log file
 static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
 static char previous[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.old";
 static FILE * logFile=NULL;
+
+// lock to limit to one acess at the time for the loggin method
+static bool logLocked = false;
+
 #endif
 
 /****************************************************************************/
@@ -105,7 +104,6 @@ void writeToLog(const char *fmt, ...)
     
     if (logFile == NULL) logFile = fopen(logFilePath, "a");
     if (logFile == NULL) {
-		// TODO : check if SDCard is read only
         WHBLogPrintf("! ERROR : Unable to reopen log file?");
         WHBLogConsoleDraw();
     } else {
@@ -285,16 +283,6 @@ int main()
             
         }
     }
-    logFile = fopen(logFilePath, "w");
-    if (logFile == NULL) {
-        WHBLogPrintf("! ERROR : Unable to open log file, is your sdcard readonly ?");
-        WHBLogPrintf("          Disable logging to file");
-        #undef LOG2FILE
-    } else {
-		fprintf(logFile, "\n");
-	    fclose(logFile);
-	}
-    
     WHBLogConsoleDraw();  
 #endif    
     
@@ -362,7 +350,6 @@ int main()
     display(" ");
     display(" ");
     display(" ");
-
     display(" ");
 
     /*--------------------------------------------------------------------------*/
@@ -576,7 +563,6 @@ int main()
     writeToLog("Server created, adress = %s", inet_ntoa(addr));
 #endif
     bool userExitRequest = false;
-//    while (WHBProcIsRunning() && !networkDown && !userExitRequest)
     while (!networkDown && !userExitRequest)
     {
         networkDown = process_ftp_events();        
@@ -596,7 +582,6 @@ int main()
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
         
-        // TODO : WHBProcIsRunning() needed ?
         if (userExitRequest) break;
     }
 

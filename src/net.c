@@ -148,9 +148,6 @@ void initialize_network()
         writeToLog("socketThreadMain ready");
     #endif
     
-    // wait a few time...
-    OSSleepTicks(OSMillisecondsToTicks(100));
-    
     int ret;
     OSJoinThread(socketThread, &ret);
 
@@ -164,8 +161,8 @@ void finalize_network()
 {
     display(" ");    
     display("------------------------------------------------------------");
-    display(" Files received : %d", nbFilesUL);
-    display(" Files sent     : %d", nbFilesDL);
+    display("  Files received : %d", nbFilesUL);
+    display("  Files sent     : %d", nbFilesDL);
     display("------------------------------------------------------------");
     
     if (socketOptThreadStack != NULL) socket_lib_finish();
@@ -211,35 +208,16 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
             if (nbTries <= retriesNumber) goto try_again_someopt;
             else if (!initDone) display("! ERROR : Socket memory optimization failed !");
         }
+
         if (!initDone) {
             initDone = true;
             display("  1 client only using a max of %d slots for up/download!", NB_SIMULTANEOUS_TRANSFERS);
-            display("   (set your client's timeout greater than %d seconds)", NET_TIMEOUT*(NB_NET_TIME_OUT+1));
+            display("   (set your client's timeout greater than %d seconds)", (NET_TIMEOUT+1)*NB_NET_TIME_OUT);
         }
-
 	}
     return sock;
 }
 
-static void setExtraSocketOptimizations(int32_t s)
-{
-    int enable = 1;
-     // Activate TCP SAck
-    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-        {if (!initDone) display("! ERROR : TCP SAck activation failed !");}
-        
-    // SO_OOBINLINE
-    if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
-        {if (!initDone) display("! ERROR : Force to leave received OOB data in line failed !");}
-        
-    // TCP_NODELAY 
-    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-        {if (!initDone) display("! ERROR : Disable Nagle's algorithm failed !");}
-
-    // Suppress delayed ACKs
-    if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
-        {if (!initDone) display("! ERROR : Suppress delayed ACKs failed !");}
-}
 
 int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen)
 {
@@ -390,18 +368,11 @@ int32_t send_from_file(int32_t s, FILE *f) {
             
     int buf_size = 0;
     char * buf=NULL;
-
-    buf_size = getUserBuffer(f, &buf);
+	// set/get user's buffers (file and socket), set socket in blocking mode + opt 
+    buf_size = getUserBuffer(s, f, &buf);
     if (!buf) {
 		display("! ERROR : failed to get buf (fd=%d, s=%d)!", fileno(f), s);
         return -ENOMEM;
-    }    
-
-    if (ftell(f) == 0) {    
-        
-        int bufferSize = DL_USER_BUFFER_SIZE;  
-        if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &bufferSize, sizeof(bufferSize))!=0)
-            {display("! ERROR : SNDBUF failed !");}
     }
     
 	int32_t bytes_read = fread(buf, 1, buf_size, f);
@@ -456,21 +427,12 @@ int32_t recv_to_file(int32_t s, FILE *f) {
     int buf_size = 0;
     char * buf=NULL;
 
-    buf_size = getUserBuffer(f, &buf);
+	// set/get user's buffers (file and socket), set socket in blocking mode + opt 
+    buf_size = getUserBuffer(s, f, &buf);
     if (!buf) {
 		display("! ERROR : failed to get buf (fd=%d, s=%d)!", fileno(f), s);
         return -ENOMEM;
     }    
-
-    if (ftell(f) == 0) {    
-    
-		setExtraSocketOptimizations(s);
-           
-        // set the max buffer recv size (system will double this value)
-        int bufferSize = UL_USER_BUFFER_SIZE;    
-        if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &bufferSize, sizeof(bufferSize))!=0)
-            {display("! ERROR : RCVBUF failed !");}
-    }
 	
     int32_t bytes_received = 0;
     uint32_t retryNumber = 0;

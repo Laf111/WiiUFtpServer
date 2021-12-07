@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <coreinit/memdefaultheap.h>
+#include <nsysnet/_socket.h>
 #include <iosuhax.h>
 
 #include "vrt.h"
@@ -106,62 +107,21 @@ static void displayList()
     writeToLog("--------- Transfered files list -----------");
     for (n=0; n<NB_SIMULTANEOUS_TRANSFERS; n++) {
         if (files[n].userBuffer != NULL) 
-            writeToLog("Slot %d : fd = %d, %d , %s", n, files[n].fd, files[n].bufferSize, files[n].path);
+            writeToLog("Slot %d : fd = %d, %d , %s", n, fileno(files[n].f), files[n].bufferSize, files[n].path);
         else
-            writeToLog("Slot %d : fd = %d, NULL , %s", n, files[n].fd, files[n].path);
+            if (files[n].f != NULL) 
+                writeToLog("Slot %d : fd = %d, NULL , %s", n, fileno(files[n].f), files[n].path);
+            else        
+                writeToLog("Slot %d : fd = -1, NULL , %s", n, files[n].path);
     }
     writeToLog("-------------------------------------------");
 }
 #endif
 
 
-// function fo removing the transfered file corresponding to f
-static int removeFile(FILE * f)
-{
-    int result = -1;
-    
-    int fd = fileno(f);
-    for (int n=0; n<NB_SIMULTANEOUS_TRANSFERS; n++) {
-        if (files[n].fd == fd && files[n].f == f && files[n].path != NULL)
-        {
-            // chmod on file if asked
-            if (files[n].changeRights) IOSUHAX_FSA_ChangeMode(fsaFd, files[n].path, 0x644);
-            
-            // close file
-            if (fclose(files[n].f)<0) {
-                display("! ERROR : when closing file with fd = %d", files[n].fd);
-            }
-            
-            files[n].f = NULL;            
-            files[n].fd = -1;
-            
-            // free user buffer allocated
-            if (files[n].userBuffer != NULL) MEMFreeToDefaultHeap(files[n].userBuffer);
-
-            files[n].userBuffer = NULL;
-            files[n].bufferSize = -1;
-            
-            // free path 
-            if (files[n].path != NULL) free(files[n].path);
-            files[n].path = NULL;
-
-            files[n].changeRights = true;
-            
-            result = 0;
-            break;
-        }
-    }
-#ifdef LOG2FILE
-    if (result < 0) display("! ERROR : file with fd = %d not found???", fd);
-#endif
-
-    return result;
-}
-
-
-// openFile, mode : 1 = ab, 2 = rb, 3 = wb
-// change rights for mode 1 and 3
-FILE* openFile(char *cwd, char *path, uint32_t userBufferSize, char *mode) {
+// openFile : open the file, add file to the list with filling the data but WITHOUT ALLOCATING the user buffer's file
+// mode : ab, rb, wb (change rights for modes ab and wb)
+FILE* openFile(char *cwd, char *path, char *mode) {
 
     // compute virtual path /usb/... in a string allocate on the stack
     char vPath[MAXPATHLEN+26] = "";
@@ -180,24 +140,25 @@ FILE* openFile(char *cwd, char *path, uint32_t userBufferSize, char *mode) {
         if (initDone == true) {
             
             // search if this path is already saved 
-            if (files[n].path != NULL) if (strcmp(volPath, files[n].path) == 0)  {
-                slot=n;         
-                break;
-            }
+            if (files[n].path != NULL) {
+				if (strcmp(volPath, files[n].path) == 0)  {
+	                slot=n;         
+	                break;
+	            }
+			} else {
             
-            // else search for the first free slot
-            if (files[n].fd == -1 && files[n].path == NULL && files[n].userBuffer == NULL) {
+				// first free slot
                 slot=n;         
                 break;
-            }
+			}
             
         } else {
             // init
-            files[n].fd = -1;
             files[n].f = NULL;
             files[n].path = NULL;
-            files[n].changeRights = true;
-            files[n].bufferSize = -1;
+			// init for DL
+            files[n].changeRights = false;
+            files[n].bufferSize = DL_USER_BUFFER_SIZE;
             files[n].userBuffer = NULL; 
             slot = 0;
         }
@@ -212,59 +173,72 @@ FILE* openFile(char *cwd, char *path, uint32_t userBufferSize, char *mode) {
         #endif
         return NULL;
     }
-    
     char *rPath = NULL; 
     rPath = to_real_path(cwd, path);
     if (!rPath) {
         display("! ERROR : to_real_path failed in openFile() for %s", path); 
         display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+	    free(volPath);
         return NULL;
     }
-
+    
     files[slot].f = fopen(rPath, mode);
     if (!files[slot].f) {
         display("! ERROR : fopen failed in openFile() for %s", path); 
         display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-        free(rPath);
+        free(volPath);
+	    free(rPath);
         return NULL;
     }
     free(rPath);
 
-    int fd = -1;
-    fd = fileno(files[slot].f);    
-        
-    if (fd < 0) {
-        display("! ERROR : failed to get fd for %s", vPath);
-        fclose(files[slot].f);
-        #ifdef LOG2FILE
-            displayList();    
-        #endif        
-        return NULL;
-    }
-    
-#ifdef LOG2FILE
-    writeToLog("Transfer slot %d opened : fd = %d, path=%s", slot, fd, vPath); 
-#endif
-    
-    // set the file descriptor
-    files[slot].fd = fd;
-
     // allocate compute and store the volume path (ex /vol/storage_usb01/...)
     // needed for IOSUHAX operations    
     files[slot].path = volPath;
-
-    // allocate and set the full volume path to the file
-    files[slot].bufferSize = userBufferSize;
-    files[slot].userBuffer=NULL;
     
-    // init change right to true    
-    if (strcmp(mode, "rb") == 0) files[slot].changeRights = false;
+    // Upload : change rights + update buffer size
+    if (strcmp(mode, "rb") != 0) {                
+        
+        // update buffer size
+        files[slot].bufferSize = UL_USER_BUFFER_SIZE;
+		
+		files[slot].changeRights = true;
+    }
+    
+#ifdef LOG2FILE
+    writeToLog("Transfer slot %d opened : fd = %d, path=%s", slot, fileno(files[slot].f), path); 
+#endif
+
+    
+#ifdef LOG2FILE
+    displayList();    
+#endif        
     
     return files[slot].f;
 }
 
+static void setExtraSocketOptimizations(int32_t s)
+{
+    int enable = 1;
+     // Activate TCP SAck
+    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
+        {display("! ERROR : TCP SAck activation failed !");}
+        
+    // SO_OOBINLINE
+    if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
+        {display("! ERROR : Force to leave received OOB data in line failed !");}
+        
+    // TCP_NODELAY 
+    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
+        {display("! ERROR : Disable Nagle's algorithm failed !");}
+
+    // Suppress delayed ACKs
+    if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
+        {display("! ERROR : Suppress delayed ACKs failed !");}
+}
+
 // return the user buffer length (-1 if errors) and the buffer adress (buf) from file that use fd decriptor
-int32_t getUserBuffer(FILE *f, char **buf) {
+int32_t getUserBuffer(int32_t s, FILE *f, char **buf) {
     int32_t buf_size = -1;
 
     // reverse loop
@@ -273,19 +247,34 @@ int32_t getUserBuffer(FILE *f, char **buf) {
         if (files[n].f == f && files[n].path != NULL)
         {
             buf_size = files[n].bufferSize;
-            
-            // first request : allocating and setting file's user buffer
             if (files[n].userBuffer == NULL) {
+                // first call : set socket options, allocate the user's buffer file                
 
+                // allocate user's buffer           
                 files[n].userBuffer = MEMAllocFromDefaultHeapEx(files[n].bufferSize, 64);
                 if (!files[n].userBuffer) {
-                    display("! ERROR : failed to allocate user buffer for %s", files[n].path);
+                    display("! ERROR : failed to allocate user buffer for fd = %d", fileno(f));
                     return -ENOMEM;
                 }
-            
-                // buf_size
+                
+                // (the system double the value set)
+                int sockbuf_size = buf_size/2;
+            	if (!files[n].changeRights) {        
+			        if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+			            {display("! ERROR : SNDBUF failed !");}
 
-            } else buf_size = files[n].bufferSize;
+				} else {
+                    setExtraSocketOptimizations(s);
+			        if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+			            {display("! ERROR : RCVBUF failed !");}
+                }
+                
+                // set user's file buffer
+                if (setvbuf(files[n].f, files[n].userBuffer, _IOFBF, files[n].bufferSize) != 0) {
+                    display("! WARNING : setvbuf failed for fd = %d", fileno(f));
+                    display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
+                }
+            }
             
             *buf = files[n].userBuffer;
             break;
@@ -303,25 +292,42 @@ int32_t getUserBuffer(FILE *f, char **buf) {
 
 int32_t closeFile(FILE *f) {
 
-    // get the fd
-    int fd = -1;
-    fd = fileno(f);
-    if (fd < 0) {
-        display("! ERROR : failed to get fd in closeFile");
-        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-        return -1;
-    }
+    int result = -1;
     
-    int ret = removeFile(f);        
-        if (ret < 0)
+    for (int n=0; n<NB_SIMULTANEOUS_TRANSFERS; n++) {
+        if (files[n].f == f && files[n].path != NULL)
         {
-            display("! ERROR (%d) : when closing the file fd = %d", ret, fd);        
-            display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-            #ifdef LOG2FILE
-                displayList();
-            #endif
+            // chmod on file if asked
+            if (files[n].changeRights) IOSUHAX_FSA_ChangeMode(fsaFd, files[n].path, 0x644);
+            
+            // close file
+            if (fclose(files[n].f)<0) {
+                display("! ERROR : when closing file with fd = %d", fileno(f));
+            }
+            
+            files[n].f = NULL;            
+            
+            // free user buffer allocated
+            if (files[n].userBuffer != NULL) MEMFreeToDefaultHeap(files[n].userBuffer);
+
+            files[n].userBuffer = NULL;
+            files[n].bufferSize = -1;
+            
+            // free path 
+            if (files[n].path != NULL) free(files[n].path);
+            files[n].path = NULL;
+			
+			files[n].changeRights = false;
+			files[n].bufferSize = DL_USER_BUFFER_SIZE;
+
+            result = 0;
+            break;
         }
+    }
+#ifdef LOG2FILE
+    if (result < 0) display("! ERROR : file f = %d not found???", fileno(f));
+#endif
     
-    return ret;
+    return result;
 }
 

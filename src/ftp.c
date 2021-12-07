@@ -25,7 +25,7 @@ misrepresented as being the original software.
 */
 /****************************************************************************
   * WiiUFtpServer
-  * 2021-12-05:Laf111:V7-0: complete the TODO left
+  * 2021-12-05:Laf111:V7-0: complete some TODO left
  ***************************************************************************/
 
 #include <malloc.h>
@@ -699,7 +699,7 @@ static int32_t ftp_RETR(connection_t *client, char *path) {
 
     // open and add the file to the transferedFiles list
     FILE *f = NULL;
-    f = openFile(client->cwd, path, DL_USER_BUFFER_SIZE, "rb");
+    f = openFile(client->cwd, path, "rb");
     if (f == NULL) {
         display("! ERROR : ftp_RETR failed to open %s", path);            
         display("! ERROR : err = %s", strerror(errno));            
@@ -737,7 +737,7 @@ static int32_t stor_or_append(connection_t *client, char *path, char *mode) {
     
     // open and add the file to the transferedFiles list
     FILE *f = NULL;    
-    f = openFile(client->cwd, path, UL_USER_BUFFER_SIZE, mode);
+    f = openFile(client->cwd, path, mode);
     
     if (f == NULL) {
         display("! ERROR : stor_or_append failed to open %s", path);            
@@ -1088,11 +1088,13 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
                 client->data_socket = result;
                 client->data_connection_connected = true;
             } else {
-                char msg[FTP_MSG_BUFFER_SIZE];
-                sprintf(msg, "Error accepting connection : %d (%s), retry in %d msec...", errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
-                display("~ WARNING : %s", msg);
-                OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-                write_reply(client, 421, msg);
+				if (result != -EAGAIN) {
+	                char msg[FTP_MSG_BUFFER_SIZE];
+	                sprintf(msg, "Error accepting connection : %d (%s), retry in %d msec...", errno, strerror(errno), NET_RETRY_TIME_STEP_MILLISECS);                
+	                display("~ WARNING : %s", msg);
+	                OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
+	                write_reply(client, 421, msg);
+				}
             }
         } else {
 #ifdef LOG2FILE    
