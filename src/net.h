@@ -55,9 +55,9 @@ extern "C"{
 #define NB_SIMULTANEOUS_TRANSFERS 6
 
 // Timeout for retrying the calls to the network API
-#define NET_TIMEOUT 9
-#define NB_NET_TIME_OUT 4
-#define NET_RETRY_TIME_STEP_MILLISECS 3900
+#define NET_TIMEOUT 4
+#define NB_NET_TIME_OUT 9
+#define NET_RETRY_TIME_STEP_MILLISECS 2400
 
 // socket extra definitions
 #define SO_RUSRBUF      0x10000     // enable userspace socket buffer

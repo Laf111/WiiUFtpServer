@@ -456,7 +456,6 @@ int main()
         display("! ERROR : No virtual devices mounted !");
         goto exit;
     }
-	OSSleepTicks(OSMillisecondsToTicks(1000));
     display(" ");
     display(" ");
     display(" ");
@@ -511,7 +510,7 @@ int main()
     /*--------------------------------------------------------------------------*/
     
     initialize_network();
-    int networkDown = 0;
+    bool networkDown = false;
 
 #ifdef LOG2FILE
     writeToLog("Network initialized");
@@ -527,7 +526,7 @@ int main()
 	addr.s_addr = network_gethostip();
 
     if (strcmp(inet_ntoa(addr),"0.0.0.0") == 0 && !isChannel()) {
-        networkDown = 1;
+        networkDown = true;
         cls();
         display(" ");
         display("! ERROR : network is OFF on the wii-U, FTP is impossible");
@@ -557,6 +556,14 @@ int main()
             display("! ERROR : Can't start the FTP server, exiting");
         }
         display("");
+    }
+    
+    // check network and server creation, wait for user aknowledgement 
+    if (networkDown | (serverSocket < 0)) {        
+        display("");                
+        display("Press A or B button to continue");
+        display("");                
+        readUserAnswer(&vpadStatus);
     }
 
 #ifdef LOG2FILE
@@ -600,8 +607,7 @@ exit:
 
 	cleanUp();
 
-
-	OSSleepTicks(OSMillisecondsToTicks(2000));
+	OSSleepTicks(OSMillisecondsToTicks(1000));
 	display(" ");
 	display(" ");
 #ifdef LOG2FILE

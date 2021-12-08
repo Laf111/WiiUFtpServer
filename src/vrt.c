@@ -226,7 +226,7 @@ int vrt_stat(char *cwd, char *path, struct stat *st) {
     {
         return -1;
     }
-    else if (!*real_path || (strcmp(path, ".") == 0) || ((strlen(cwd) == 1) && (strcmp(cwd, "/") != 0)) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
+    else if (!*real_path || (strcmp(path, ".") == 0) || (strlen(cwd) == 1) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))
     {
         st->st_mode = S_IFDIR;
         st->st_size = 31337;

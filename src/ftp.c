@@ -391,7 +391,6 @@ static int32_t ftp_DELE(connection_t *client, char *path) {
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when DELE %s%s : err = %s", client->cwd, path, strerror(errno)); 
         return write_reply(client, 550, msg);
-		return write_reply(client, 550, strerror(errno));
     }
 }
 
@@ -415,7 +414,6 @@ static int32_t ftp_MKD(connection_t *client, char *path) {
             display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));            
             sprintf(msg, "Error in MKD when cd to %s%s : err = %s", client->cwd, path, strerror(errno)); 
             return write_reply(client, 550, msg);
-			return write_reply(client, 550, strerror(errno));			
         }
     }
 }
@@ -452,7 +450,6 @@ static int32_t ftp_SIZE(connection_t *client, char *path) {
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error SIZE on %s%s : err = %s", client->cwd, path, strerror(errno)); 
         return write_reply(client, 550, msg);
-		return write_reply(client, 550, strerror(errno));
     }
 }
 
@@ -897,6 +894,10 @@ static int32_t ftp_UNKNOWN(connection_t *client, char *rest UNUSED) {
     return write_reply(client, 502, "Command not implemented.");
 }
 
+static int32_t ftp_MDTM(connection_t *client, char *rest UNUSED) {
+    return write_reply(client, 502, "Command not implemented.");
+}
+
 static const char *unauthenticated_commands[] = { "USER", "PASS", "QUIT", "REIN", "NOOP", NULL };
 static const ftp_command_handler unauthenticated_handlers[] = { ftp_USER, ftp_PASS, ftp_QUIT, ftp_REIN, ftp_NOOP, ftp_NEEDAUTH };
 
@@ -912,7 +913,7 @@ static const ftp_command_handler authenticated_handlers[] = {
     ftp_SIZE, ftp_PASV, ftp_PORT, ftp_TYPE, ftp_SYST, ftp_MODE,
     ftp_RETR, ftp_STOR, ftp_APPE, ftp_REST, ftp_DELE, ftp_MKD,
     ftp_DELE, ftp_RNFR, ftp_RNTO, ftp_NLST, ftp_QUIT, ftp_REIN,
-    ftp_SITE, ftp_NOOP, ftp_SUPERFLUOUS, ftp_UNKNOWN
+    ftp_SITE, ftp_NOOP, ftp_SUPERFLUOUS, ftp_UNKNOWN, ftp_MDTM
 };
 
 /*

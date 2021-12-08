@@ -48,14 +48,14 @@ misrepresented as being the original software.
 extern "C"{
 #endif
 
-void setVerboseMode(bool flag);
+void    setVerboseMode(bool flag);
 int32_t create_server(uint16_t port);
-bool process_ftp_events();
-void cleanup_ftp();
+bool    process_ftp_events();
+void    cleanup_ftp();
 
-void setOsTime(struct tm *tmTime);
-void setFsaFd(int hfd);
-int getFsaFd();
+void    setOsTime(struct tm *tmTime);
+void    setFsaFd(int hfd);
+int     getFsaFd();
 
 #ifdef __cplusplus
 }
