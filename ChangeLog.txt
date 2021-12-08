@@ -180,3 +180,5 @@ HISTORY :
     > upgrade to Wut beta12
     > fix wrong timeout value when mounting devices
     > fix socket memory optimization failure
+
+TODO : use the 6-3 recv and send functions in a pool of NB_SIMULTANEOUS_TRANSFERS threads
