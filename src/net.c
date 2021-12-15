@@ -384,7 +384,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
             
-    int buf_size = DL_USER_BUFFER_SIZE;
+    int buf_size = USER_BUFFER_SIZE;
    
     if (connection->dataTransferOffset == 0) {
         // begin of a transfer, set socket buffer
@@ -457,7 +457,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
         
-    int buf_size = UL_USER_BUFFER_SIZE;
+    int buf_size = USER_BUFFER_SIZE;
 
     if (connection->dataTransferOffset == 0) {
         // begin of a transfer, set socket buffer an extra opt
