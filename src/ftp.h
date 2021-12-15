@@ -31,14 +31,34 @@ misrepresented as being the original software.
 #ifndef _FTP_H_
 #define _FTP_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/dir.h>
+#include <unistd.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <time.h>
+
+#include <coreinit/time.h>
+#include <coreinit/thread.h>
+#include <coreinit/memdefaultheap.h>
+#include <nsysnet/_socket.h>
+
 #include <whb/log.h>
 #include <whb/log_console.h>
 
-#include <time.h>
-#include <stdint.h>
-#include <stdbool.h>
-
 #define FTP_PORT            21
+
+#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*NB_NET_TIME_OUT
+
+#define FTP_MSG_BUFFER_SIZE 1024
+
+#define FTP_STACK_SIZE SOMEMOPT_BUFFER_SIZE*NB_SIMULTANEOUS_TRANSFERS
 
 // Number max of simultaneous connections from the client : 
 // 1 for communication with the client + NB_SIMULTANEOUS_TRANSFERS
@@ -47,6 +67,42 @@ misrepresented as being the original software.
 #ifdef __cplusplus
 extern "C"{
 #endif
+
+typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
+
+struct connection_struct {
+    int32_t socket;
+    char representation_type;
+    int32_t passive_socket;
+    int32_t data_socket;
+    char cwd[MAXPATHLEN];
+    char pending_rename[MAXPATHLEN];
+    off_t restart_marker;
+    struct sockaddr_in address;
+    bool authenticated;
+    char buf[FTP_MSG_BUFFER_SIZE];
+    int32_t offset;
+    bool data_connection_connected;
+    data_connection_callback data_callback;
+    void *data_connection_callback_arg;
+    void (*data_connection_cleanup)(void *arg);
+    // index of the connection
+    uint32_t index;
+    // file if a file is transfered using this connection
+    FILE *f;
+    char fileName[MAXPATHLEN];
+    // volume path to the file
+    char *volPath;
+    // user's buffer for file
+    char *userBuffer;
+    // attributes for data transfer tracking
+    int32_t dataTransferOffset;
+    // return code of send/recv functions
+    int32_t bytesTransfered;
+    OSTime data_connection_timer;
+};
+
+typedef struct connection_struct connection_t;
 
 void    setVerboseMode(bool flag);
 int32_t create_server(uint16_t port);

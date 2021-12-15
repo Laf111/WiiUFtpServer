@@ -2,6 +2,7 @@
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-0
  ***************************************************************************/
+#include <locale.h>
 #include <time.h>
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -33,7 +34,6 @@
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
-#include "transferedFiles.h"
 #include "nandBackup.h"
 #include "controllers.h"
 
@@ -257,6 +257,8 @@ uint32_t homeButtonCallback(void *dummy UNUSED)
 /****************************************************************************/
 int main()
 {
+    setlocale(LC_ALL, "");
+    
     // Console init
     WHBLogUdpInit();
     WHBProcInit();
@@ -312,7 +314,7 @@ int main()
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
         // set a priority to 0
-        OSSetThreadPriority(thread, 2);
+        OSSetThreadPriority(thread, FTP_NB_SIMULTANEOUS_TRANSFERS+1);
     }
 
     display(" -=============================-");

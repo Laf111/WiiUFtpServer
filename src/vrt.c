@@ -39,7 +39,6 @@ misrepresented as being the original software.
 #include <stdio.h>
 #include <dirent.h>
 
-#include "transferedFiles.h"
 #include "virtualpath.h"
 #include "net.h"
 #include "vrt.h"

@@ -31,6 +31,8 @@ misrepresented as being the original software.
 
 #include <coreinit/thread.h>
 
+#include "ftp.h"
+
 #ifdef __cplusplus
 extern "C"{
 #endif
@@ -40,7 +42,6 @@ extern "C"{
 #include <stdbool.h>
 
 #include <sys/socket.h>
-#include "transferedFiles.h"
 
 #define UNUSED    __attribute__((unused))
 
@@ -70,11 +71,9 @@ extern "C"{
 // 131072 bytes (128 x 1024) = 2*64*1024
 #define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
 
-#define DL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*2
-#define UL_USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*5
+#define USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*6
 
-// close to the max (3MB) : 4*(5*128*1024) = 2 621 440 bytes
-#define SOMEMOPT_BUFFER_SIZE 4*MAX(UL_USER_BUFFER_SIZE, DL_USER_BUFFER_SIZE)
+#define SOMEMOPT_BUFFER_SIZE USER_BUFFER_SIZE+SOMEMOPT_MIN_BUFFER_SIZE
 
 void initialize_network();
 
@@ -102,9 +101,9 @@ int32_t network_close_blocking(int32_t s);
 
 int32_t send_exact(int32_t s, char *buf, int32_t length);
 
-int32_t send_from_file(int32_t s, FILE *f);
+int32_t send_from_file(int32_t data_socket, connection_t* connection);
 
-int32_t recv_to_file(int32_t s, FILE *f);
+int32_t recv_to_file(int32_t data_socket, connection_t* connection);
 
 #ifdef __cplusplus
 }

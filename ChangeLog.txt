@@ -181,4 +181,8 @@ HISTORY :
     > fix wrong timeout value when mounting devices
     > fix socket memory optimization failure
 
-TODO : use the 6-3 recv and send functions in a pool of NB_SIMULTANEOUS_TRANSFERS threads
+2021/12/16 V7-1 :    
+    > remove the module transferedFiles : all is now done in ftp
+    > more close to the original code (design)
+    > compute approx transfer rate on server side
+    > tweak USER_BUFFER_SIZE to gain more MB/s (+20% -> a bit faster than V6)	 
