@@ -388,6 +388,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
    
     if (connection->dataTransferOffset == 0) {
         // begin of a transfer, set socket buffer
+        setExtraSocketOptimizations(s);
         
         // max value (the system double the value set)
 		int sockbuf_size = SOMEMOPT_MIN_BUFFER_SIZE;

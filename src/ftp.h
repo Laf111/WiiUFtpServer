@@ -58,11 +58,12 @@ misrepresented as being the original software.
 
 #define FTP_MSG_BUFFER_SIZE 1024
 
-#define FTP_STACK_SIZE SOMEMOPT_BUFFER_SIZE*NB_SIMULTANEOUS_TRANSFERS
-
 // Number max of simultaneous connections from the client : 
 // 1 for communication with the client + NB_SIMULTANEOUS_TRANSFERS
 #define FTP_NB_SIMULTANEOUS_TRANSFERS 1+NB_SIMULTANEOUS_TRANSFERS
+
+#define FTP_STACK_SIZE 32*1024
+
 
 #ifdef __cplusplus
 extern "C"{

@@ -314,7 +314,7 @@ int main()
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
         // set a priority to 0
-        OSSetThreadPriority(thread, FTP_NB_SIMULTANEOUS_TRANSFERS+1);
+        OSSetThreadPriority(thread, 0);
     }
 
     display(" -=============================-");

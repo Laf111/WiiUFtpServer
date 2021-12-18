@@ -53,12 +53,12 @@ extern "C"{
 #endif
 
 // number max of concurrents transfer slots 
-#define NB_SIMULTANEOUS_TRANSFERS 6
+#define NB_SIMULTANEOUS_TRANSFERS 8
 
 // Timeout for retrying the calls to the network API
-#define NET_TIMEOUT 4
-#define NB_NET_TIME_OUT 9
-#define NET_RETRY_TIME_STEP_MILLISECS 2400
+#define NET_TIMEOUT 5
+#define NB_NET_TIME_OUT 10
+#define NET_RETRY_TIME_STEP_MILLISECS 4900
 
 // socket extra definitions
 #define SO_RUSRBUF      0x10000     // enable userspace socket buffer
@@ -71,9 +71,11 @@ extern "C"{
 // 131072 bytes (128 x 1024) = 2*64*1024
 #define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
 
-#define USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*6
+// to the max (3MB)
+#define SOMEMOPT_BUFFER_SIZE 3000000
 
-#define SOMEMOPT_BUFFER_SIZE USER_BUFFER_SIZE+SOMEMOPT_MIN_BUFFER_SIZE
+//#define USER_BUFFER_SIZE (SOMEMOPT_BUFFER_SIZE-FTP_STACK_SIZE)/NB_SIMULTANEOUS_TRANSFERS
+#define USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*6
 
 void initialize_network();
 
