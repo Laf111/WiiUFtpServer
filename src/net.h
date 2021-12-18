@@ -53,7 +53,7 @@ extern "C"{
 #endif
 
 // number max of concurrents transfer slots 
-#define NB_SIMULTANEOUS_TRANSFERS 8
+#define NB_SIMULTANEOUS_TRANSFERS 6
 
 // Timeout for retrying the calls to the network API
 #define NET_TIMEOUT 5
@@ -74,8 +74,7 @@ extern "C"{
 // to the max (3MB)
 #define SOMEMOPT_BUFFER_SIZE 3000000
 
-//#define USER_BUFFER_SIZE (SOMEMOPT_BUFFER_SIZE-FTP_STACK_SIZE)/NB_SIMULTANEOUS_TRANSFERS
-#define USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*6
+#define USER_BUFFER_SIZE SOMEMOPT_BUFFER_SIZE/NB_SIMULTANEOUS_TRANSFERS
 
 void initialize_network();
 
