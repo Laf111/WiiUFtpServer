@@ -459,7 +459,7 @@ int main()
         goto exit;
     }
     display(" ");
-    display(" ");
+    display("Starting network and create server...");
     display(" ");
     
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise

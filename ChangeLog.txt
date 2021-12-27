@@ -181,10 +181,8 @@ HISTORY :
     > fix wrong timeout value when mounting devices
     > fix socket memory optimization failure
 
-2021/12/19 V7-1 :    
-    > remove the module transferedFiles : all is now done in ftp
-    > more close to the original code (design)
+2021/12/26 V7-1 :    
+    > HOTFIX : fix issue#02 by disabling user buffer's file optimization on upload (it corrupts files)
+    > remove the module transferedFiles : all is now done in ftp (more close to the original design)
     > compute approx transfer rate on server side
-    > pre-allocate user buffer's file
-    > tweak USER_BUFFER_SIZE to gain more MB/s
-    
+    > push to 8 simultaneous transferts
