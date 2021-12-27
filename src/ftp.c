@@ -322,14 +322,6 @@ static int32_t closeTransferedFile(connection_t *connection) {
         writeToLog("CloseTransferedFile for connection [%d] (s=%d, fd=%d)", connection->index, connection->data_socket, fileno(connection->f));
     #endif         
         
-        
-    #ifdef LOG2FILE    
-        writeToLog("Closing file and exit");
-    #endif         
-    
-    result = fclose(connection->f);
-    connection->f = NULL;
-    
     if (connection->volPath != NULL) {
         
         // change rights on file
@@ -341,7 +333,14 @@ static int32_t closeTransferedFile(connection_t *connection) {
         }
         free(connection->volPath);
         connection->volPath = NULL;
-    }        
+    } 
+    
+    #ifdef LOG2FILE    
+        writeToLog("Closing file and exit");
+    #endif         
+    
+    result = fclose(connection->f);
+    connection->f = NULL;
         
     return result;
 }

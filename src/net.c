@@ -367,15 +367,13 @@ static void setExtraSocketOptimizations(int32_t s)
     if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
         {display("! ERROR : Force to leave received OOB data in line failed !");}
 
-    int disable = 0;        
-    
     // TCP_NODELAY 
-    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &disable, sizeof(disable))!=0) 
-        {display("! ERROR : Enable Nagle's algorithm failed !");}
+    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
+        {display("! ERROR : Disable Nagle's algorithm failed !");}
 
      // Deactivate TCP SAck
-    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &disable, sizeof(disable))!=0) 
-        {display("! ERROR : TCP SAck deactivation failed !");}
+    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
+        {display("! ERROR : TCP SAck activation failed !");}
     
 }
 
@@ -396,13 +394,13 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
             {display("! ERROR : SNDBUF failed !");}    
                 
+        // resize file's buffer
+        if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
+            display("! WARNING : setvbuf failed for = %s", connection->fileName);
+            display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
+        }                
     }
     
-    // resize file's buffer
-    if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
-        display("! WARNING : setvbuf failed for = %s", connection->fileName);
-        display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
-    }                
    
 	int32_t bytes_read = buf_size;
     bytes_read = fread(connection->userBuffer, 1, buf_size, connection->f);
@@ -437,6 +435,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             }
         }
     }
+    
     if (result >=0) {
         // check bytes read (now because on the last sending, data is already sent here = result)
         if (bytes_read < buf_size) {
@@ -476,40 +475,40 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         int sockbuf_size = buf_size/2;
         if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
             {display("! ERROR : RCVBUF failed !");}
+
+        // resize file's buffer
+        if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
+            display("! WARNING : setvbuf failed for = %s", connection->fileName);
+            display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
+        }                
     }
-    
-    // resize file's buffer
-    if (setvbuf(connection->f, NULL, _IOFBF, buf_size/2) != 0) {
-        display("! WARNING : setvbuf failed for = %s", connection->fileName);
-        display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
-    }                
 	
     uint32_t retryNumber = 0;    
 	int32_t bytes_received = buf_size;
         
-        read_again:
-        // BLOCKING MODE
-        set_blocking(s, true);
-        bytes_received = network_read(s, connection->userBuffer, buf_size);       
-        set_blocking(s, false);
-                
-        if (bytes_received == 0) {
-            // SUCCESS, no more to write to file
-                    
-            nbFilesUL++;
-            result = 0;
+    read_again:
+    // BLOCKING MODE
+    set_blocking(s, true);
+    bytes_received = network_read(s, connection->userBuffer, buf_size);       
+    set_blocking(s, false);
             
+    if (bytes_received == 0) {
+        // SUCCESS, no more to write to file
+                
+        nbFilesUL++;
+        result = 0;
+        
     } else if (bytes_received < 0 && bytes_received != -EAGAIN) {
 
-            if (retry(bytes_received)) {
-                OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-                retryNumber++;
-                if (retryNumber <= retriesNumber) goto read_again;
-            }    
-            display("! ERROR : network_read failed = %d afer %d attempts", bytes_received, retriesNumber);
-            display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-            // result = error, connection will be closed
-            result = bytes_received;
+        if (retry(bytes_received)) {
+            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
+            retryNumber++;
+            if (retryNumber <= retriesNumber) goto read_again;
+        }    
+        display("! ERROR : network_read failed = %d afer %d attempts", bytes_received, retriesNumber);
+        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+        // result = error, connection will be closed
+        result = bytes_received;
     } else {
         // bytes_received > 0
                 
