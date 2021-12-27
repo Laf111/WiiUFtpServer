@@ -399,7 +399,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     }
     
     // resize file's buffer
-    if (setvbuf(connection->f, connection->userBuffer, _IOFBF, buf_size) != 0) {
+    if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
         display("! WARNING : setvbuf failed for = %s", connection->fileName);
         display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
     }                
