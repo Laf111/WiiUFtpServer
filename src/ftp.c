@@ -273,14 +273,16 @@ void displayData(uint32_t index) {
     writeToLog("data_socket                = %d", connections[index]->data_socket);
     writeToLog("restart_marker             = %d", connections[index]->restart_marker);
     writeToLog("data_connection_connected  = %d", connections[index]->data_connection_connected);
-    
+    if (connection->volPath != NULL) 
+        writeToLog("userBuffer                 = %d", USER_BUFFER_SIZE);
+    else
+        writeToLog("userBuffer                 = %d", DL_USER_BUFFER_SIZE);
     writeToLog("data_connection_timer      = %d", connections[index]->data_connection_timer);
     
     if (connections[index]->f != NULL) {            
         writeToLog("filename                   = %s", connections[index]->fileName);
         writeToLog("fd                         = %d", fileno(connections[index]->f));
         writeToLog("volPath                    = %s", connections[index]->volPath);
-        writeToLog("userBuffer                 = %d", USER_BUFFER_SIZE);
         writeToLog("dataTransferOffset         = %d", connections[index]->dataTransferOffset);
         writeToLog("bytesTransfered            = %d", connections[index]->bytesTransfered);
             
@@ -294,14 +296,26 @@ void displayData(uint32_t index) {
 
 static int32_t transfer(int32_t data_socket, connection_t *connection) {
     int32_t result = -EAGAIN;    
-    
+                
     if (connection->dataTransferOffset == -1) {
-               
+        
 		#ifdef LOG2FILE    
 		    writeToLog("Using data_socket (%d) of connection [%d] to transfer %s", data_socket, connection->index, connection->fileName);
 		    displayData(connection->index);
 		#endif
-
+		
+        // allocate user's buffer           
+        connection->userBuffer = MEMAllocFromDefaultHeapEx(USER_BUFFER_SIZE, 64);
+        if (!connection->userBuffer) {
+            display("! ERROR : failed to allocate user buffer for the connection [%d]", connection->index);
+            return false;
+        }  		
+		
+        // resize file's buffer
+        if (setvbuf(connection->f, NULL, _IOFBF, USER_BUFFER_SIZE) != 0) {
+            display("! WARNING : setvbuf failed for = %s", connection->fileName);
+            display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
+        }                
         // init
         connection->dataTransferOffset = 0;
         
@@ -325,7 +339,7 @@ static int32_t closeTransferedFile(connection_t *connection) {
     if (connection->volPath != NULL) {
         
         // change rights on file
-        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x644);
+        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
         
         if (rc < 0 ) {
             display("~ WARNING : when settings file's rights, rc = %d !", rc);
@@ -341,6 +355,10 @@ static int32_t closeTransferedFile(connection_t *connection) {
     
     result = fclose(connection->f);
     connection->f = NULL;
+	
+    // free user's buffer file
+    if (connection->userBuffer != NULL) MEMFreeToDefaultHeap(connection->userBuffer);
+    connection->userBuffer = NULL;
         
     return result;
 }
@@ -572,7 +590,7 @@ static int32_t ftp_MKD(connection_t *client, char *path) {
             volPath = virtualToVolPath(vPath);
 
             // chmod on folder
-            IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x644);
+            IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
             free(volPath);
  */            
 #ifdef LOG2FILE
@@ -1080,7 +1098,7 @@ static int32_t ftp_SITE_CHMOD(connection_t *client, char *rest UNUSED) {
     volPath = virtualToVolPath(vPath);
 
     // chmod on folder
-    IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x644);
+    IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
     free(volPath);
     return write_reply(client, 250, "SITE CHMOD command ok.");
 }
@@ -1163,7 +1181,7 @@ static int32_t ftp_UNKNOWN(connection_t *client, char *rest UNUSED) {
 }
 
 static int32_t ftp_MDTM(connection_t *client, char *rest UNUSED) {
-    return write_reply(client, 502, "Command not implemented.");
+    return write_reply(client, 202, "Command not implemented.");
 }
 
 static const char *unauthenticated_commands[] = { "USER", "PASS", "QUIT", "REIN", "NOOP", NULL };
@@ -1233,9 +1251,6 @@ static void cleanup_client(connection_t *client) {
     cleanup_data_resources(client);
     close_passive_socket(client);
 	
-    // free user's buffer file
-    if (client->userBuffer != NULL) MEMFreeToDefaultHeap(client->userBuffer);
-    client->userBuffer = NULL;
     
     uint32_t client_index;
     for (client_index = 0; client_index < activeConnectionsNumber; client_index++) {
@@ -1323,13 +1338,6 @@ static bool process_getClients() {
         client->passive_socket = -1;
         client->data_socket = -1;
         
-        // TODO : check if it can be activated once the creation folder issue is fixed
-/*         if (activeConnectionsNumber > 0) {
-            connection_t *lastConnection = connections[activeConnectionsNumber-1];
-            strcpy(client->cwd, lastConnection->cwd);
-        } else 
-            strcpy(client->cwd, "/");
- */        
         strcpy(client->cwd, "/");
         
         *client->pending_rename = '\0';
@@ -1344,15 +1352,7 @@ static bool process_getClients() {
         client->f = NULL;
         *client->fileName = '\0';
         client->volPath = NULL;        
-        
         client->userBuffer = NULL;        
-        // pre-allocate user's buffer           
-        client->userBuffer = MEMAllocFromDefaultHeapEx(USER_BUFFER_SIZE, 64);
-        if (!client->userBuffer) {
-            display("! ERROR : failed to allocate user buffer for the new connection");
-            return false;
-        }        
-
         client->dataTransferOffset = -1;
         client->bytesTransfered = -EAGAIN;
         client->index=-1;

@@ -185,4 +185,9 @@ HISTORY :
     > HOTFIX : fix issue#02 by disabling user buffer's file optimization on upload (it corrupts files)
     > remove the module transferedFiles : all is now done in ftp (more close to the original design)
     > compute approx transfer rate on server side
-    > push to 8 simultaneous transferts
+    > push to 8 simultaneous transfers
+    
+2021/12/28 V7-2 :    
+    > fix issue#03 (WWHD saves injection)
+    > reduce to 7 the number of simultaneous transfers to avoid network overflow
+    > finals tweaks on user's buffer to get a little bit higher perfomances than with V7-0

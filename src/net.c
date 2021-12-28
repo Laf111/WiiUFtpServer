@@ -381,24 +381,18 @@ static void setExtraSocketOptimizations(int32_t s)
 int32_t send_from_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
-    
-    // use the twice space that network can send
+        
     int buf_size = USER_BUFFER_SIZE;
     
     if (connection->dataTransferOffset == 0) {
 
         setExtraSocketOptimizations(s);
         
-        // max value (the system double the value set)
+        // max value for SNDBUF = SOMEMOPT_MIN_BUFFER_SIZE (the system double the value set)
 		int sockbuf_size = SOMEMOPT_MIN_BUFFER_SIZE;
         if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
-            {display("! ERROR : SNDBUF failed !");}    
-                
-        // resize file's buffer
-        if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
-            display("! WARNING : setvbuf failed for = %s", connection->fileName);
-            display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
-        }                
+            {display("! ERROR : SNDBUF failed !");
+		}             
     }
     
    
@@ -475,12 +469,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         int sockbuf_size = buf_size/2;
         if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
             {display("! ERROR : RCVBUF failed !");}
-
-        // resize file's buffer
-        if (setvbuf(connection->f, NULL, _IOFBF, buf_size) != 0) {
-            display("! WARNING : setvbuf failed for = %s", connection->fileName);
-            display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
-        }                
+                
     }
 	
     uint32_t retryNumber = 0;    
