@@ -98,6 +98,8 @@ struct connection_struct {
     char *userBuffer;
     // attributes for data transfer tracking
     int32_t dataTransferOffset;
+    // last speed computed in MB/s
+    float speed;	
     // return code of send/recv functions
     int32_t bytesTransfered;
     OSTime data_connection_timer;

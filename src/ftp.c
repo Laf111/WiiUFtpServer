@@ -72,10 +72,14 @@ static int fsaFd = -1;
 static connection_t *connections[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
 static int listener = -1;     // listening socket descriptor
 
-// number of files transfered
-static uint32_t nbTransferedFiles = 0;
+// max and min transfer rate speeds in MBs
+static float maxTransferRate = -9999;
+static float minTransferRate = 9999;
+
 // sum of average speeds
 static float sumAvgSpeed = 0;
+// number of measures used for average computation
+static uint32_t nbSpeedMeasures = 0;
 
 // FTP thread on CPU2
 static OSThread ftpThread;
@@ -90,7 +94,7 @@ static int ftpThreadMain(int argc UNUSED, const char **argv UNUSED)
 
     // Set to non-blocking I/O
     set_blocking(socket, false);    
-
+        
     return socket;
 }
 
@@ -288,9 +292,13 @@ void displayData(uint32_t index) {
             
     }
     writeToLog("FTP Thread stack size      = %d", OSCheckThreadStackUsage(&ftpThread));        
-    
-    writeToLog("Number of files transfered = %d", nbTransferedFiles);        
+         
+    writeToLog("Number of avg files used   = %d", nbSpeedMeasures);        
     writeToLog("Average transfer speed     = %.2f", sumAvgSpeed);        
+
+    writeToLog("Max transfer speed         = %.2f", maxTransferRate);        
+    writeToLog("Min transfer speed         = %.2f", minTransferRate);        
+    
 }
 #endif
 
@@ -305,14 +313,14 @@ static int32_t transfer(int32_t data_socket, connection_t *connection) {
 		#endif
 		
         // allocate user's buffer           
-        connection->userBuffer = MEMAllocFromDefaultHeapEx(USER_BUFFER_SIZE, 64);
+        connection->userBuffer = MEMAllocFromDefaultHeapEx(6*USER_BUFFER_SIZE, 64);
         if (!connection->userBuffer) {
             display("! ERROR : failed to allocate user buffer for the connection [%d]", connection->index);
             return false;
         }  		
 		
         // resize file's buffer
-        if (setvbuf(connection->f, NULL, _IOFBF, USER_BUFFER_SIZE) != 0) {
+        if (setvbuf(connection->f, NULL, _IOFBF, 6*USER_BUFFER_SIZE) != 0) {
             display("! WARNING : setvbuf failed for = %s", connection->fileName);
             display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
         }                
@@ -512,12 +520,12 @@ static int32_t ftp_CWD(connection_t *client, char *path) {
     int32_t result = 0;    
     
 #ifdef LOG2FILE
-        writeToLog("ftp_CWD on connection [%d] : previous dir = %s", client->index, client->cwd);
+        writeToLog("ftp_CWD on connection [%d] : previous dir = %s", client->index+1, client->cwd);
 #endif                        
     if (!vrt_chdir(client->cwd, path)) {
         
 #ifdef LOG2FILE
-        writeToLog("ftp_CWD on connection [%d] : current dir = %s", client->index, client->cwd);
+        writeToLog("ftp_CWD on connection [%d] : current dir = %s", client->index+1, client->cwd);
 #endif                        
 
         write_reply(client, 250, "CWD command successful.");
@@ -654,7 +662,7 @@ static int32_t ftp_SIZE(connection_t *client, char *path) {
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error SIZE on %s%s : err = %s", client->cwd, path, strerror(errno)); 
         return write_reply(client, 550, msg);
-        }
+    }
 }
 
 static int32_t ftp_PASV(connection_t *client, char *rest UNUSED) {
@@ -900,8 +908,10 @@ static int32_t ftp_LIST(connection_t *client, char *path) {
     }
     return result;
 }
-
 static int32_t ftp_RETR(connection_t *client, char *path) {
+
+    strcpy(client->fileName, path);
+
         
     client->f = vrt_fopen(client->cwd, path, "rb");
     if (!client->f) {
@@ -922,7 +932,6 @@ static int32_t ftp_RETR(connection_t *client, char *path) {
     }
     client->restart_marker = 0;
     client->volPath = NULL;
-    strcpy(client->fileName, path);
     int32_t result = prepare_data_connection(client, transfer, client, closeTransferedFile);
 
     if (result < 0) {
@@ -940,7 +949,6 @@ static int32_t ftp_RETR(connection_t *client, char *path) {
 static int32_t stor_or_append(connection_t *client, char *path, FILE *f) {
     
 	client->f = f;
-    strcpy(client->fileName, path);
     
     // compute volume path
     char vPath[MAXPATHLEN+1] = "";
@@ -961,6 +969,9 @@ static int32_t stor_or_append(connection_t *client, char *path, FILE *f) {
 }
 
 static int32_t ftp_STOR(connection_t *client, char *path) {
+    
+    strcpy(client->fileName, path);
+    
     char *folder = NULL;
     
     // check if folder exist, creates it if needed    
@@ -1004,15 +1015,15 @@ static int32_t ftp_STOR(connection_t *client, char *path) {
     }
     client->restart_marker = 0;
     display("> Receiving %s...", path);
-    strcpy(client->fileName, path);
 
     return stor_or_append(client, path, f);
 }
 
 static int32_t ftp_APPE(connection_t *client, char *path) {
 
-    char *folder = NULL;
-    
+    strcpy(client->fileName, path);
+
+    char *folder = NULL;    
     // check if folder exist, creates it if needed    
     if (path[0] == '/') {
         // get the folder from path        
@@ -1044,7 +1055,7 @@ static int32_t ftp_APPE(connection_t *client, char *path) {
     }
     
     display("> Receiving %s...", path);
-    strcpy(client->fileName, path);
+
     
     FILE *f = vrt_fopen(client->cwd, path, "ab");
     if (!f) {
@@ -1261,7 +1272,7 @@ static void cleanup_client(connection_t *client) {
     }
     free(client);
     activeConnectionsNumber--;
-    display("- %s connection [%d] closed", clientIp, client_index);
+    display("- %s connection [%d] closed", clientIp, client_index+1);
 }
 
 void cleanup_ftp() {
@@ -1271,8 +1282,6 @@ void cleanup_ftp() {
 #ifdef LOG2FILE
         writeToLog("total data sockets opened = %d", nbDataSocketsOpened);
 #endif
-        uint32_t nbtf = nbTransferedFiles;
-        
         uint32_t client_index;
         for (client_index = 0; client_index < FTP_NB_SIMULTANEOUS_TRANSFERS; client_index++) {
             connection_t *client = connections[client_index];
@@ -1286,10 +1295,10 @@ void cleanup_ftp() {
         #endif            
         if (ftpThreadStack != NULL) MEMFreeToDefaultHeap(ftpThreadStack);        
         
-        if (nbtf != 0) {
+        if (nbSpeedMeasures != 0) {
             display(" ");    
             display("------------------------------------------------------------");
-            display("  Average speed  : %.0f (KB/s)", sumAvgSpeed / (float)nbtf);
+            display("  Speed (MB/s) [min = %.2f, mean = %.2f, max = %.2f]", minTransferRate, sumAvgSpeed/(float)nbSpeedMeasures, maxTransferRate);
         }        
     }
 }
@@ -1354,6 +1363,7 @@ static bool process_getClients() {
         client->volPath = NULL;        
         client->userBuffer = NULL;        
         client->dataTransferOffset = -1;
+		client->speed = 0;
         client->bytesTransfered = -EAGAIN;
         client->index=-1;
 
@@ -1379,7 +1389,7 @@ static bool process_getClients() {
                         client->index = client_index;
                         connections[client_index] = client;
                         
-                        display("- %s open connection [%d]", clientIp, client_index);
+                        display("- %s open connection [%d]", clientIp, client_index+1);
 						#ifdef LOG2FILE    
 						    displayData(client_index);
 						#endif
@@ -1399,7 +1409,7 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
     if (!client->data_connection_connected) {
         if (client->passive_socket >= 0) {
 			#ifdef LOG2FILE    
-			    writeToLog("Using passive_socket (%d) of connection [%d] ", client->passive_socket, client_index);
+			    writeToLog("Using passive_socket (%d) of connection [%d] ", client->passive_socket, client_index+1);
 			#endif            
             struct sockaddr_in data_peer_address;
             int32_t addrlen = sizeof(data_peer_address);
@@ -1419,7 +1429,7 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
         } else {
 
 			#ifdef LOG2FILE    
-			    writeToLog("Using data_socket (%d) of connection [%d] ", client->data_socket, client_index);
+			    writeToLog("Using data_socket (%d) of connection [%d] ", client->data_socket, client_index+1);
 			#endif
 
             if ((result = network_connect(client->data_socket, (struct sockaddr *)&client->address, sizeof(client->address))) < 0) {
@@ -1431,17 +1441,22 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
             }
             if (result >= 0 || result == -EISCONN) {
                 client->data_connection_connected = true;
+                #ifdef LOG2FILE    
+                    display("Opened connections = %d / %d", activeConnectionsNumber-1, NB_SIMULTANEOUS_TRANSFERS);
+                #endif
+				client->speed = 0;
             }
         }
         if (client->data_connection_connected) {
-            result = 1;
-            
+            result = 1;            
         } else if (OSGetTime() > client->data_connection_timer) {
             result = -99;
-            display("~ WARNING : Timed out for data socket %d", client->data_socket);
+            display("~ WARNING : Timed out for connection [%d], data socket = %d", client->index+1, client->data_socket);
             write_reply(client, 421, "Timed out waiting for data connection.");
         }
         // here result = 1 or -2
+        
+        
     } else {
         result = client->data_callback(client->data_socket, client->data_connection_callback_arg);
                 
@@ -1450,28 +1465,34 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
             // compute transfer speed
             uint64_t duration = (OSGetTime() - (client->data_connection_timer - FTP_CONNECTION_TIMEOUT*1000000)) * 4000ULL / BUS_SPEED;
             if (duration != 0) {
-                
-                float speed = (float)(client->dataTransferOffset) / (float)(duration*1000);
+                // set a threshold on file size to consider file for average calculation
+                // take only files larger than the network buffer used
+                int threshold = USER_BUFFER_SIZE;
+                if (client->volPath == NULL) threshold = SOMEMOPT_MIN_BUFFER_SIZE*2;
+                    
+                if (client->dataTransferOffset >= threshold) { 
+                    client->speed = (float)(client->dataTransferOffset) / (float)(duration*1000);
 
-                display("> %s transfered %.2f MB/s (%d bytes)", client->fileName, speed, client->dataTransferOffset);
+                    if (client->volPath == NULL)
+                        display("> %s sent at %.2f MB/s (%d bytes)", client->fileName, client->speed, client->dataTransferOffset);
+                    else
+                        display("> %s received at %.2f MB/s (%d bytes)", client->fileName, client->speed, client->dataTransferOffset);
 
-                // increment nbFiles transfered and take speed into account for mean calculation
-                nbTransferedFiles+=1;
-                float speedKbs = speed*1000;
-                sumAvgSpeed+=speedKbs;
+                }
             }
             #ifdef LOG2FILE    
-                writeToLog("Transfer callback returned %d",client->bytesTransfered);
+                if (result != -EAGAIN) writeToLog("Transfer callback of connection[%d] returned %d", client->index+1, client->bytesTransfered);
             #endif    
             
-        } //else {
-//            #ifdef LOG2FILE    
-//                writeToLog("data_callback returned %d",result);
-//            #endif    
-//        }
+        } else {
+            
+            #ifdef LOG2FILE    
+                if (result != -EAGAIN) writeToLog("data_callback of connection[%d] returned %d", client->index+1, result);
+            #endif    
+        }
         
         if (result < 0 && result != -EAGAIN) {
-            display("! ERROR : data transfer callback failed , socket error = %d", result);
+            display("! ERROR : data transfer callback of connection [%d] failed , socket error = %d", client->index+1, result);
         }
     }
 
@@ -1480,10 +1501,10 @@ static void process_data_events(connection_t *client, uint32_t client_index) {
 		// send 520 also when timeout
         if (result < 0) {
             if (result != -99) {
-                display("! ERROR : transfer failed, socket error = %d", result);            
+                display("! ERROR : transfer failed for connection [%d], error = %d", client->index+1, result);            
                 write_reply(client, 520, "Data connection closed, error occurred during transfer.");
             } else {
-                display("~ WARNING : connection %d timed out", client_index);            
+                display("~ WARNING : connection %d timed out", client_index+1);            
                 write_reply(client, 421, "Data connection closed, timeout reached.");
             }
         } else {
@@ -1558,16 +1579,26 @@ bool process_ftp_events() {
     
     bool network_down = !process_getClients();
     uint32_t client_index;
+	float totalSpeedMBs = 0;
     for (client_index = 0; client_index < activeConnectionsNumber; client_index++) {
         connection_t *client = connections[client_index];
         if (client) {
             if (client->data_callback) {
                 process_data_events(client, client_index);
+				if (client->speed) totalSpeedMBs += client->speed;
             } else {
                 process_control_events(client);
             }
         }
     }
+	if (totalSpeedMBs) {
+	    // increment nbAvgFiles and take speed into account for mean calculation
+	    nbSpeedMeasures += 1;
+	    if (totalSpeedMBs > maxTransferRate) maxTransferRate = totalSpeedMBs; 
+	    if (totalSpeedMBs < minTransferRate) minTransferRate = totalSpeedMBs; 
+	    sumAvgSpeed += totalSpeedMBs;
+	
+	}
     return network_down;
 }
 

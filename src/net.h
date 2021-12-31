@@ -72,11 +72,11 @@ extern "C"{
 // 131072 bytes (128 x 1024) = 2*64*1024
 #define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
 
-// user's buffer size for upload (download fixed to SOMEMOPT_MIN_BUFFER_SIZE*2 in ftp.c)
-#define USER_BUFFER_SIZE SOMEMOPT_MIN_BUFFER_SIZE*6
+// socket memory optimization buffer size, max = 3*1024*1024
+#define SOMEMOPT_BUFFER_SIZE 3*1024*1024
 
-// socket user's buffer to the max (3MB)
-#define SOMEMOPT_BUFFER_SIZE USER_BUFFER_SIZE*NB_SIMULTANEOUS_TRANSFERS + UNSCALED_BUFFER_SIZE
+// user's buffer size for upload (download fixed to SOMEMOPT_MIN_BUFFER_SIZE*2 in ftp.c)
+#define USER_BUFFER_SIZE (SOMEMOPT_BUFFER_SIZE-UNSCALED_BUFFER_SIZE)/NB_SIMULTANEOUS_TRANSFERS
 
 
 void initialize_network();

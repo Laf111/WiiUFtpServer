@@ -386,7 +386,6 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     
     if (connection->dataTransferOffset == 0) {
 
-        setExtraSocketOptimizations(s);
         
         // max value for SNDBUF = SOMEMOPT_MIN_BUFFER_SIZE (the system double the value set)
 		int sockbuf_size = SOMEMOPT_MIN_BUFFER_SIZE;

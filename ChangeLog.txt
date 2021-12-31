@@ -191,3 +191,9 @@ HISTORY :
     > fix issue#03 (WWHD saves injection)
     > reduce to 7 the number of simultaneous transfers to avoid network overflow
     > finals tweaks on user's buffer to get a little bit higher perfomances than with V7-0
+    
+2021/12/31 V7-3 :    
+    > fix low average speed computation for single transfer : now only consider files that fill the entire buffer
+    > add a global speed stats (min/mean/max)
+    > use the max amount of shared socket memory
+    > use a larger file buffer (to enhance speed for transfering files larger than 1MB)
