@@ -277,10 +277,7 @@ void displayData(uint32_t index) {
     writeToLog("data_socket                = %d", connections[index]->data_socket);
     writeToLog("restart_marker             = %d", connections[index]->restart_marker);
     writeToLog("data_connection_connected  = %d", connections[index]->data_connection_connected);
-    if (connection->volPath != NULL) 
-        writeToLog("userBuffer                 = %d", USER_BUFFER_SIZE);
-    else
-        writeToLog("userBuffer                 = %d", DL_USER_BUFFER_SIZE);
+    writeToLog("userBuffer                 = %d", USER_BUFFER_SIZE);
     writeToLog("data_connection_timer      = %d", connections[index]->data_connection_timer);
     
     if (connections[index]->f != NULL) {            
@@ -288,13 +285,14 @@ void displayData(uint32_t index) {
         writeToLog("fd                         = %d", fileno(connections[index]->f));
         writeToLog("volPath                    = %s", connections[index]->volPath);
         writeToLog("dataTransferOffset         = %d", connections[index]->dataTransferOffset);
+        writeToLog("speed                      = %.2f", connections[index]->speed);
         writeToLog("bytesTransfered            = %d", connections[index]->bytesTransfered);
             
     }
     writeToLog("FTP Thread stack size      = %d", OSCheckThreadStackUsage(&ftpThread));        
          
     writeToLog("Number of avg files used   = %d", nbSpeedMeasures);        
-    writeToLog("Average transfer speed     = %.2f", sumAvgSpeed);        
+    writeToLog("Sum of speed rate          = %.2f", sumAvgSpeed);        
 
     writeToLog("Max transfer speed         = %.2f", maxTransferRate);        
     writeToLog("Min transfer speed         = %.2f", minTransferRate);        
@@ -302,37 +300,83 @@ void displayData(uint32_t index) {
 }
 #endif
 
-static int32_t transfer(int32_t data_socket, connection_t *connection) {
+int launchTransfer(int argc UNUSED, const char **argv)
+{
+    int32_t result = -101;
+    connection_t* activeConnection = (connection_t*) argv;
+
+    #ifdef LOG2FILE    
+        display("Connection [%d] : launching transfer for %s", activeConnection->index+1, activeConnection->fileName);
+    #endif
+    
+    if (activeConnection->volPath == NULL) {
+        result = send_from_file(activeConnection->data_socket, activeConnection);
+    } else {        
+        result = recv_to_file(activeConnection->data_socket, activeConnection);
+    }
+    
+    #ifdef LOG2FILE    
+        display("Connection [%d] : yield the transfer thread", activeConnection->index+1);
+    #endif
+    
+    return result;
+}
+
+static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
     int32_t result = -EAGAIN;    
                 
     if (connection->dataTransferOffset == -1) {
-        
+    
+        // init bytes counter
+        connection->dataTransferOffset = 0;
+               
 		#ifdef LOG2FILE    
-		    writeToLog("Using data_socket (%d) of connection [%d] to transfer %s", data_socket, connection->index, connection->fileName);
+		    writeToLog("Using data_socket (%d) of connection [%d] to transfer %s", data_socket, connection->index+1, connection->fileName);
 		    displayData(connection->index);
 		#endif
 		
         // allocate user's buffer           
-        connection->userBuffer = MEMAllocFromDefaultHeapEx(6*USER_BUFFER_SIZE, 64);
+        connection->userBuffer = MEMAllocFromDefaultHeapEx(4*USER_BUFFER_SIZE, 64);
         if (!connection->userBuffer) {
             display("! ERROR : failed to allocate user buffer for the connection [%d]", connection->index);
             return false;
         }  		
 		
         // resize file's buffer
-        if (setvbuf(connection->f, NULL, _IOFBF, 6*USER_BUFFER_SIZE) != 0) {
+        if (setvbuf(connection->f, NULL, _IOFBF, 2*USER_BUFFER_SIZE) != 0) {
             display("! WARNING : setvbuf failed for = %s", connection->fileName);
             display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
         }                
         // init
         connection->dataTransferOffset = 0;
         
-    }
-    if (connection->volPath == NULL) {
-        result = send_from_file(data_socket, connection);
+        if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
+            display("! ERROR : when creating transferThread!");        
+            return false;
+        }
+/*         #ifdef LOG2FILE    
+            OSSetThreadStackUsage(&connection->transferThread);
+        #endif */
+    
+        OSSetThreadName(&connection->transferThread, "transfer thread");
+        OSResumeThread(&connection->transferThread);
+                
     } else {
-        result = recv_to_file(data_socket, connection);
+        
+        result = connection->bytesTransfered;
+        
+/*     #ifdef LOG2FILE
+        writeToLog("Connection [%d] : Transfer thread stack size = %d", connection->index+1, OSCheckThreadStackUsage(&connection->transferThread));   
+    #endif */
+        
+          if (OSIsThreadTerminated(&connection->transferThread) || result == 0) {
+            OSJoinThread(&connection->transferThread, &result);
+            #ifdef LOG2FILE    
+                writeToLog("Transfer thread [%d] retuned %d", connection->index+1, result);
+            #endif            
+        }
     }
+    
         
     return result;
 }
@@ -341,7 +385,7 @@ static int32_t closeTransferedFile(connection_t *connection) {
     int32_t result = -103;    
 
     #ifdef LOG2FILE    
-        writeToLog("CloseTransferedFile for connection [%d] (s=%d, fd=%d)", connection->index, connection->data_socket, fileno(connection->f));
+        writeToLog("CloseTransferedFile for connection [%d] (file=%s)", connection->index+1, connection->fileName);
     #endif         
         
     if (connection->volPath != NULL) {
@@ -519,14 +563,15 @@ static int32_t ftp_PWD(connection_t *client, char *rest UNUSED) {
 static int32_t ftp_CWD(connection_t *client, char *path) {
     int32_t result = 0;    
     
-#ifdef LOG2FILE
-        writeToLog("ftp_CWD on connection [%d] : previous dir = %s", client->index+1, client->cwd);
-#endif                        
+// #ifdef LOG2FILE
+//         writeToLog("ftp_CWD on connection [%d] : previous dir = %s", client->inde+1x, client->cwd);
+// #endif
+                        
     if (!vrt_chdir(client->cwd, path)) {
         
-#ifdef LOG2FILE
-        writeToLog("ftp_CWD on connection [%d] : current dir = %s", client->index+1, client->cwd);
-#endif                        
+// #ifdef LOG2FILE
+//         writeToLog("ftp_CWD on connection [%d] : current dir = %s", client->index+1, client->cwd);
+// #endif                        
 
         write_reply(client, 250, "CWD command successful.");
     } else  {
@@ -1263,6 +1308,8 @@ static void cleanup_client(connection_t *client) {
     close_passive_socket(client);
 	
     
+    if (client->transferThreadStack != NULL) MEMFreeToDefaultHeap(client->transferThreadStack);
+	
     uint32_t client_index;
     for (client_index = 0; client_index < activeConnectionsNumber; client_index++) {
         if (connections[client_index] == client) {
@@ -1290,9 +1337,9 @@ void cleanup_ftp() {
                 cleanup_client(client);
             }
         }
-        #ifdef LOG2FILE    
+/*         #ifdef LOG2FILE    
             OSClearThreadStackUsage(&ftpThread);
-        #endif            
+        #endif  */           
         if (ftpThreadStack != NULL) MEMFreeToDefaultHeap(ftpThreadStack);        
         
         if (nbSpeedMeasures != 0) {
@@ -1362,6 +1409,14 @@ static bool process_getClients() {
         *client->fileName = '\0';
         client->volPath = NULL;        
         client->userBuffer = NULL;        
+        client->transferThreadStack = NULL;                
+        
+        // allocate transfer thread stack
+        client->transferThreadStack = MEMAllocFromDefaultHeapEx(FTP_TRANSFER_STACK_SIZE, 8);
+        if (client->transferThreadStack == NULL) {
+            display("! ERROR : when allocating transferThreadStack!");
+            return false;
+        }        
         client->dataTransferOffset = -1;
 		client->speed = 0;
         client->bytesTransfered = -EAGAIN;

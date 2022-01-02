@@ -197,3 +197,9 @@ HISTORY :
     > add a global speed stats (min/mean/max)
     > use the max amount of shared socket memory
     > use a larger file buffer (to enhance speed for transfering files larger than 1MB)
+
+2022/01/01 V8-0 :    
+    > Multi-Threaded version : one thread per connection
+    > this reduce network overflow and so reset to 8 for the max number of connections
+    > overall transfer speed gain, mostly for download (+30% speed in multi transfer compared to V7)
+    

@@ -60,9 +60,11 @@ misrepresented as being the original software.
 
 // Number max of simultaneous connections from the client : 
 // 1 for communication with the client + NB_SIMULTANEOUS_TRANSFERS
-#define FTP_NB_SIMULTANEOUS_TRANSFERS 1+NB_SIMULTANEOUS_TRANSFERS
+#define FTP_NB_SIMULTANEOUS_TRANSFERS 1 + NB_SIMULTANEOUS_TRANSFERS
 
 #define FTP_STACK_SIZE 32*1024
+
+#define FTP_TRANSFER_STACK_SIZE SOMEMOPT_BUFFER_SIZE
 
 
 #ifdef __cplusplus
@@ -94,7 +96,10 @@ struct connection_struct {
     char fileName[MAXPATHLEN];
     // volume path to the file
     char *volPath;
-    // user's buffer for file
+    // thread for transfering
+    OSThread transferThread;
+    uint8_t *transferThreadStack;
+	// user's buffer for file
     char *userBuffer;
     // attributes for data transfer tracking
     int32_t dataTransferOffset;

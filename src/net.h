@@ -53,7 +53,7 @@ extern "C"{
 #endif
 
 // number max of concurrents transfer slots 
-#define NB_SIMULTANEOUS_TRANSFERS 7
+#define NB_SIMULTANEOUS_TRANSFERS 8
 
 // Timeout for retrying the calls to the network API
 #define NET_TIMEOUT 5

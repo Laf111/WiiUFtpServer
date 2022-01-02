@@ -264,8 +264,6 @@ int main()
     WHBProcInit();
     WHBLogConsoleInit();
     
-    // TODO : check readonly SDCard (NAND backup + logFile)
-    
 #ifdef LOG2FILE
     // if log file exists
     if (access(logFilePath, F_OK) == 0) {
@@ -320,7 +318,7 @@ int main()
     display(" -=============================-");
     display("|    %s     |", VERSION_STRING);
     display(" -=============================-");
-    display("[Laf111/2021-12]");
+    display("[Laf111/2022-01]");
     display(" ");
 
 

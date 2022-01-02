@@ -22,7 +22,7 @@ include $(WUT_ROOT)/share/wut_rules
 #-------------------------------------------------------------------------------
 TARGET		:=	WiiUFtpServer
 BUILD		:=	build
-SOURCES		:=	src 
+SOURCES		:=	src
                 
 DATA		:=	data
 INCLUDES	:=	src 
@@ -54,7 +54,6 @@ LIBS	:= -lwut -liosuhax
 # containing include and lib
 #-------------------------------------------------------------------------------
 LIBDIRS	:= $(WUT_ROOT) $(IOSUHAX_ROOT)
-
 
 #-------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional
