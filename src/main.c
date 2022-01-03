@@ -264,6 +264,8 @@ int main()
     WHBProcInit();
     WHBLogConsoleInit();
     
+    // TODO : check readonly SDCard (NAND backup + logFile)
+    
 #ifdef LOG2FILE
     // if log file exists
     if (access(logFilePath, F_OK) == 0) {
@@ -318,7 +320,7 @@ int main()
     display(" -=============================-");
     display("|    %s     |", VERSION_STRING);
     display(" -=============================-");
-    display("[Laf111/2022-01]");
+    display("[Laf111/2021-12]");
     display(" ");
 
 
@@ -457,7 +459,7 @@ int main()
         goto exit;
     }
     display(" ");
-    display("Starting network and create server...");
+    display("Starting network and create server....");
     display(" ");
     
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise

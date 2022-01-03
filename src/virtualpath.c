@@ -160,14 +160,14 @@ int    MountVirtualDevices(int hfd, bool mountMlc) {
     IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
 
     if (mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard") >=0) {
-        display("Mounting storage_sdcard...");
+        display("mounting storage_sdcard...");
 
         storage_sdcard=1;
         VirtualMountDevice("storage_sdcard:/");
         nbDevices++;
     }
     if (mount_fs("storage_usb", fsaFd, NULL, "/vol/storage_usb01") >=0) {
-    display("Mounting storage_usb...");
+    display("mounting storage_usb...");
 
     storage_usb=1;
     VirtualMountDevice("storage_usb:/");
@@ -176,21 +176,21 @@ int    MountVirtualDevices(int hfd, bool mountMlc) {
 
     if (mountMlc) {
         if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >=0) {
-            display("Mounting storage_slccmpt...");
+            display("mounting storage_slccmpt...");
 
             storage_slccmpt=1;
             VirtualMountDevice("storage_slccmpt:/");
             nbDevices++;
         }
         if (mount_fs("storage_mlc", fsaFd, NULL, "/vol/storage_mlc01") >= 0) {
-            display("Mounting storage_mlc...");
+            display("mounting storage_mlc...");
 
             storage_mlc=1;
             VirtualMountDevice("storage_mlc:/");
             nbDevices++;
         }
         if (mount_fs("storage_slc", fsaFd, NULL, "/vol/system") >= 0) {
-            display("Mounting storage_slc...");
+            display("mounting storage_slc...");
 
             storage_slc=1;
             VirtualMountDevice("storage_slc:/");
@@ -198,28 +198,28 @@ int    MountVirtualDevices(int hfd, bool mountMlc) {
         }
     }
     if (mount_fs("storage_odd_tickets", fsaFd, "/dev/odd01", "/vol/storage_odd_tickets") >= 0) {
-        display("Mounting storage_odd_tickets...");
+        display("mounting storage_odd_tickets...");
 
         storage_odd_tickets=1;
         VirtualMountDevice("storage_odd_tickets:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_updates", fsaFd, "/dev/odd02", "/vol/storage_odd_updates") >=0) {
-        display("Mounting storage_odd_updates...");
+        display("mounting storage_odd_updates...");
 
         storage_odd_updates=1;
         VirtualMountDevice("storage_odd_updates:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_content", fsaFd, "/dev/odd03", "/vol/storage_odd_content") >= 0) {
-        display("Mounting storage_odd_content...");
+        display("mounting storage_odd_content...");
 
         storage_odd_content=1;
         VirtualMountDevice("storage_odd_content:/");
         nbDevices++;
     }
     if (mount_fs("storage_odd_content2", fsaFd, "/dev/odd04", "/vol/storage_odd_content2") >= 0) {
-        display("Mounting storage_odd_content2...");
+        display("mounting storage_odd_content2...");
 
         storage_odd_content2=1;
         VirtualMountDevice("storage_odd_content2:/");
@@ -236,63 +236,63 @@ void UmountVirtualDevices() {
 
     if (storage_sdcard == 1) {
         unmount_fs("storage_sdcard");
-        display("Unmounting storage_sdcard...");
+        display("unmounting storage_sdcard...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
         storage_sdcard = 0;
     }
     if (storage_slccmpt == 1) {
         unmount_fs("storage_slccmpt");
-        display("Unmounting storage_slccmpt...");
+        display("unmounting storage_slccmpt...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slccmpt01");
         storage_slccmpt = 0;
     }
     if (storage_mlc == 1) {
         unmount_fs("storage_mlc");
-        display("Unmounting storage_mlc...");
+        display("unmounting storage_mlc...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_mlc01");
         storage_mlc = 0;
     }
     if (storage_usb == 1) {
         unmount_fs("storage_usb");
-        display("Unmounting storage_usb...");
+        display("unmounting storage_usb...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_usb01");
         storage_usb = 0;
     }
     if (storage_odd_tickets == 1) {
         unmount_fs("storage_odd_tickets");
-        display("Unmounting storage_odd_tickets...");
+        display("unmounting storage_odd_tickets...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_tickets");
         storage_odd_tickets = 0;
     }
     if (storage_odd_updates == 1) {
         unmount_fs("storage_odd_updates");
-        display("Unmounting storage_odd_updates...");
+        display("unmounting storage_odd_updates...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_updates");
         storage_odd_updates = 0;
     }
     if (storage_odd_content == 1) {
         unmount_fs("storage_odd_content");
-        display("Unmounting storage_odd_content...");
+        display("unmounting storage_odd_content...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content");
         storage_odd_content = 0;
     }
     if (storage_odd_content2 == 1) {
         unmount_fs("storage_odd_content2");
-        display("Unmounting storage_odd_content2...");
+        display("unmounting storage_odd_content2...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content2");
         storage_odd_content2 = 0;
     }
     if (storage_slc == 1) {
         unmount_fs("storage_slc");
-        display("Unmounting storage_slc...");
+        display("unmounting storage_slc...");
 
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slc");
         storage_slc = 0;
