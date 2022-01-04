@@ -49,12 +49,15 @@ extern void display(const char *fmt, ...);
     extern void writeToLog(const char *fmt, ...);
 #endif
 
+// lock for folder creation
+static bool lock = false;
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
     if (virtual_path[0] == '/') {
         path = virtual_path;
     } else {
+        
         size_t path_size = strlen(virtual_cwd) + strlen(virtual_path) + 1;
         if (path_size > MAXPATHLEN || !(path = malloc(path_size))) return NULL;
         strcpy(path, virtual_cwd);
@@ -130,6 +133,7 @@ char *to_real_path(char *virtual_cwd, char *virtual_path) {
     }
 
     virtual_path = virtual_abspath(virtual_cwd, virtual_path);
+    
     if (!virtual_path) return NULL;
 
     char *path = NULL;
@@ -166,9 +170,10 @@ char *to_real_path(char *virtual_cwd, char *virtual_path) {
     if (!path) goto end;
     strcpy(path, prefix);
     strcat(path, rest);
-
+    
     end:
     free(virtual_path);
+    
     return path;
 }
 
@@ -240,7 +245,6 @@ int vrt_stat(char *cwd, char *path, struct stat *st) {
 
 int vrt_checkdir(char *cwd, char *path) {
     char *real_path = to_real_path(cwd, path);
-    
 
     if (!real_path)
     {
@@ -260,25 +264,26 @@ int vrt_checkdir(char *cwd, char *path) {
 }
 
 int vrt_chdir(char *cwd, char *path) {
-
-    if (vrt_checkdir(cwd, path)) {
+    int ret = vrt_checkdir(cwd, path);
+    if (ret != 0) {        
 /* #ifdef LOG2FILE
-        display("! ERROR : vrt_checkdir failed in vrt_chdir on cwd=%s, path=%s", cwd, path);
+        display("! ERROR : vrt_checkdir failed (%d) in vrt_chdir on cwd=%s, path=%s", ret, cwd, path);
         display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
-#endif                        
+#endif
+                        
  */
-        return -1;
+        return ret;
     }
+    
     char *abspath = virtual_abspath(cwd, path);
     if (!abspath) {
         display("! ERROR : virtual_abspath failed in vrt_chdir on cwd=%s, path=%s", cwd, path);
         display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
         errno = ENOMEM;
-        return -1;
+        return -2;
     }
     
     strcpy(cwd, abspath);
-    
     if (cwd[1]) strcat(cwd, "/");
     
     free(abspath);
@@ -293,7 +298,12 @@ int vrt_unlink(char *cwd, char *path) {
 }
 
 int vrt_mkdir(char *cwd, char *path, mode_t mode) {
+    
+    // to avoid simultaneous folder creation
+    while (lock);
+    lock = true;     
     int result = (int)with_virtual_path(cwd, mkdir, path, -1, mode, NULL);
+    lock = false;
     return result;
 }
 
@@ -302,7 +312,6 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
     if (!real_to_path || !*real_to_path) return -1;
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
-    
 
     free(real_to_path);
     return result;
