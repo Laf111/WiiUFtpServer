@@ -9,6 +9,7 @@
 #include <malloc.h>
 #include <unistd.h>
 #include <sys/dirent.h>
+#include <sys/errno.h>
 
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
@@ -111,7 +112,7 @@ uint32_t copyFile(char* srcFilePath, const char* targetFilePath) {
 		buf_size -= BUFFER_SIZE_STEPS;
 		if (buf_size < 0) {
 			display("! ERROR : when allocating Buffer.");
-			return -99;
+			return -ENOMEM;
 		}
 		pBuffer = (uint8_t *)memalign(0x40, buf_size);
 		if (pBuffer) memset(pBuffer, 0x00, buf_size);

@@ -42,14 +42,17 @@ misrepresented as being the original software.
 #include <coreinit/memdefaultheap.h>
 
 #include <nn/ac.h>
+
+
 #include "vrt.h"
 #include "ftp.h"
 #include "net.h"
 
 #define SOCKET_MOPT_STACK_SIZE 0x2000
-
 extern int somemopt (int req_type, char* mem, unsigned int memlen, int flags);
+
 extern void display(const char *fmt, ...);
+
 static uint32_t nbFilesDL = 0;
 static uint32_t nbFilesUL = 0;
 
@@ -59,9 +62,7 @@ static uint32_t nbFilesUL = 0;
 
 static uint32_t hostIpAddress = 0;
 
-static const int retriesNumber = (int) ((float)(NET_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
-
-static OSThread *socketThread=NULL;
+static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
 
 static OSThread socketOptThread;
 static uint8_t *socketOptThreadStack=NULL;
@@ -85,25 +86,6 @@ int socketOptThreadMain(int argc UNUSED, const char **argv UNUSED)
     return 0;
 }
 
-int socketThreadMain(int argc UNUSED, const char **argv UNUSED)
-{
-
-    socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
-    
-    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU0))
-        return 1;
-
-    OSSetThreadName(&socketOptThread, "Socket memory optimizer thread");
-    OSResumeThread(&socketOptThread);
-
-    #ifdef LOG2FILE    
-        writeToLog("network timeout = %d sec", NET_TIMEOUT);
-        writeToLog("network retries number = %d", retriesNumber);
-    #endif    
-    
-    return 0;
-}
-
 
 static bool retry(int32_t socketError) {
     bool status = false;
@@ -113,6 +95,12 @@ static bool retry(int32_t socketError) {
         socketError == -EALREADY ||        
         socketError == -EBUSY ||
         socketError == -ETIME ||
+        socketError == -ECONNREFUSED ||
+        socketError == -ECONNABORTED ||
+        socketError == -ETIMEDOUT ||
+        socketError == -EMFILE ||
+        socketError == -ENFILE ||
+        socketError == -EHOSTUNREACH ||
         socketError == -EISCONN) status = true;
 
     #ifdef LOG2FILE    
@@ -130,30 +118,30 @@ void initialize_network()
     ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
 
-    // use default thread on Core 0
-    socketThread=OSGetDefaultThread(0);
-    if (socketThread == NULL) {
-        display("! ERROR : when getting socketThread!");
+    socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
+    
+    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, TRANSFER_THREAD_PRIORITY+1, OS_THREAD_ATTRIB_AFFINITY_CPU0)) {
+        display("! ERROR : failed to create socket memory optimization thread!");
         return;
     }
-    if (!OSSetThreadPriority(socketThread, 0))
-        display("~ WARNING: Error changing net thread priority!");
-
-    OSSetThreadName(socketThread, "Network thread on CPU0");
-    OSRunThread(socketThread, socketThreadMain, 0, NULL);
-
-    OSResumeThread(socketThread);
+    OSSetThreadName(&socketOptThread, "Socket memory optimizer thread");
+    OSResumeThread(&socketOptThread);
 
     #ifdef LOG2FILE    
         writeToLog("socketThreadMain ready");
     #endif
     
-    int ret;
-    OSJoinThread(socketThread, &ret);
-
-    #ifdef LOG2FILE    
-        writeToLog("socketThreadMain Launched");
-    #endif    
+    #ifdef LOG2FILE      
+        display("--------------- MAIN SETTINGS ----------------");
+        display("NB_SIMULTANEOUS_TRANSFERS     = %d", NB_SIMULTANEOUS_TRANSFERS);
+        display("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
+        display("network retries number        = %d", retriesNumber);
+        display("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
+        display("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
+        display("SOMEMOPT_BUFFER_SIZE          = %d", SOMEMOPT_BUFFER_SIZE);
+        display("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
+        display("----------------------------------------------");
+   #endif    
     
 }
 
@@ -173,11 +161,12 @@ void finalize_network()
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
 {
-    int sock = socket(domain, type, protocol);
-    if(sock < 0)
+    
+    int s = socket(domain, type, protocol);
+    if(s < 0)
     {
         int err = -errno;
-        return (err < 0) ? err : sock;
+        return (err < 0) ? err : s;
     }
     
     if (type == SOCK_STREAM)
@@ -185,35 +174,50 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         int enable = 1;
 		
 		// Reuse socket
-	    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
-	        {if (!initDone) display("! ERROR : SO_REUSEADDR activation failed !");}
-        
-        // Activate WinScale
-        if (setsockopt(sock, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : WinScale activation failed !");}
+	    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
+	        {if (!initDone) display("! ERROR : setsockopt / SO_REUSEADDR failed !");}        
 
         // SO_NOSLOWSTART
-        if (setsockopt(sock, SOL_SOCKET, SO_NOSLOWSTART, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : Disable slow start feature failed !");}    
+        if (setsockopt(s, SOL_SOCKET, SO_NOSLOWSTART, &enable, sizeof(enable))!=0) 
+            {if (!initDone) display("! ERROR : setsockopt / Disable slow start feature failed !");}    
         
+        // Activate TCP SAck
+        if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
+            {if (!initDone) display("! ERROR : setsockopt / TCP SAck activation failed !");}
+                
+        // Activate WinScale
+        if (setsockopt(s, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
+            {display("! ERROR : setsockopt / winScale activation failed !");}
+
         // socket memory optimization
         int nbTries=0;
         try_again_someopt:
-        if (setsockopt(sock, SOL_SOCKET, SO_RUSRBUF, &enable, sizeof(enable))!=0) 
+        if (setsockopt(s, SOL_SOCKET, SO_RUSRBUF, &enable, sizeof(enable))!=0) 
         {
             OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
             nbTries++;
             if (nbTries <= retriesNumber) goto try_again_someopt;
-            else if (!initDone) display("! ERROR : Socket memory optimization failed !");
+            else if (!initDone) display("! ERROR : setsockopt / Socket memory optimization failed !");
         }
 
+        // com sockets
+        int sockbuf_size = FTP_MSG_BUFFER_SIZE;
+        if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+            {display("! ERROR : setsockopt / SNDBUF failed !");
+        }          
+        if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+            {display("! ERROR : setsockopt / RCVBUF failed !");}        
+        
+        // Set to non-blocking I/O
+        set_blocking(s, false); 
+        
         if (!initDone) {
             initDone = true;
             display("  1 client only using a max of %d slots for up/download!", NB_SIMULTANEOUS_TRANSFERS);
-            display("   (set your client's timeout greater than %d seconds)", (NET_TIMEOUT+1)*NB_NET_TIME_OUT);
+            display("   (set your client's timeout greater than %d seconds)", FTP_CONNECTION_TIMEOUT+5);
         }
 	}
-    return sock;
+    return s;
 }
 
 
@@ -230,6 +234,7 @@ int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen)
 
 int32_t network_listen(int32_t s,uint32_t backlog)
 {
+    
     int res = listen(s, backlog);
     if (res < 0)
     {
@@ -242,17 +247,22 @@ int32_t network_listen(int32_t s,uint32_t backlog)
 int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen)
 {
     socklen_t addrl=(socklen_t) *addrlen;
+    
+    
     int res = accept(s, addr, &addrl);
     if (res < 0)
     {
         int err = -errno;
         return (err < 0) ? err : res;
     }
+    
+    
     return res;
 }
 
 int32_t network_connect(int32_t s,struct sockaddr *addr, int32_t addrlen)
 {
+    
     int res = connect(s, addr, addrlen);
     if (res < 0)
     {
@@ -285,16 +295,18 @@ int32_t network_write(int32_t s, const void *mem, int32_t len)
     while (len)
     {
         int ret = send(s, mem, len, 0);
-        if (ret < 0)
+        if (ret < 0 && errno != EAGAIN)
         {
             int err = -errno;
             transfered = (err < 0) ? err : ret;
             break;
+        } else {
+            if (ret > 0) {
+                mem += ret;
+                transfered += ret;
+                len -= ret;
+            }
         }
-
-        mem += ret;
-        transfered += ret;
-        len -= ret;
     }
     return transfered;
 }
@@ -324,14 +336,14 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
     int32_t bytes_transfered;
     
     uint32_t retryNumber = 0;
+
+    // BLOCKING MODE
+    set_blocking(s, true);
     
     while (remaining) {
 
         retry:
-        // BLOCKING MODE
-        set_blocking(s, true);
         bytes_transfered = network_write(s, buf, MIN(remaining, (int) buf_size));
-        set_blocking(s, false);
         
         if (bytes_transfered > 0) {
             remaining -= bytes_transfered;
@@ -344,8 +356,10 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
                 if (retryNumber <= retriesNumber) goto retry;
             }
             
+    #ifdef LOG2FILE 
             display("! ERROR : network_write failed = %d afer %d attempts", bytes_transfered, retriesNumber);
             display("! ERROR : errno = %d (%s)", errno, strerror(errno));            
+    #endif
             result = bytes_transfered;
             break;
         } else {
@@ -354,78 +368,66 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
             break;
         }
     }
+    set_blocking(s, false);
     
     return result;
-}
-
-
-static void setExtraSocketOptimizations(int32_t s)
-{
-    int enable = 1;
-        
-     // SO_OOBINLINE
-    if (setsockopt(s, SOL_SOCKET, SO_OOBINLINE, &enable, sizeof(enable))!=0) 
-        {display("! ERROR : Force to leave received OOB data in line failed !");}
-
-    // TCP_NODELAY 
-    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-        {display("! ERROR : Disabling the Nagle's algorithm failed !");}
-
-    int disable = 0;
-    
-     // Deactivate TCP SAck
-    if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &disable, sizeof(disable))!=0) 
-        {display("! ERROR : TCP SAck deactivation failed !");}
-    
 }
 
 
 int32_t send_from_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
+    
+    // max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
+    int sockbuf_size = SOCKET_BUFFER_SIZE;
+
+    if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+        {display("! ERROR : setsockopt / SNDBUF failed !");
+    }             
+    
+    #ifdef LOG2FILE    
+        writeToLog("C[%d] sending %d bytes of %s using a socket buffer of %d on socket %d", connection->index+1, TRANSFER_BUFFER_SIZE, connection->fileName, sockbuf_size,s);
+    #endif
+    
+	int32_t bytes_read = TRANSFER_BUFFER_SIZE;    
+    
+	while (bytes_read) {
+        bytes_read = fread(connection->transferBuffer, 1, TRANSFER_BUFFER_SIZE, connection->f);
+        if (bytes_read == 0) {
+            // SUCCESS, no more to write to file                    
+            nbFilesDL++;
+            result = 0;
+            break;
+        }
         
-    int buf_size = USER_BUFFER_SIZE;
-    
-    if (connection->dataTransferOffset == 0) {
-
-        // max value for SNDBUF = SOMEMOPT_MIN_BUFFER_SIZE (the system double the value set)
-		int sockbuf_size = SOMEMOPT_MIN_BUFFER_SIZE;
-        if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
-            {display("! ERROR : SNDBUF failed !");
-		}             
-    }
-    
-   
-	int32_t bytes_read = buf_size;
-    while (bytes_read) {
-        bytes_read = fread(connection->userBuffer, 1, buf_size, connection->f);
-            if (bytes_read == 0) {
-                // SUCCESS, no more to write to file                    
-                nbFilesDL++;
-                result = 0;
-                break;
-            }
         if (bytes_read > 0) {
-                uint32_t retryNumber = 0;
-
+            
+            uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
                 
             // to let buffer on file be larger than socket one
             while (remaining) {
-                    send_again:
-                    // BLOCKING MODE
-                    set_blocking(s, true);
-                    result = network_write(s, connection->userBuffer, MIN(remaining, (int) bytes_read));
-                    set_blocking(s, false);
-                    
-                    if (result < 0) {
-                        if (retry(result)) {
-                            OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-                            retryNumber++;
-                            if (retryNumber <= retriesNumber) goto send_again;
-                        }            
+                send_again:
+                result = network_write(s, connection->transferBuffer, MIN(remaining, (int) bytes_read));
+
+                #ifdef LOG2FILE    
+                    writeToLog("C[%d] sent %d bytes of %s", connection->index+1, result, connection->fileName);
+                #endif
+                
+                if (result < 0) {
+                    if (retry(result)) {
+                        OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
+                        retryNumber++;
+                        if (retryNumber <= retriesNumber) goto send_again;
+                    }            
+                    if (result != -EPIPE) {
                         display("! ERROR : network_write = %d afer %d attempts", result, retriesNumber);
-                    display("! ERROR : errno = %d (%s)", errno, strerror(errno));            
+                        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+                    } else {
+                        display("~ WARNING : network transfer interrupted ");
+                        display("~ WARNING : errno = %d (%s)", errno, strerror(errno));
+                        result = 0;
+                    }
                     // result = error, connection will be closed
                     break;
                 } else {
@@ -434,100 +436,165 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                     connection->bytesTransfered = result;
                     remaining -= result;
                 }
-            }
-        }
-        
+            }        
+		}
         if (result >=0) {
+                
             // check bytes read (now because on the last sending, data is already sent here = result)
-            if (bytes_read < buf_size) {
-                if (bytes_read < 0 || feof(connection->f) == 0 || ferror(connection->f) != 0) {
+            if (bytes_read < TRANSFER_BUFFER_SIZE) {
+                    
+            	if (bytes_read < 0 || feof(connection->f) == 0 || ferror(connection->f) != 0) {
                     // ERROR : not on eof file or read error, or error on stream => ERROR
                     display("! ERROR : failed to read file!");
-                    display("! ERROR : fread = %d and bytes = %d", bytes_read, buf_size);
+                    display("! ERROR : fread = %d and bytes = %d", bytes_read, TRANSFER_BUFFER_SIZE);
                     display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
                     result = -100;
+                    break;
                 }
+                    
             }
             // result = 0 and EOF
             if ((feof(connection->f) != 0) && (result == 0)) {
                 // SUCESS : eof file, last data bloc sent
                 nbFilesDL++;
-                    break;
+                break;
             }
         }
-    }    
+    }
     connection->bytesTransfered = result;
 
     return result;
 }
 
 
+static void sockOptForUpload(int32_t s)
+{
+    int enable = 1;
+                
+    // TCP_NODELAY 
+    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
+        {if (!initDone) display("! ERROR : setsockopt / Disabling Nagle's algorithm failed !");}
+
+    // Disable delayed ACKs
+    if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
+        {if (!initDone) display("! ERROR : setsockopt / Disabling delayed ACKs failed !");}
+        
+}
+
+
 int32_t recv_to_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
-        
-    int buf_size = USER_BUFFER_SIZE;    
+
+    // extra socket optimizations
+    sockOptForUpload(s);
     
-    if (connection->dataTransferOffset == 0) {
-        // begin of a transfer, set socket buffer an extra opt
-        
-        setExtraSocketOptimizations(s);
-        
-        // (the system double the value set)
-        int sockbuf_size = buf_size/2;
-        if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
-            {display("! ERROR : RCVBUF failed !");}
-                
-    }
-	
-    uint32_t retryNumber = 0;    
-	int32_t bytes_received = buf_size;
-    while (bytes_received) {
+    // (the system double the value set)
+    int sockbuf_size = SOCKET_BUFFER_SIZE;
+    if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &sockbuf_size, sizeof(sockbuf_size))!=0)
+        {display("! ERROR : setsockopt / RCVBUF failed !");}
+    
+    #ifdef LOG2FILE    
+        writeToLog("C[%d] receiving %s using a socket buffer of %d on socket %d", connection->index+1, connection->fileName, sockbuf_size, s);
+    #endif
+
+    // max bytes number (size) RCVBUF can received (value os setsockopt is doubled by the system)
+    int32_t maxBytesRcv = 2*SOCKET_BUFFER_SIZE;
+    
+    // number of current bytes in the transfer buffer (of TRANSFER_BUFFER_SIZE bytes)
+	int32_t nbBytesInBuffer = 0;
+    // counter for blocks of TRANSFER_BUFFER_SIZE used
+	int32_t nbBuffers = 0;
+   
+    uint32_t retryNumber = 0;
+	int32_t bytes_received = maxBytesRcv;    
+    while (bytes_received || errno == EAGAIN) {
         
         read_again:
-        // BLOCKING MODE
-        set_blocking(s, true);
-        bytes_received = network_read(s, connection->userBuffer, buf_size);       
-        set_blocking(s, false);
-                
+        bytes_received = network_read(s, connection->transferBuffer, maxBytesRcv);
         if (bytes_received == 0) {
-            // SUCCESS, no more to write to file
-                    
-            nbFilesUL++;
             result = 0;
-            
-        } else if (bytes_received < 0 && bytes_received != -EAGAIN) {
+            break;
+ 
+        } else if (bytes_received < 0 && errno != EAGAIN) {
 
             if (retry(bytes_received)) {
                 OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
                 retryNumber++;
                 if (retryNumber <= retriesNumber) goto read_again;
-            }    
-            display("! ERROR : network_read failed = %d afer %d attempts", bytes_received, retriesNumber);
-            display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-            // result = error, connection will be closed
-            result = bytes_received;
-                break;
-        } else {
-            // bytes_received > 0
-                    
-            // write bytes_received to f
-                result = fwrite(connection->userBuffer, 1, bytes_received, connection->f);
-                
-            if (result < 0 && result != -EAGAIN && result < bytes_received) {
-                // error when writing f
-                display("! ERROR : failed to write file!");
-                display("! ERROR : fwrite = %d and bytes=%d", result, bytes_received);
-                display("! ERROR : errno = %d (%s)", errno, strerror(errno));
-                result = -100;
-                    break;
-            } else {
-                connection->dataTransferOffset+=result;
-                connection->bytesTransfered = result;
-                }
             }
+            
+            if (bytes_received != -EPIPE) {
+                display("! ERROR : network_read failed = %d afer %d attempts", bytes_received, retriesNumber);
+                display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+                // result = error, connection will be closed
+            } else {
+                display("~ WARNING : network transfer interrupted ");
+                display("~ WARNING : errno = %d (%s)", errno, strerror(errno));
+            }
+            
+            result = bytes_received;
+            // result = error, connection will be closed
+            break;
+            
+        } else {
+            
+            // bytes_received != 0 , bytes_received > 0 ou errno = EAGAIN 
+            if (bytes_received > 0) {
+                // bytes_received > 0
+                #ifdef LOG2FILE    
+                    writeToLog("C[%d] received %d bytes to write to %s", connection->index+1, bytes_received, connection->fileName);
+                #endif
+                
+                // When the buffer is full
+                if (nbBytesInBuffer == TRANSFER_BUFFER_SIZE) {
+
+                    // write TRANSFER_BUFFER_SIZE to f 
+                    result = fwrite(connection->transferBuffer, 1, nbBytesInBuffer, connection->f);
+                    if (result < 0 || result < nbBytesInBuffer || ferror(connection->f) != 0) {
+                        // error when writing f
+                        display("! ERROR : failed to write file!");
+                        display("! ERROR : fwrite = %d and bytes=%d", result, nbBytesInBuffer);
+                        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+                        result = -100;
+                        break;
+                    }
+                    
+                    connection->dataTransferOffset += result;
+                    connection->bytesTransfered = result;
+                    // reset to 0
+                    nbBytesInBuffer = 0;
+                    
+                } else {
+                    // add the bytes received to the counter
+                    nbBytesInBuffer += bytes_received;
+                    nbBuffers++;
+                }
+            } // else errno == EAGAIN
+        }
     }
-	connection->bytesTransfered = result;
     
+    // if last write ok and some bytes (nbBytesInBuffer) haven't been writen yet
+    if ((result == 0) && (nbBytesInBuffer > 0)) {
+    
+        // write the last bytes_received = nbBytesInBuffer (< TRANSFER_BUFFER_SIZE) to f
+        result = fwrite(connection->transferBuffer, 1, nbBytesInBuffer, connection->f);
+        if (result < 0 || result < nbBytesInBuffer || ferror(connection->f) != 0) {
+            // error when writing f
+            display("! ERROR : failed to write file!");
+            display("! ERROR : fwrite = %d and bytes=%d", result, nbBytesInBuffer);
+            display("! ERROR : errno = %d (%s)", errno, strerror(errno));
+            result = -100;
+        } else {
+            connection->dataTransferOffset += result;
+            connection->bytesTransfered = result;
+            // SUCCESS, no more to write to file                    
+            nbFilesUL++;
+            result = 0;
+        }
+    }
+    
+	connection->bytesTransfered = result;
+        
     return result;
 }

@@ -297,9 +297,13 @@ int vrt_unlink(char *cwd, char *path) {
     return res;
 }
 
+int vrt_rmdir(char *cwd, char *path) {
+        
+    int res = (int)with_virtual_path(cwd, rmdir, path, -1, NULL);
+        
+    return res;
+}
 int vrt_mkdir(char *cwd, char *path, mode_t mode) {
-    
-    // to avoid simultaneous folder creation
     while (lock);
     lock = true;     
     int result = (int)with_virtual_path(cwd, mkdir, path, -1, mode, NULL);
@@ -312,6 +316,7 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
     if (!real_to_path || !*real_to_path) return -1;
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
+    
 
     free(real_to_path);
     return result;

@@ -54,17 +54,18 @@ misrepresented as being the original software.
 
 #define FTP_PORT            21
 
-#define FTP_CONNECTION_TIMEOUT NET_TIMEOUT*NB_NET_TIME_OUT
+// Connection time out in seconds (must be greater than 45 sec which is the time needed to queue 9000 files recursively) 
+#define FTP_CONNECTION_TIMEOUT 55
 
 #define FTP_MSG_BUFFER_SIZE 1024
 
 // Number max of simultaneous connections from the client : 
 // 1 for communication with the client + NB_SIMULTANEOUS_TRANSFERS
-#define FTP_NB_SIMULTANEOUS_TRANSFERS 1 + NB_SIMULTANEOUS_TRANSFERS
+#define FTP_NB_SIMULTANEOUS_TRANSFERS (1+NB_SIMULTANEOUS_TRANSFERS)
 
-#define FTP_STACK_SIZE 32*1024
+#define FTP_STACK_SIZE (20*1024)
 
-#define FTP_TRANSFER_STACK_SIZE SOMEMOPT_BUFFER_SIZE
+#define FTP_TRANSFER_STACK_SIZE (32*1024)
 
 
 #ifdef __cplusplus
@@ -99,8 +100,8 @@ struct connection_struct {
     // thread for transfering
     OSThread transferThread;
     uint8_t *transferThreadStack;
-	// user's buffer for file
-    char *userBuffer;
+	// buffer for transferring file MAX(TRANSFER_BUFFER_SIZE, TRANSFER_BUFFER_SIZE)
+    void *transferBuffer;
     // attributes for data transfer tracking
     int32_t dataTransferOffset;
     // last speed computed in MB/s

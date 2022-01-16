@@ -55,29 +55,39 @@ extern "C"{
 // number max of concurrents transfer slots 
 #define NB_SIMULTANEOUS_TRANSFERS 8
 
-// Timeout for retrying the calls to the network API
-#define NET_TIMEOUT 5
-#define NB_NET_TIME_OUT 10
-#define NET_RETRY_TIME_STEP_MILLISECS 4900
+// Timeouts for retrying the calls to the network API
+#define NET_RETRY_TIME_STEP_MILLISECS 3900
 
-// socket extra definitions
+// socket extra definitions -------------------------------------------------------------------------
+
 #define SO_RUSRBUF      0x10000     // enable userspace socket buffer
 #define SO_NOSLOWSTART  0x4000      // suppress slowstart
 #define TCP_NOACKDELAY  0x2002      // suppress delayed ACKs
+#define TCP_MAXSEG      0x2003      // set maximum segment size
 #define TCP_NODELAY     0x2004      // suppress TCP delay
 
-// user buffers (file and IO) defs
-#define UNSCALED_BUFFER_SIZE 8*1024
+// --------------------------------------------------------------------------------------------------
 
-// 131072 bytes (128 x 1024) = 2*64*1024
-#define SOMEMOPT_MIN_BUFFER_SIZE UNSCALED_BUFFER_SIZE*16
+#define TRANSFER_THREAD_PRIORITY 0
 
-// socket memory optimization buffer size, max = 3*1024*1024
-#define SOMEMOPT_BUFFER_SIZE 3*1024*1024
+// user buffers (socket and file) -------------------------------------------------------------------
 
-// user's buffer size for upload (download fixed to SOMEMOPT_MIN_BUFFER_SIZE*2 in ftp.c)
-#define USER_BUFFER_SIZE (SOMEMOPT_BUFFER_SIZE-UNSCALED_BUFFER_SIZE)/NB_SIMULTANEOUS_TRANSFERS
+#define UNSCALED_BUFFER_SIZE (8*1024)
 
+// setsockopt send buffer size (the value will be doubled by the system when setsockopt)
+// 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
+#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE)
+
+// size of the socket memory buffer size (= max, 3*1024*1024 bytes)
+#define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
+
+// preallocated transfer buffer size (allocated when openning connection and stored in transferBuffers[] until the end of the session)
+// NOTE : that if the size of the file transfered is lower than that, his size will be used as buffer size (internal file's buffer
+//  size, plus for download SNDBUF's one if the size is lower than 2*SOCKET_BUFFER_SIZE)
+// 50MB
+#define TRANSFER_BUFFER_SIZE (50*SOCKET_BUFFER_SIZE)
+
+// --------------------------------------------------------------------------------------------------
 
 void initialize_network();
 

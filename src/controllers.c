@@ -62,7 +62,7 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
             return;
         }
     }
-	// do not remove this draw ! 
+	// do not remove this draw ! (cancel timeout when selecting path to mount)
     WHBLogConsoleDraw();
     for (int i = 0; i < 4; i++)
     {

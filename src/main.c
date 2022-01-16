@@ -99,21 +99,18 @@ void writeToLog(const char *fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     
-	while (logLocked == true);
+	while (logLocked);
     logLocked = true;
     
     if (logFile == NULL) logFile = fopen(logFilePath, "a");
     if (logFile == NULL) {
         WHBLogPrintf("! ERROR : Unable to reopen log file?");
-        WHBLogConsoleDraw();
     } else {
  
-	    fprintf(logFile, "%s\n", buf);        
-
+	    fprintf(logFile, "%s\n", buf);
 	    fclose(logFile);
 	    logFile = NULL;
-	}
-    
+	}    
     logLocked = false;
 }
 #endif
@@ -133,9 +130,9 @@ void display(const char *fmt, ...)
     WHBLogPrintf(buf);    
 #ifdef LOG2FILE       
     writeToLog(buf);
-#endif 
-   
-    WHBLogConsoleDraw();
+#endif    
+    WHBLogConsoleDraw();  
+
     displayLocked = false;
 }
 
@@ -282,8 +279,8 @@ int main()
             WHBLogPrintf("! ERROR : Failed to rename log file");
             
         }
+        WHBLogConsoleDraw();  
     }
-    WHBLogConsoleDraw();  
 #endif    
     
     // *PAD init
@@ -312,7 +309,7 @@ int main()
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
         // set a priority to 0
-        OSSetThreadPriority(thread, 0);
+        OSSetThreadPriority(thread, TRANSFER_THREAD_PRIORITY+1);
     }
 
     display(" -=============================-");
