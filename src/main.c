@@ -308,8 +308,8 @@ int main()
         // set the name
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 0
-        OSSetThreadPriority(thread, TRANSFER_THREAD_PRIORITY+1);
+        // set a priority to FTP_NB_SIMULTANEOUS_TRANSFERS+2
+        OSSetThreadPriority(thread, FTP_NB_SIMULTANEOUS_TRANSFERS+2);
     }
 
     display(" -=============================-");
@@ -356,7 +356,7 @@ int main()
     IOSUHAX_CFW_Family cfw = IOSUHAX_CFW_GetFamily();
     if (cfw == 0) {
         display("! ERROR : No running CFW detected");
-        goto exit;
+        goto exitCFW;
     }
 
     int res = IOSUHAX_Open(NULL);
@@ -375,7 +375,9 @@ int main()
         goto exit;
     }
 
-    setFsaFd(fsaFd);
+    // provide the IOSUHAX file descriptor to modules that uses lib IOSUHAX
+    setFsaFdInFtp(fsaFd);
+    setFsaFdInNet(fsaFd);
 
 #ifdef CHECK_CONTROLLER
     // Check your controller
@@ -506,7 +508,11 @@ int main()
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
     
-    initialize_network();
+    if (initialize_network() < 0) {
+        display("! ERROR : when initializing network");
+        OSSleepTicks(OSMillisecondsToTicks(5000));
+        goto exitCFW;
+    }
     bool networkDown = false;
 
 #ifdef LOG2FILE
@@ -617,6 +623,7 @@ exit:
 	        AppRunning();
 	    }
     }
+exitCFW:
 
     WHBLogConsoleFree();
     WHBProcShutdown();

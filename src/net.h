@@ -68,28 +68,28 @@ extern "C"{
 
 // --------------------------------------------------------------------------------------------------
 
-#define TRANSFER_THREAD_PRIORITY 0
-
 // user buffers (socket and file) -------------------------------------------------------------------
 
-#define UNSCALED_BUFFER_SIZE (8*1024)
+#define UNSCALED_BUFFER_SIZE (8*1024) 
 
 // setsockopt send buffer size (the value will be doubled by the system when setsockopt)
 // 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
-#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE)
+#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
 
-// size of the socket memory buffer size (= max, 3*1024*1024 bytes)
-#define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
+// max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
+#define SND_BUFFER_SIZE SOCKET_BUFFER_SIZE 
+#define RCV_BUFFER_SIZE (3*SOCKET_BUFFER_SIZE)
 
-// preallocated transfer buffer size (allocated when openning connection and stored in transferBuffers[] until the end of the session)
-// NOTE : that if the size of the file transfered is lower than that, his size will be used as buffer size (internal file's buffer
-//  size, plus for download SNDBUF's one if the size is lower than 2*SOCKET_BUFFER_SIZE)
-// 50MB
-#define TRANSFER_BUFFER_SIZE (50*SOCKET_BUFFER_SIZE)
+// socket memory buffer size = (SND+RCV) double buffered (x2)
+#define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE+RCV_BUFFER_SIZE))
+
+// size of the pre-allocated transfer buffer size (3MB)
+// this size is used as chunk for transfer sockets and files read/write operations during transfer
+#define TRANSFER_BUFFER_SIZE (24*SOCKET_BUFFER_SIZE)
 
 // --------------------------------------------------------------------------------------------------
 
-void initialize_network();
+int32_t initialize_network();
 
 void finalize_network();
 
@@ -118,6 +118,8 @@ int32_t send_exact(int32_t s, char *buf, int32_t length);
 int32_t send_from_file(int32_t data_socket, connection_t* connection);
 
 int32_t recv_to_file(int32_t data_socket, connection_t* connection);
+
+void    setFsaFdInNet(int hfd);
 
 #ifdef __cplusplus
 }

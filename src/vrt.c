@@ -224,6 +224,12 @@ FILE *vrt_fopen(char *cwd, char *path, char *mode) {
     return f;
 }
 
+int vrt_fclose(FILE *f) {
+    int result = fclose(f);    
+    f = NULL;
+    return result;
+}
+
 int vrt_stat(char *cwd, char *path, struct stat *st) {
     char *real_path = to_real_path(cwd, path);
     if (!real_path)
@@ -297,12 +303,6 @@ int vrt_unlink(char *cwd, char *path) {
     return res;
 }
 
-int vrt_rmdir(char *cwd, char *path) {
-        
-    int res = (int)with_virtual_path(cwd, rmdir, path, -1, NULL);
-        
-    return res;
-}
 int vrt_mkdir(char *cwd, char *path, mode_t mode) {
     while (lock);
     lock = true;     

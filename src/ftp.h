@@ -92,17 +92,19 @@ struct connection_struct {
     void (*data_connection_cleanup)(void *arg);
     // index of the connection
     uint32_t index;
-    // file if a file is transfered using this connection
-    FILE *f;
+    // file to transfer
+    FILE *f;    
+    // for file transferring
     char fileName[MAXPATHLEN];
+    char fileFolder[MAXPATHLEN];
     // volume path to the file
     char *volPath;
     // thread for transfering
     OSThread transferThread;
     uint8_t *transferThreadStack;
-	// buffer for transferring file MAX(TRANSFER_BUFFER_SIZE, TRANSFER_BUFFER_SIZE)
-    void *transferBuffer;
-    // attributes for data transfer tracking
+	// buffer for transferring files
+    void *transferBuffer;	
+    // for data transfer tracking
     int32_t dataTransferOffset;
     // last speed computed in MB/s
     float speed;	
@@ -113,14 +115,14 @@ struct connection_struct {
 
 typedef struct connection_struct connection_t;
 
+char*   virtualToVolPath(char *vPath);
 void    setVerboseMode(bool flag);
 int32_t create_server(uint16_t port);
 bool    process_ftp_events();
 void    cleanup_ftp();
 
 void    setOsTime(struct tm *tmTime);
-void    setFsaFd(int hfd);
-int     getFsaFd();
+void    setFsaFdInFtp(int hfd);
 
 #ifdef __cplusplus
 }
