@@ -290,7 +290,6 @@ int main()
     // enable Wiimote
     WPADEnableWiiRemote(1);
 
-    ProcUIInit(&OSSavesDone_ReadyToRelease);
 	ProcUIRegisterCallback(PROCUI_CALLBACK_HOME_BUTTON_DENIED, &homeButtonCallback, NULL, 100);
 	OSEnableHomeButtonMenu(false);
 
