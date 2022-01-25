@@ -27,7 +27,8 @@ misrepresented as being the original software.
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-1: complete some TODO left, fix upload file corruption
  ***************************************************************************/
-
+#include <coreinit/memory.h>
+ 
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
@@ -144,13 +145,13 @@ int32_t create_server(uint16_t port) {
 
     uint32_t ip = network_gethostip();
 
-    char ipText[28 + 15 + 2 + 6 + 2 + 1]; // 28 chars for the text + 15 chars for max length of an IP + 2 for size of port + 6 additional spaces + 2x@ + '\0'
+    char ipText[28 + 15 + 2 + 6 + 2 + 2]; // 28 chars for the text + 15 chars for max length of an IP + 2 for size of port + 6 additional spaces + 2x@ + '\0'
     sprintf(ipText, "    @ Server IP adress = %u.%u.%u.%u ,port = %u", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
     size_t ipSize = strlen(ipText);
-    if(ipSize < 28 + 15 + 2 + 5 + 1)
-        OSBlockSet(ipText + ipSize, ' ', (28 + 15 + 2 + 6 + 1) - ipSize);
+    if(ipSize < 28 + 15 + 2 + 5 + 2)
+        OSBlockSet(ipText + ipSize, ' ', (28 + 15 + 2 + 6 + 2) - ipSize);
 
-    strcpy(ipText + (28 + 15 + 2 + 5 + 1), " @");
+    strcpy(ipText + (28 + 15 + 2 + 5 + 2), " @");
 
     display(" ");
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
