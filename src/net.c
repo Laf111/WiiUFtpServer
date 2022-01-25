@@ -115,11 +115,6 @@ static bool retry(int32_t socketError) {
 
 int32_t initialize_network()
 {
-    unsigned int nn_startupid;
-
-    ACInitialize();
-    ACGetStartupId(&nn_startupid);
-    ACConnectWithConfigId(nn_startupid);
     ACGetAssignedAddress(&hostIpAddress);
 
     socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
