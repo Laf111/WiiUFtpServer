@@ -36,6 +36,7 @@
 #include "net.h"
 #include "nandBackup.h"
 #include "controllers.h"
+#include "spinlock.h"
 
 // return code
 #define EXIT_SUCCESS        0
@@ -70,7 +71,7 @@ static int fsaFd = -1;
 static int mcp_hook_fd = -1;
 
 // lock to limit to one acess at the time for the display method
-static bool displayLocked = false;
+static spinlock displayLock = false;
 
 #ifdef LOG2FILE
 // log file
@@ -79,7 +80,7 @@ static char previous[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServ
 static FILE * logFile=NULL;
 
 // lock to limit to one acess at the time for the loggin method
-static bool logLocked = false;
+static spinlock logLock = false;
 
 #endif
 
@@ -99,8 +100,7 @@ void writeToLog(const char *fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     
-	while (logLocked);
-    logLocked = true;
+	spinLock(logLock);
     
     if (logFile == NULL) logFile = fopen(logFilePath, "a");
     if (logFile == NULL) {
@@ -111,7 +111,7 @@ void writeToLog(const char *fmt, ...)
 	    fclose(logFile);
 	    logFile = NULL;
 	}    
-    logLocked = false;
+    spinReleaseLock(logLock);
 }
 #endif
 
@@ -124,8 +124,7 @@ void display(const char *fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     
-	while (displayLocked == true);
-    displayLocked = true;
+	spinLock(displayLock);
       
     WHBLogPrintf(buf);    
 #ifdef LOG2FILE       
@@ -133,7 +132,7 @@ void display(const char *fmt, ...)
 #endif    
     WHBLogConsoleDraw();  
 
-    displayLocked = false;
+    spinReleaseLock(displayLock);
 }
 
 //--------------------------------------------------------------------------

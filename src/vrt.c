@@ -42,6 +42,7 @@ misrepresented as being the original software.
 #include "virtualpath.h"
 #include "net.h"
 #include "vrt.h"
+#include "spinlock.h"
 
 extern void display(const char *fmt, ...);
 
@@ -50,7 +51,7 @@ extern void display(const char *fmt, ...);
 #endif
 
 // lock for folder creation
-static bool lock = false;
+static spinlock lock = SPINLOCK_FREE;
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
@@ -304,10 +305,9 @@ int vrt_unlink(char *cwd, char *path) {
 }
 
 int vrt_mkdir(char *cwd, char *path, mode_t mode) {
-    while (lock);
-    lock = true;     
+    spinLock(lock);
     int result = (int)with_virtual_path(cwd, mkdir, path, -1, mode, NULL);
-    lock = false;
+    spinReleaseLock(lock);
     return result;
 }
 
