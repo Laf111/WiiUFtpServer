@@ -388,7 +388,7 @@ int main()
         display("This controller is not supported, exiting in 10 sec");
         OSSleepTicks(OSMillisecondsToTicks(10000));
         goto exit;
-    }    
+    }
 #endif
 
     cls();
@@ -458,14 +458,14 @@ int main()
     display(" ");
     display("Starting network and create server...");
     display(" ");
-    
+
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
     setFsaFdCopyFiles(fsaFd);
     int backupExist = checkEntry(backupCheck);
     if (mountMlc) {
         if (backupExist != 1) {
             cls();
-            display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");            
+            display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");
             display(" ");
             display("No NAND backup was found !");
             display(" ");
@@ -495,19 +495,19 @@ int main()
                 display("It is highly recommended to create a FULL backup");
                 display("on your own");
             }
-            
-            display("");                
+
+            display("");
             display("Press A or B button to continue");
-            display("");                
+            display("");
             readUserAnswer(&vpadStatus);
             cls();
         }
     }
-    
+
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
     /*--------------------------------------------------------------------------*/
-    
+
     if (initialize_network() < 0) {
         display("! ERROR : when initializing network");
         OSSleepTicks(OSMillisecondsToTicks(5000));
@@ -551,7 +551,7 @@ int main()
                 int32_t (*OSShutdown)(int32_t status);
                 OSDynLoad_Acquire("coreinit.rpl", &coreinitHandle);
                 OSDynLoad_FindExport(coreinitHandle, FALSE, "OSShutdown", (void **)&OSShutdown);
-                OSDynLoad_Release(coreinitHandle);    
+                OSDynLoad_Release(coreinitHandle);
                 OSShutdown(1);
                 goto exit;
             }
@@ -560,12 +560,12 @@ int main()
         }
         display("");
     }
-    
-    // check network and server creation, wait for user aknowledgement 
-    if (networkDown | (serverSocket < 0)) {        
-        display("");                
+
+    // check network and server creation, wait for user aknowledgement
+    if (networkDown | (serverSocket < 0)) {
+        display("");
         display("Press A or B button to continue");
-        display("");                
+        display("");
         readUserAnswer(&vpadStatus);
     }
 
@@ -575,10 +575,10 @@ int main()
     bool userExitRequest = false;
     while (!networkDown && !userExitRequest)
     {
-        networkDown = process_ftp_events();        
+        networkDown = process_ftp_events();
         if (networkDown) {
             display("! ERROR : FTP server stopped !");
-            display("! ERROR : errno = %d (%s)", errno, strerror(errno));            
+            display("! ERROR : errno = %d (%s)", errno, strerror(errno));
             display("");
             display(" > Press A or B to exit...");
             display("");
@@ -586,12 +586,12 @@ int main()
             readUserAnswer(&vpadStatus);
             break;
         }
-        
+
         listenControlerEvent(&vpadStatus);
-        
+
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
-        
+
         if (userExitRequest) break;
     }
 
