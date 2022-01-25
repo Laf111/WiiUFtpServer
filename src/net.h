@@ -75,17 +75,16 @@ extern "C"{
 // setsockopt send buffer size (the value will be doubled by the system when setsockopt)
 // 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
 #define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
-
-// max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
 #define SND_BUFFER_SIZE SOCKET_BUFFER_SIZE 
-#define RCV_BUFFER_SIZE (3*SOCKET_BUFFER_SIZE)
+
+#define RCV_BUFFER_SIZE 6*SOCKET_BUFFER_SIZE 
 
 // socket memory buffer size = (SND+RCV) double buffered (x2)
-#define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE+RCV_BUFFER_SIZE))
+#define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE + RCV_BUFFER_SIZE))
 
 // size of the pre-allocated transfer buffer size (3MB)
-// this size is used as chunk for transfer sockets and files read/write operations during transfer
-#define TRANSFER_BUFFER_SIZE (24*SOCKET_BUFFER_SIZE)
+// recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer for the chunk
+#define TRANSFER_BUFFER_SIZE (4*RCV_BUFFER_SIZE)
 
 // --------------------------------------------------------------------------------------------------
 

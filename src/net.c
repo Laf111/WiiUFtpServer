@@ -280,16 +280,16 @@ int32_t network_read(int32_t s,void *mem,int32_t len)
     return res;
 }
 
-static int32_t network_readChunk(int32_t s,void *mem,int32_t len) {
+static int32_t network_readChunk(int32_t s, void *mem, int32_t len) {
 
     int32_t received = 0;
     int ret = -1;
     
-    
     // while buffer is not full (len >0)
-    while (len > 1)
+    while (len>0)
     {
-        ret = recv(s, mem, len-1, 0);        
+        // max ret value is 2*RCV_BUFFER_SIZE, mem size is 4*RCV_BUFFER_SIZE
+        ret = recv(s, mem, len, 0);        
         if (ret == 0) {
             // client EOF detected
             break;
@@ -305,6 +305,8 @@ static int32_t network_readChunk(int32_t s,void *mem,int32_t len) {
             }
         }
     }
+    // here len could be < 0 and so more than len bytes are read
+    // received > len and mem up to date
     return received;
 }
 
@@ -365,6 +367,7 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
     set_blocking(s, true);
     while (remaining) {
 
+        retry:
         bytes_transfered = network_write(s, buf, MIN(remaining, (int) buf_size));
         
         if (bytes_transfered > 0) {
@@ -375,8 +378,7 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
             if (retry(bytes_transfered)) {
                 OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
                 retryNumber++;
-                if (retryNumber <= retriesNumber)
-                    continue;
+                if (retryNumber <= retriesNumber) goto retry;
             }
             
     #ifdef LOG2FILE 
@@ -421,18 +423,12 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     #endif
 
     // max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
-    int sndBuffSize = SND_BUFFER_SIZE;
+    int sndBuffSize = SOCKET_BUFFER_SIZE;
 
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sndBuffSize, sizeof(sndBuffSize))!=0)
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
-    
-    int fd = fileno(connection->f);
-    // current pos in file should be connection->restart_marker;    
-    if (connection->restart_marker && lseek(fd, connection->restart_marker, SEEK_SET) != connection->restart_marker) {
-        connection->restart_marker = 0;
-    }
-    
+        
 	int32_t bytes_read = TRANSFER_BUFFER_SIZE;        
 	while (bytes_read) {
         bytes_read = fread(connection->transferBuffer, 1, TRANSFER_BUFFER_SIZE, connection->f);
@@ -447,11 +443,12 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
                 
-            // to let buffer on file be larger than socket one
+            // Let buffer on file be larger than socket one
             while (remaining) {
                 
-                // lower the load on the network on file with size > TRANSFER_BUFFER_SIZE
-                result = network_write(s, connection->transferBuffer, MIN(remaining, TRANSFER_BUFFER_SIZE));
+                send_again:
+                // lower the load on the network and favorize the other connections progress : use only what SND buffer is capable of sending in one time 
+                result = network_write(s, connection->transferBuffer, MIN(remaining, 2*SOCKET_BUFFER_SIZE));
 
                 #ifdef LOG2FILE    
                     writeToLog("C[%d] sent %d bytes of %s", connection->index+1, result, connection->fileName);
@@ -461,8 +458,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                     if (retry(result)) {
                         OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
                         retryNumber++;
-                        if (retryNumber <= retriesNumber)
-                            continue;
+                        if (retryNumber <= retriesNumber) goto send_again;
                     }            
                     // result = error, connection will be closed
                     break;
@@ -520,12 +516,16 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         writeToLog("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     #endif
 
-    uint32_t retryNumber = 0;    
-	int32_t bytes_received = TRANSFER_BUFFER_SIZE;
+    uint32_t retryNumber = 0;
+
+    // recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer (TRANSFER_BUFFER_SIZE = 4*RCV_BUFFER_SIZE)
+	int32_t bytes_received = TRANSFER_BUFFER_SIZE/2;
     while (bytes_received) {
         
-        // use a double sized buffer for recv operation
-        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE);
+        read_again:
+        // use a double sized buffer for recv operation but ask only the size that network_read can return on one call
+        // TODO : see if using less if better as for DL
+        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE/2);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
                     
@@ -536,8 +536,8 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
             if (retry(bytes_received)) {
                 OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-                if (++retryNumber <= retriesNumber)
-                    continue;
+                retryNumber++;
+                if (retryNumber <= retriesNumber) goto read_again;
             }    
             display("! ERROR : network_read failed = %d afer %d attempts", bytes_received, retriesNumber);
             display("! ERROR : errno = %d (%s)", errno, strerror(errno));

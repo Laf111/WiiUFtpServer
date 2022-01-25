@@ -96,13 +96,13 @@ struct connection_struct {
     FILE *f;    
     // for file transferring
     char fileName[MAXPATHLEN];
-    char fileFolder[MAXPATHLEN];
     // volume path to the file
     char *volPath;
     // thread for transfering
     OSThread transferThread;
+    // preallocated transfer thread stack
     uint8_t *transferThreadStack;
-	// buffer for transferring files
+	// preallocated buffer for transferring files
     void *transferBuffer;	
     // for data transfer tracking
     int32_t dataTransferOffset;
