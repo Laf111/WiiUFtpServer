@@ -745,13 +745,15 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
     OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*3));
     
     int nbTries=0;
-    try_again:
-    connection->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (connection->passive_socket < 0) {
+    while (1)
+    {
+        connection->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+        if (connection->passive_socket >= 0)
+            break;
+
         OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-        nbTries++;
-        if (nbTries <= retriesNumber) goto try_again;
-        return write_reply(connection, 520, "Unable to create listening socket");
+        if (++nbTries > retriesNumber)
+            return write_reply(connection, 520, "Unable to create listening socket");
     }
 #ifdef LOG2FILE
         writeToLog("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);        
@@ -818,14 +820,16 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
 
     static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
     int nbTries=0;
-    try_again:
+    int32_t data_socket;
+    while(true)
+    {
+        data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+        if (data_socket >= 0)
+            break;
 
-    int32_t data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (data_socket < 0) {
         OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-        nbTries++;
-        if (nbTries <= retriesNumber) goto try_again;
-        return data_socket;
+        if (++nbTries > retriesNumber)
+            return data_socket;
     }
     
 #ifdef LOG2FILE

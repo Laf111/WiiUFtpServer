@@ -66,54 +66,55 @@ static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     }
 
     char *normalised_path = malloc(strlen(path) + 1);
-    if (!normalised_path) goto end;
-    *normalised_path = '\0';
-    char *curr_dir = normalised_path;
+    if (normalised_path)
+    {
+        *normalised_path = '\0';
+        char *curr_dir = normalised_path;
 
-    uint32_t state = 0; // 0:start, 1:slash, 2:dot, 3:dotdot
-    char *token = path;
-    while (1) {
-        switch (state) {
-        case 0:
-            if (*token == '/') {
-                state = 1;
-                curr_dir = normalised_path + strlen(normalised_path);
-                strncat(normalised_path, token, 1);
+        uint32_t state = 0; // 0:start, 1:slash, 2:dot, 3:dotdot
+        char *token = path;
+        while (1) {
+            switch (state) {
+            case 0:
+                if (*token == '/') {
+                    state = 1;
+                    curr_dir = normalised_path + strlen(normalised_path);
+                    strncat(normalised_path, token, 1);
+                }
+                break;
+            case 1:
+                if (*token == '.') state = 2;
+                else if (*token != '/') state = 0;
+                break;
+            case 2:
+                if (*token == '/' || !*token) {
+                    state = 1;
+                    *(curr_dir + 1) = '\0';
+                } else if (*token == '.') state = 3;
+                else state = 0;
+                break;
+            case 3:
+                if (*token == '/' || !*token) {
+                    state = 1;
+                    *curr_dir = '\0';
+                    char *prev_dir = strrchr(normalised_path, '/');
+                    if (prev_dir) curr_dir = prev_dir;
+                    else *curr_dir = '/';
+                    *(curr_dir + 1) = '\0';
+                } else state = 0;
+                break;
             }
-            break;
-        case 1:
-            if (*token == '.') state = 2;
-            else if (*token != '/') state = 0;
-            break;
-        case 2:
-            if (*token == '/' || !*token) {
-                state = 1;
-                *(curr_dir + 1) = '\0';
-            } else if (*token == '.') state = 3;
-            else state = 0;
-            break;
-        case 3:
-            if (*token == '/' || !*token) {
-                state = 1;
-                *curr_dir = '\0';
-                char *prev_dir = strrchr(normalised_path, '/');
-                if (prev_dir) curr_dir = prev_dir;
-                else *curr_dir = '/';
-                *(curr_dir + 1) = '\0';
-            } else state = 0;
-            break;
+            if (!*token) break;
+            if (state == 0 || *token != '/') strncat(normalised_path, token, 1);
+            token++;
         }
-        if (!*token) break;
-        if (state == 0 || *token != '/') strncat(normalised_path, token, 1);
-        token++;
+
+        uint32_t end = strlen(normalised_path);
+        while (end > 1 && normalised_path[end - 1] == '/') {
+            normalised_path[--end] = '\x00';
+        }
     }
 
-    uint32_t end = strlen(normalised_path);
-    while (end > 1 && normalised_path[end - 1] == '/') {
-        normalised_path[--end] = '\x00';
-    }
-
-    end:
     if (path != virtual_path) free(path);
     return normalised_path;
 }
@@ -143,36 +144,39 @@ char *to_real_path(char *virtual_cwd, char *virtual_path) {
     if (!strcmp("/", virtual_path)) {
         // indicate vfs-root with ""
         path = "";
-        goto end;
     }
-
-    const char *prefix = NULL;
-    uint32_t i;
-    for (i = 0; i < MAX_VIRTUAL_PARTITIONS; i++) {
-        VIRTUAL_PARTITION *partition = VIRTUAL_PARTITIONS + i;
-        const char *alias = partition->alias;
-        size_t alias_len = strlen(alias);
-        if (!strcasecmp(alias, virtual_path) || (!strncasecmp(alias, virtual_path, alias_len) && virtual_path[alias_len] == '/')) {
-            prefix = partition->prefix;
-            rest += alias_len;
-            if (*rest == '/') rest++;
-            break;
+    else
+    {
+        const char *prefix = NULL;
+        uint32_t i;
+        for (i = 0; i < MAX_VIRTUAL_PARTITIONS; i++) {
+            VIRTUAL_PARTITION *partition = VIRTUAL_PARTITIONS + i;
+            const char *alias = partition->alias;
+            size_t alias_len = strlen(alias);
+            if (!strcasecmp(alias, virtual_path) || (!strncasecmp(alias, virtual_path, alias_len) && virtual_path[alias_len] == '/')) {
+                prefix = partition->prefix;
+                rest += alias_len;
+                if (*rest == '/') rest++;
+                break;
+            }
+        }
+        if (!prefix)
+            errno = ENODEV;
+        else
+        {
+            size_t real_path_size = strlen(prefix) + strlen(rest) + 1;
+            if (real_path_size <= MAXPATHLEN)
+            {
+                path = malloc(real_path_size);
+                if (path)
+                {
+                    strcpy(path, prefix);
+                    strcat(path, rest);
+                }
+            }
         }
     }
-    if (!prefix) {
-        errno = ENODEV;
-        goto end;
-    }
-
-    size_t real_path_size = strlen(prefix) + strlen(rest) + 1;
-    if (real_path_size > MAXPATHLEN) goto end;
-
-    path = malloc(real_path_size);
-    if (!path) goto end;
-    strcpy(path, prefix);
-    strcat(path, rest);
     
-    end:
     free(virtual_path);
     
     return path;
