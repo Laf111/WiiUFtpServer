@@ -356,8 +356,8 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    displayData(connection->index);
 		#endif
 
-        // resize internal file's buffer to TRANSFER_BUFFER_SIZE/4 (size of chunks in net.c)
-        if (setvbuf(connection->f, NULL, _IOFBF, TRANSFER_BUFFER_SIZE/4) != 0) {
+        // resize internal file's buffer to MIN_TRANSFER_CHUNK_SIZE (max size of one recv chunk in net.c)
+        if (setvbuf(connection->f, NULL, _IOFBF, MIN_TRANSFER_CHUNK_SIZE) != 0) {
             display("! WARNING : setvbuf failed for uploading  = %s", connection->fileName);
             display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
         }

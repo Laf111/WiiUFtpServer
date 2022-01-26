@@ -510,14 +510,12 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
     uint32_t retryNumber = 0;
 
-    // recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer (TRANSFER_BUFFER_SIZE = 8*RCV_BUFFER_SIZE)
-	int32_t bytes_received = TRANSFER_BUFFER_SIZE/4;
+    // use a double sized buffer
+	int32_t bytes_received = TRANSFER_BUFFER_SIZE/2;
     while (bytes_received) {
         
         read_again:
-        // use a double sized buffer for recv operation but ask only the size that network_read can return on one call
-        // TODO : see if using less if better as for DL
-        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE/4);
+        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE/2);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
                     
