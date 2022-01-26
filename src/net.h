@@ -86,7 +86,6 @@ extern "C"{
 // socket memory buffer size = (SND+RCV) double buffered (x2) = MAX_SOMEMOPT_BUFFER_SIZE
 #define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE + RCV_BUFFER_SIZE))
 
-// size of the pre-allocated transfer buffer size (2.6MB)
 // recv can sent a max of 2*RCV_BUFFER_SIZE at one time
 #define MIN_TRANSFER_CHUNK_SIZE (2*RCV_BUFFER_SIZE)
 
@@ -98,6 +97,7 @@ extern "C"{
 
 // need at least the double of MIN_TRANSFER_CHUNK_SIZE = 2.6MB
 // 4*(2*(5*(128*1024))) : 5.2MB
+// size of the pre-allocated transfer buffer size (5.2MB)
 #define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*MIN_TRANSFER_CHUNK_SIZE)
 
 // --------------------------------------------------------------------------------------------------
