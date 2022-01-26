@@ -77,7 +77,6 @@ extern "C"{
 #define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
 #define SND_BUFFER_SIZE SOCKET_BUFFER_SIZE 
 
-
 // SOCKET MEMORY_OPTIMIZATION : use the max amount allowed = 3MB
 // MAX_SOMEMOPT_BUFFER_SIZE=3*1024*1024=2*[(2*SNDBUF)+(2*RCVBUF)] (double buffering)
 // MAX_RCVBUF=(MAX_SOMEMOPT_BUFFER_SIZE/4)-SNDBUF=3*1024*256-128*1024=5*128*1024
@@ -86,13 +85,14 @@ extern "C"{
 // socket memory buffer size = (SND+RCV) double buffered (x2) = MAX_SOMEMOPT_BUFFER_SIZE
 #define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE + RCV_BUFFER_SIZE))
 
-// recv can sent a max of 2*RCV_BUFFER_SIZE at one time
+// recv can send a max of 2*RCV_BUFFER_SIZE at one time
 #define MIN_TRANSFER_CHUNK_SIZE (2*RCV_BUFFER_SIZE)
 
 // number of chunks (blocs) to send/receive per network operations
-// low values lower openning connection time because of setvbuf resizing and favorize the share of the network bandwith between transfer sockets
-// too large may slow down openning connection time because of setvbuf resizing but will give better transfer rate on single file operation
-
+// - low values lower openning connection time because of setvbuf resizing and favorize the 
+//   network bandwith sharing between transfer sockets
+// - too large may slow down openning connection time because of setvbuf resizing but will give 
+//   better and more stable transfer's speed on single file operation
 #define NB_TRANSFER_CHUNKS 4
 
 // need at least the double of MIN_TRANSFER_CHUNK_SIZE = 2.6MB
