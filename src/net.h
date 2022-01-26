@@ -84,7 +84,7 @@ extern "C"{
 
 // size of the pre-allocated transfer buffer size (3MB)
 // recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer for the chunk
-#define TRANSFER_BUFFER_SIZE (4*RCV_BUFFER_SIZE)
+#define TRANSFER_BUFFER_SIZE (8*RCV_BUFFER_SIZE)
 
 // --------------------------------------------------------------------------------------------------
 

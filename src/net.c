@@ -185,7 +185,17 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
         // Activate TCP SAck
         if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
             {if (!initDone) display("! ERROR : setsockopt / TCP SAck activation failed !");}
-                
+        
+        // Disabling Nagle's algorithm
+        if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
+            {if (!initDone) display("! ERROR : setsockopt / Disabling Nagle's algorithm failed !");}
+
+        int disable = 0;
+        
+        // Enable delayed ACKs
+        if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &disable, sizeof(disable))!=0)
+            {if (!initDone) display("! ERROR : setsockopt / Enabling delayed ACKs failed !");}
+        
         // Activate WinScale
         if (setsockopt(s, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
             {display("! ERROR : setsockopt / winScale activation failed !");}
@@ -399,20 +409,6 @@ int32_t send_exact(int32_t s, char *buf, int32_t length) {
     return result;
 }
 
-static void sockOptForUpload(int32_t s)
-{
-    int enable = 1;
-                
-    // TCP_NODELAY 
-    if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-        {if (!initDone) display("! ERROR : setsockopt / Disabling Nagle's algorithm failed !");}
-
-    // Disable delayed ACKs
-    if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &enable, sizeof(enable))!=0)
-        {if (!initDone) display("! ERROR : setsockopt / Disabling delayed ACKs failed !");}
-        
-}
-
 
 int32_t send_from_file(int32_t s, connection_t* connection) {
     // return code
@@ -424,7 +420,6 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
 
     // max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
     int sndBuffSize = SOCKET_BUFFER_SIZE;
-
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sndBuffSize, sizeof(sndBuffSize))!=0)
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
@@ -447,8 +442,8 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             while (remaining) {
                 
                 send_again:
-                // lower the load on the network and favorize the other connections progress : use only what SND buffer is capable of sending in one time 
-                result = network_write(s, connection->transferBuffer, MIN(remaining, 2*SOCKET_BUFFER_SIZE));
+                // lower the load on the network and favorize the other connections progress : send by TRANSFER_BUFFER_SIZE/4
+                result = network_write(s, connection->transferBuffer, MIN(remaining, TRANSFER_BUFFER_SIZE/4));
 
                 #ifdef LOG2FILE    
                     writeToLog("C[%d] sent %d bytes of %s", connection->index+1, result, connection->fileName);
@@ -504,9 +499,6 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
     
-    // extra socket optimizations
-    sockOptForUpload(s);
-
     // (the system double the value set)
     int rcvBuffSize = RCV_BUFFER_SIZE;
     if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &rcvBuffSize, sizeof(rcvBuffSize))!=0)
@@ -518,14 +510,14 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
     uint32_t retryNumber = 0;
 
-    // recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer (TRANSFER_BUFFER_SIZE = 4*RCV_BUFFER_SIZE)
-	int32_t bytes_received = TRANSFER_BUFFER_SIZE/2;
+    // recv can sent a max of 2*RCV_BUFFER_SIZE at one time, use a double sized buffer (TRANSFER_BUFFER_SIZE = 8*RCV_BUFFER_SIZE)
+	int32_t bytes_received = TRANSFER_BUFFER_SIZE/4;
     while (bytes_received) {
         
         read_again:
         // use a double sized buffer for recv operation but ask only the size that network_read can return on one call
         // TODO : see if using less if better as for DL
-        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE/2);
+        bytes_received = network_readChunk(s, connection->transferBuffer, TRANSFER_BUFFER_SIZE/4);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
                     

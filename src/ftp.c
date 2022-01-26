@@ -148,10 +148,10 @@ int32_t create_server(uint16_t port) {
     char ipText[28 + 15 + 2 + 6 + 2 + 2]; // 28 chars for the text + 15 chars for max length of an IP + 2 for size of port + 6 additional spaces + 2x@ + '\0'
     sprintf(ipText, "    @ Server IP adress = %u.%u.%u.%u ,port = %u", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
     size_t ipSize = strlen(ipText);
-    if(ipSize < 28 + 15 + 2 + 5 + 2)
-        OSBlockSet(ipText + ipSize, ' ', (28 + 15 + 2 + 6 + 2) - ipSize);
+    if(ipSize < 28 + 15 + 2 + 5 + 1)
+        OSBlockSet(ipText + ipSize, ' ', (28 + 15 + 2 + 6 + 1) - ipSize);
 
-    strcpy(ipText + (28 + 15 + 2 + 5 + 2), " @");
+    strcpy(ipText + (28 + 15 + 2 + 5 + 1), " @");
 
     display(" ");
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -356,12 +356,13 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    displayData(connection->index);
 		#endif
 
-         // provide transfer buffer as internal file's buffer
-        if (setvbuf(connection->f, NULL, _IOFBF, TRANSFER_BUFFER_SIZE) != 0) {
-            display("! WARNING : setvbuf failed for = %s", connection->fileName);
+        // resize internal file's buffer to TRANSFER_BUFFER_SIZE/4 (size of chunks in net.c)
+        if (setvbuf(connection->f, NULL, _IOFBF, TRANSFER_BUFFER_SIZE/4) != 0) {
+            display("! WARNING : setvbuf failed for uploading  = %s", connection->fileName);
             display("! WARNING : errno = %d (%s)", errno, strerror(errno));          
         }
-        
+
+        // priorize the last connections launched
         if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, (FTP_NB_SIMULTANEOUS_TRANSFERS-activeConnectionsNumber), OS_THREAD_ATTRIB_AFFINITY_ANY)) {
             display("! ERROR : when creating transferThread!");        
             return -105;
@@ -410,9 +411,6 @@ static int32_t closeTransferedFile(connection_t *connection) {
     if (connection->f != NULL) result = fclose(connection->f);
     connection->f = NULL;
 
-    // clear the transfer buffer entirely for the next use
-    memset(connection->transferBuffer, 0x00, TRANSFER_BUFFER_SIZE);
-    
     return result;
 }
 
@@ -753,16 +751,18 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
     static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
     close_passive_socket(connection);
     // leave this sleep to avoid error on client console
-    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS));
+    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*4));
     
     int nbTries=0;
-    try_again:
-    connection->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (connection->passive_socket < 0) {
+    while (1)
+    {
+        connection->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+        if (connection->passive_socket >= 0)
+            break;
+
         OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
-        nbTries++;
-        if (nbTries <= retriesNumber) goto try_again;
-        return write_reply(connection, 520, "Unable to create listening socket");
+        if (++nbTries > retriesNumber)
+            return write_reply(connection, 520, "Unable to create listening socket");
     }
 #ifdef LOG2FILE
         writeToLog("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);        
