@@ -199,17 +199,17 @@ HISTORY :
     > use a larger file buffer (to enhance speed for transfering files larger than 1MB)
 
 2022/01/01 V8-0 :    
-    > Multi-Threaded version : one thread per connection
+    > multi-Threaded version : one thread per connection
     > this reduce network overflow and so reset to 8 for the max number of connections
     > overall transfer speed gain, mostly for download (+30% speed in multi transfer compared to V7)
 
-2022/01/16 V8-1 :    
+2022/01/28 V8-1 :    
     > cancelling a transfert now cancel the thread (you have to wait the completion in V8-0 until getting back the connection)
     > display connection concerned in console log and client one
     > display transfer rate calculate on server on client log
-    > rewrite send_from_file() and recv_to_file() for non blocking mode and chunk transfert (per block)
-    > pre-allocate a transfer buffer of 50MB per connection
-        - this chunk size ensure that the app does not reache the max RAM available when transfering 8 files simultaneously
+    > rewrite send_from_file() and recv_to_file() for non blocking mode and chunks transfer (per block) : => +40/50% speed
+    > pre-allocate a transfer buffer per connection
         - this buffer is used by both mode (download/upload)
         - it result in a faster transfer rate and mostly faster open/close times for connections
-    
+    > spinLocks, loop optimizations and cleanup WUT use mistakes by V10Lator
+    > thanks also to Masana, godreborn and TheLegendOfXela for their checks

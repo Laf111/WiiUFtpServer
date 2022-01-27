@@ -81,21 +81,17 @@ extern "C"{
 
 // recv can send a max of 2*SOCKET_BUFFER_SIZE at one time
 // the recv loop needs to use a double sized buffer to avoid overflow
-#define MIN_TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
+// 4*SOCKET_BUFFER_SIZE =>  524288 bytes
+#define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
 // number of chunks (blocs) to send/receive per network operations
-// - low values lower openning connection time because of setvbuf resizing and favorize the 
-//   network bandwith sharing between transfer sockets
-// - too large may slow down openning connection time because of setvbuf resizing but will give 
-//   better and more stable transfer's speed on single file operation
-//#define NB_TRANSFER_CHUNKS 128
-#define NB_TRANSFER_CHUNKS 96
+#define NB_TRANSFER_CHUNKS 64
 
-// 128*(4*128*1024)=67108864 => ~67MB in RAM per connection
-// 8 connections openned (536870912) + 8*MIN_TRANSFER_CHUNK_SIZE for the file's internal buffer size 
-// 8*(67108864 + (4*128*1024)) ~ 540MB load in RAM (1GB is the max for app) 
-
-#define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*MIN_TRANSFER_CHUNK_SIZE)
+// 64*(4*128*1024)=33554432 => ~34MB in RAM per connection 
+// + MIN_TRANSFER_CHUNK_SIZE for the file's internal buffer size
+ 
+// => 9 connections preallocated = (9*(33554432+524288)) ~ 306MB of RAM used for transfers
+#define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*TRANSFER_CHUNK_SIZE)
 
 // --------------------------------------------------------------------------------------------------
 

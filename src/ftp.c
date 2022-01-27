@@ -72,8 +72,7 @@ static int fsaFd = -1;
 
 static connection_t *connections[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
 static void *transferBuffers[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
-static uint8_t *transferThreadStacks[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
-    
+
 static int listener = -1;     // listening socket descriptor
 
 // max and min transfer rate speeds in MBs
@@ -358,7 +357,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		#endif
 
         // resize internal file's buffer to MIN_TRANSFER_CHUNK_SIZE (max size of one recv chunk in net.c)
-        if (setvbuf(connection->f, NULL, _IOFBF, MIN_TRANSFER_CHUNK_SIZE) != 0) {
+        if (setvbuf(connection->f, NULL, _IOFBF, TRANSFER_CHUNK_SIZE) != 0) {
         // set internal file's buffer with transferFile
 //        if (setvbuf(connection->f, connection->transferBuffer, _IOFBF, MIN_TRANSFER_CHUNK_SIZE) != 0) {
 // TODO : try TRANSFER_BUFFER_SIZE/2 (6.2buf)    
@@ -1404,7 +1403,8 @@ static void cleanup_connection(connection_t *connection) {
             }
         }
     }
-    // set pointer to transferThreadStack to NULL
+    // free transfer thread stack
+    if (connection->transferThreadStack != NULL) MEMFreeToDefaultHeap(connection->transferThreadStack);
     connection->transferThreadStack = NULL;
 
     // set pointer to transferBuffer to null (transferBuffers[connection_index] is not deallocated here but only in cleanup_ftp when stopping the server)
@@ -1458,11 +1458,6 @@ void cleanup_ftp() {
             // free user's buffer file
             if (transferBuffers[connection_index] != NULL) MEMFreeToDefaultHeap(transferBuffers[connection_index]);
             transferBuffers[connection_index] = NULL;
-            
-            // free transfer thread stack
-            if (transferThreadStacks[connection_index] != NULL) MEMFreeToDefaultHeap(transferThreadStacks[connection_index]);
-            transferThreadStacks[connection_index] = NULL;
-            
         }
 /*         #ifdef LOG2FILE    
             OSClearThreadStackUsage(&ftpThread);
@@ -1531,7 +1526,17 @@ static bool processConnections() {
                 strcpy(connection->fileName, "");
                 connection->volPath = NULL;
                 connection->f = NULL;
-                                        
+                
+                connection->transferThreadStack = NULL;                        
+                // pre-allocate transfer thread stack
+                connection->transferThreadStack = MEMAllocFromDefaultHeapEx(FTP_TRANSFER_STACK_SIZE, 8);
+                if (connection->transferThreadStack == NULL) {
+                    display("! ERROR : when allocating transferThreadStack!");
+                    network_close(peer);
+                    free(connection);
+                    return false;
+                }  
+                        
                 connection->dataTransferOffset = -1;
                 connection->speed = 0;
                 connection->bytesTransfered = -EAGAIN;
@@ -1541,6 +1546,7 @@ static bool processConnections() {
                 if (write_reply(connection, 220, "---------====={ WiiUFtpServer }=====---------") < 0) {
                     display("! ERROR : Error writing greeting");
                     network_close(peer);
+                    MEMFreeToDefaultHeap(connection->transferThreadStack);
                     free(connection);
                 } else {
                     #ifdef LOG2FILE
@@ -1552,32 +1558,20 @@ static bool processConnections() {
                             connection->index = connection_index;
                             connections[connection_index] = connection;
                              
-                            if (transferBuffers[connection_index] != NULL) {
+                            if (transferBuffers[connection_index] != NULL) 
                                 // already allocated, use it
                                 connection->transferBuffer = transferBuffers[connection_index];
-                                connection->transferThreadStack = transferThreadStacks[connection_index];
-                            } else {
-                                
-                                // pre-allocate transfer thread stack
-                                transferBuffers[connection_index] = MEMAllocFromDefaultHeapEx(FTP_TRANSFER_STACK_SIZE, 8);
-                                if (transferBuffers[connection_index] == NULL) {
-                                    display("! ERROR : when allocating transferThreadStack!");
-                                    network_close(peer);
-                                    free(connection);
-                                    return false;
-                                }  
-                                
+                            else {
                                 // pre-allocate user buffer for transfering with connection[connection_index]
                                 transferBuffers[connection_index] = MEMAllocFromDefaultHeapEx(TRANSFER_BUFFER_SIZE, 64);
                                 if (!transferBuffers[connection_index]) {
                                     display("! ERROR : failed to allocate user buffer for the c[%d]", connection_index+1);
                                     network_close(peer);
-                                    MEMFreeToDefaultHeap(transferBuffers[connection_index]);
+                                    MEMFreeToDefaultHeap(connection->transferThreadStack);
                                     free(connection);
                                     return false;
                                 }
                                 
-                                connection->transferThreadStack = transferThreadStacks[connection_index];
                                 connection->transferBuffer = transferBuffers[connection_index];
                             }
                             
