@@ -88,7 +88,8 @@ extern "C"{
 //   network bandwith sharing between transfer sockets
 // - too large may slow down openning connection time because of setvbuf resizing but will give 
 //   better and more stable transfer's speed on single file operation
-#define NB_TRANSFER_CHUNKS 128
+//#define NB_TRANSFER_CHUNKS 128
+#define NB_TRANSFER_CHUNKS 96
 
 // 128*(4*128*1024)=67108864 => ~67MB in RAM per connection
 // 8 connections openned (536870912) + 8*MIN_TRANSFER_CHUNK_SIZE for the file's internal buffer size 
