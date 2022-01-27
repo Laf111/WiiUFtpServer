@@ -32,9 +32,6 @@ In any case, **only files contained in the partial backup** will be used and **o
 
 After the restoration process, you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one)
 
-
-**When using Ethernet** : (Wii-U with Ethernet adapter - NAS - Laptop Ethernet 5)
-
 <p align="center">
   <img src="Ethernet.png">
 </p>
