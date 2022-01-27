@@ -75,29 +75,25 @@ extern "C"{
 // setsockopt send buffer size (the value will be doubled by the system when setsockopt)
 // 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
 #define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
-#define SND_BUFFER_SIZE SOCKET_BUFFER_SIZE 
 
-// SOCKET MEMORY_OPTIMIZATION : use the max amount allowed = 3MB
-// MAX_SOMEMOPT_BUFFER_SIZE=3*1024*1024=2*[(2*SNDBUF)+(2*RCVBUF)] (double buffering)
-// MAX_RCVBUF=(MAX_SOMEMOPT_BUFFER_SIZE/4)-SNDBUF=3*1024*256-128*1024=5*128*1024
-#define RCV_BUFFER_SIZE 5*SOCKET_BUFFER_SIZE 
+// socket memory buffer size = (2*SND+2*RCV) double buffered (x2)
+#define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// socket memory buffer size = (SND+RCV) double buffered (x2) = MAX_SOMEMOPT_BUFFER_SIZE
-#define SOMEMOPT_BUFFER_SIZE (2*(SND_BUFFER_SIZE + RCV_BUFFER_SIZE))
-
-// recv can send a max of 2*RCV_BUFFER_SIZE at one time
-#define MIN_TRANSFER_CHUNK_SIZE (2*RCV_BUFFER_SIZE)
+// recv can send a max of 2*SOCKET_BUFFER_SIZE at one time
+// the recv loop needs to use a double sized buffer to avoid overflow
+#define MIN_TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
 // number of chunks (blocs) to send/receive per network operations
 // - low values lower openning connection time because of setvbuf resizing and favorize the 
 //   network bandwith sharing between transfer sockets
 // - too large may slow down openning connection time because of setvbuf resizing but will give 
 //   better and more stable transfer's speed on single file operation
-#define NB_TRANSFER_CHUNKS 4
+#define NB_TRANSFER_CHUNKS 128
 
-// need at least the double of MIN_TRANSFER_CHUNK_SIZE = 2.6MB
-// 4*(2*(5*(128*1024))) : 5.2MB
-// size of the pre-allocated transfer buffer size (5.2MB)
+// 128*(4*128*1024)=67108864 => ~67MB in RAM per connection
+// 8 connections openned (536870912) + 8*MIN_TRANSFER_CHUNK_SIZE for the file's internal buffer size 
+// 8*(67108864 + (4*128*1024)) ~ 540MB load in RAM (1GB is the max for app) 
+
 #define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*MIN_TRANSFER_CHUNK_SIZE)
 
 // --------------------------------------------------------------------------------------------------

@@ -54,8 +54,8 @@ misrepresented as being the original software.
 
 #define FTP_PORT            21
 
-// Connection time out in seconds (must be greater than 45 sec which is the time needed to queue 9000 files recursively) 
-#define FTP_CONNECTION_TIMEOUT 55
+// Connection time out in seconds
+#define FTP_CONNECTION_TIMEOUT 85
 
 #define FTP_MSG_BUFFER_SIZE 1024
 

@@ -136,8 +136,8 @@ int32_t initialize_network()
         display("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
         display("network retries number        = %d", retriesNumber);
         display("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
-        display("SND_BUFFER_SIZE               = %d", SND_BUFFER_SIZE);
-        display("RCV_BUFFER_SIZE               = %d", RCV_BUFFER_SIZE);
+        display("SOCKET_BUFFER_SIZE               = %d", SOCKET_BUFFER_SIZE);
+        display("SOCKET_BUFFER_SIZE               = %d", SOCKET_BUFFER_SIZE);
         display("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
         display("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
         display("----------------------------------------------");
@@ -298,7 +298,7 @@ static int32_t network_readChunk(int32_t s, void *mem, int32_t len) {
     // while buffer is not full (len >0)
     while (len>0)
     {
-        // max ret value is 2*RCV_BUFFER_SIZE, mem size is 4*RCV_BUFFER_SIZE
+        // max ret value is 2*SOCKET_BUFFER_SIZE, mem size is 4*SOCKET_BUFFER_SIZE
         ret = recv(s, mem, len, 0);        
         if (ret == 0) {
             // client EOF detected
@@ -500,7 +500,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     int32_t result = 0;
     
     // (the system double the value set)
-    int rcvBuffSize = RCV_BUFFER_SIZE;
+    int rcvBuffSize = SOCKET_BUFFER_SIZE;
     if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &rcvBuffSize, sizeof(rcvBuffSize))!=0)
         {display("! ERROR : setsockopt / RCVBUF failed !");}
     
