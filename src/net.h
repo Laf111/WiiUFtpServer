@@ -73,21 +73,21 @@ extern "C"{
 #define UNSCALED_BUFFER_SIZE (8*1024) 
 
 // setsockopt send buffer size (the value will be doubled by the system when setsockopt)
-// 17*(8*1024) = 139264 
-#define SOCKET_BUFFER_SIZE (17*UNSCALED_BUFFER_SIZE) 
+// 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
+#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
 
 // socket memory buffer size = (2*SND+2*RCV) double buffered (x2)
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
 // recv can send a max of 2*SOCKET_BUFFER_SIZE at one time
 // the recv loop needs to use a double sized buffer to avoid overflow
-// 4*SOCKET_BUFFER_SIZE =>  557056 bytes
+// 4*SOCKET_BUFFER_SIZE =>  524288 bytes
 #define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// 142*(4*17*8*1024) = 79101952 => 79.2MB per connection
-#define NB_TRANSFER_CHUNKS 142
+// 150*(4*16*8*1024) = 78643200 => 78.7MB per connection
+#define NB_TRANSFER_CHUNKS 150
 
-// => 9 connections preallocated = (9*(79101952+557056)) = 716931072 ~ 717MB of RAM used for transfers
+// => 9 connections preallocated = (9*(78643200+524288)) = 712507392 ~ 713MB of RAM used for transfers
 #define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*TRANSFER_CHUNK_SIZE)
 
 // --------------------------------------------------------------------------------------------------
