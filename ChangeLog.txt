@@ -204,12 +204,12 @@ HISTORY :
     > overall transfer speed gain, mostly for download (+30% speed in multi transfer compared to V7)
 
 2022/01/28 V8-1 :    
-    > cancelling a transfert now cancel the thread (you have to wait the completion in V8-0 until getting back the connection)
-    > display connection concerned in console log and client one
-    > display transfer rate calculate on server in client's log
     > rewrite send_from_file() and recv_to_file() for non blocking mode and chunk based transfer (per block) : => +40/50% UL speed
     > pre-allocate a transfer buffer per connection
         - this buffer is used by both mode (download/upload)
         - it result in a faster transfer rate and mostly faster open/close times for connections
+    > cancelling a transfert now cancel the thread (you have to wait the completion in V8-0 until getting back the connection)
+    > display connection concerned in console log and client one
+    > display transfer rate calculate on server in client's log
     > spinLocks, loop optimizations and cleanup WUT use mistakes by V10Lator
     > thanks also to Masana, godreborn and TheLegendOfXela for their checks on release candidate versions
