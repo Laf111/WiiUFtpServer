@@ -375,7 +375,6 @@ int main()
 
     // provide the IOSUHAX file descriptor to modules that uses lib IOSUHAX
     setFsaFdInFtp(fsaFd);
-    setFsaFdInNet(fsaFd);
 
 #ifdef CHECK_CONTROLLER
     // Check your controller

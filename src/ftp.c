@@ -288,7 +288,6 @@ void displayData(uint32_t index) {
     
     if (connections[index]->f != NULL) {            
         writeToLog("filename                   = %s", connections[index]->fileName);
-        writeToLog("fileFolder                 = %s", connections[index]->fileFolder);
         writeToLog("fd                         = %d", fileno(connections[index]->f));
         writeToLog("volPath                    = %s", connections[index]->volPath);
         writeToLog("dataTransferOffset         = %d", connections[index]->dataTransferOffset);
@@ -319,18 +318,7 @@ int launchTransfer(int argc UNUSED, const char **argv)
     if (activeConnection->volPath == NULL) {
         result = send_from_file(activeConnection->data_socket, activeConnection);
     } else {        
-        result = recv_to_file(activeConnection->data_socket, activeConnection);
-
-        // change rights on file
-        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, activeConnection->volPath, 0x664);
-        
-        if (rc < 0 ) {
-            display("~ WARNING : when settings file's rights, rc = %d !", rc);
-            display("~ WARNING : file = %s", activeConnection->fileName);        		
-        }
-        free(activeConnection->volPath);
-        activeConnection->volPath = NULL;
-        
+        result = recv_to_file(activeConnection->data_socket, activeConnection);        
     }
     
     #ifdef LOG2FILE    
@@ -409,6 +397,18 @@ static int32_t closeTransferedFile(connection_t *connection) {
         #ifdef LOG2FILE    
             writeToLog("Cancel transfer thread of C[%d]", connection->index+1);
         #endif                     
+    }
+    
+    if (connection->volPath != NULL) {
+        // change rights on file
+        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
+        
+        if (rc < 0 ) {
+            display("~ WARNING : when settings file's rights, rc = %d !", rc);
+            display("~ WARNING : file = %s", connection->fileName);        		
+        }
+        free(connection->volPath);
+        connection->volPath = NULL;
     }
     
     if (connection->f != NULL) result = fclose(connection->f);
@@ -555,11 +555,14 @@ static int32_t ftp_MODE(connection_t *connection, char *rest) {
 static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
     char msg[MAXPATHLEN + 24] = "";
     
-    // check if folder exist    
-    char *parentFolder = (char *)malloc (strlen(connection->cwd)+1);
+    // check if folder exist 
+    char *parentFolder = NULL;
+    parentFolder = (char *)malloc (strlen(connection->cwd)+1);
     strcpy(parentFolder, connection->cwd);
-    char *pos = strrchr(parentFolder, '/');  
-    char *folder = strdup (pos + 1);
+    char *pos = strrchr(parentFolder, '/');
+    
+    char *folder = NULL;
+    folder = strdup (pos + 1);
 
     if (vrt_checkdir(parentFolder, folder) == 0) {
 
@@ -571,6 +574,8 @@ static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
         display("! ERROR : C[%d] failed to PWD to %s (does not exist)", connection->index+1, connection->cwd);
         
     }
+    if (folder != NULL) free(folder);
+    if (parentFolder != NULL) free(parentFolder);
     return write_reply(connection, 257, msg);
 }
 
@@ -654,12 +659,15 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
     if (!vrt_unlink(folder, fileName)) {
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "C[%d] File or directory removed", connection->index+1); 
-        
+        if (fileName != NULL) free(fileName);
+        if (folder != NULL) free(folder);
         return write_reply(connection, 250, msg);
     } else {
         display("~ WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));                            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when DELE %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        if (fileName != NULL) free(fileName);
+        if (folder != NULL) free(folder);
         return write_reply(connection, 550, msg);
     }
 }
@@ -754,7 +762,7 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
     static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
     close_passive_socket(connection);
     // leave this sleep to avoid error on client console
-    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*4));
+    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*20));
     
     int nbTries=0;
     while (1)
@@ -1022,14 +1030,17 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
 
     
 static int32_t ftp_RETR(connection_t *connection, char *path) {
-    
+
+    char *folder = NULL;
+    char *fileName = NULL;
+        
     // compute fileName    
     if (path[0] == '/') {
         // get the folder from path        
-        char *folder = (char *)malloc (strlen(path)+1);
+        folder = (char *)malloc (strlen(path)+1);
         strcpy(folder, path);
 	    char *pos = strrchr(folder, '/');  
-	    char *fileName = strdup (pos + 1);
+	    fileName = strdup (pos + 1);
 	    strcpy(connection->fileName, fileName);
     } else {  
         // folder = connection_cwd
@@ -1044,6 +1055,8 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         display("! ERROR : err = %s", strerror(errno));            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when RETR %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        if (fileName != NULL) free(fileName);
+        if (folder != NULL) free(folder);
         return write_reply(connection, 550, msg);
     }
     
@@ -1052,6 +1065,9 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         int32_t lseek_error = errno;
         fclose(connection->f);
         connection->restart_marker = 0;
+        if (fileName != NULL) free(fileName);
+        if (folder != NULL) free(folder);
+        
         return write_reply(connection, 550, strerror(lseek_error));
     }
     connection->restart_marker = 0;
@@ -1066,13 +1082,15 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         }
         closeTransferedFile(connection);
     }
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
+    
 
     return result;
 }
 
 static int32_t stor_or_append(connection_t *connection, char *path) {
     
-    connection->restart_marker = 0;
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
 
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferedFile);
@@ -1090,7 +1108,7 @@ static int32_t ftp_STOR(connection_t *connection, char *path) {
 
     // compute volume path
     char vPath[MAXPATHLEN*2] = "";
-    
+    char *fileName = NULL;
     char *folder = NULL;
     char *pos = NULL;
 	
@@ -1101,7 +1119,7 @@ static int32_t ftp_STOR(connection_t *connection, char *path) {
         folder = (char *)malloc (strlen(path)+1);
         strcpy(folder, path);
 	    pos = strrchr(folder, '/');  
-	    char *fileName = strdup (pos + 1);
+	    fileName = strdup (pos + 1);
 	    strcpy(connection->fileName, fileName);
     } else {  
         sprintf(vPath, "%s/%s", connection->cwd, path);
@@ -1112,10 +1130,12 @@ static int32_t ftp_STOR(connection_t *connection, char *path) {
 	    pos = strrchr(folder, '/');  
     }
     
-    char *parentFolder = (char *)malloc (strlen(folder)+1);
+    char *parentFolder = NULL;
+    parentFolder = (char *)malloc (strlen(folder)+1);
     strcpy(parentFolder, folder);
     pos =  strrchr (parentFolder, '/');
-    char *folderName = strdup(pos + 1);
+    char *folderName = NULL;
+    folderName = strdup(pos + 1);
     
     if (vrt_checkdir(parentFolder, folderName)) {       
         if (vrt_mkdir(parentFolder, folderName, 0775)!=0) {
@@ -1123,6 +1143,7 @@ static int32_t ftp_STOR(connection_t *connection, char *path) {
         }
     }
     connection->volPath = virtualToVolPath(vPath);
+    connection->restart_marker = 0;
     
 	connection->f = vrt_fopen(connection->cwd, path, "wb");    
     if (!connection->f) {
@@ -1130,8 +1151,15 @@ static int32_t ftp_STOR(connection_t *connection, char *path) {
         display("! ERROR : err = %s", strerror(errno));            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error storing %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        if (parentFolder != NULL) free(parentFolder);
+        if (folderName != NULL) free(folderName);        
+        if (folder != NULL) free(folder);        
         return write_reply(connection, 550, msg);
     }
+    
+    if (parentFolder != NULL) free(parentFolder);
+    if (folderName != NULL) free(folderName);
+    if (folder != NULL) free(folder);
     
     return stor_or_append(connection, path);
 }
@@ -1141,6 +1169,7 @@ static int32_t ftp_APPE(connection_t *connection, char *path) {
     // compute volume path
     char vPath[MAXPATHLEN*2] = "";
     
+    char *fileName = NULL;
     char *folder = NULL;
     char *pos = NULL;
 	
@@ -1151,7 +1180,7 @@ static int32_t ftp_APPE(connection_t *connection, char *path) {
         folder = (char *)malloc (strlen(path)+1);
         strcpy(folder, path);
 	    pos = strrchr(folder, '/');  
-	    char *fileName = strdup (pos + 1);
+	    fileName = strdup (pos + 1);
 	    strcpy(connection->fileName, fileName);
     } else {  
         sprintf(vPath, "%s/%s", connection->cwd, path);
@@ -1162,10 +1191,12 @@ static int32_t ftp_APPE(connection_t *connection, char *path) {
 	    pos = strrchr(folder, '/');  
     }
     
-    char *parentFolder = (char *)malloc (strlen(folder)+1);
+    char *parentFolder = NULL;
+    parentFolder = (char *)malloc (strlen(folder)+1);
     strcpy(parentFolder, folder);
     pos =  strrchr (parentFolder, '/');
-    char *folderName = strdup(pos + 1);
+    char *folderName = NULL;
+    folderName = strdup(pos + 1);
     
     if (vrt_checkdir(parentFolder, folderName)) {       
         if (vrt_mkdir(parentFolder, folderName, 0775)!=0) {
@@ -1180,9 +1211,16 @@ static int32_t ftp_APPE(connection_t *connection, char *path) {
         display("! ERROR : err = %s", strerror(errno));            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error storing %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        if (parentFolder != NULL) free(parentFolder);
+        if (folderName != NULL) free(folderName);        
+        if (folder != NULL) free(folder);        
+        
         return write_reply(connection, 550, msg);
     }
     
+    if (parentFolder != NULL) free(parentFolder);
+    if (folderName != NULL) free(folderName);        
+    if (folder != NULL) free(folder);        
     return stor_or_append(connection, path);
 }
 
@@ -1403,9 +1441,6 @@ static void cleanup_connection(connection_t *connection) {
             }
         }
     }
-    // free transfer thread stack
-    if (connection->transferThreadStack != NULL) MEMFreeToDefaultHeap(connection->transferThreadStack);
-    connection->transferThreadStack = NULL;
 
     // set pointer to transferBuffer to null (transferBuffers[connection_index] is not deallocated here but only in cleanup_ftp when stopping the server)
     connection->transferBuffer = NULL;
@@ -1464,6 +1499,7 @@ void cleanup_ftp() {
         #endif  */           
         
         if (ftpThreadStack != NULL) MEMFreeToDefaultHeap(ftpThreadStack);        
+        if (password != NULL) free(password);
         
         if (nbSpeedMeasures != 0) {
             display(" ");    
@@ -1525,28 +1561,17 @@ static bool processConnections() {
                 connection->index = -1;
                 strcpy(connection->fileName, "");
                 connection->volPath = NULL;
-                connection->f = NULL;
-                
-                connection->transferThreadStack = NULL;                        
-                // pre-allocate transfer thread stack
-                connection->transferThreadStack = MEMAllocFromDefaultHeapEx(FTP_TRANSFER_STACK_SIZE, 8);
-                if (connection->transferThreadStack == NULL) {
-                    display("! ERROR : when allocating transferThreadStack!");
-                    network_close(peer);
-                    free(connection);
-                    return false;
-                }  
-                        
+                connection->f = NULL;                
                 connection->dataTransferOffset = -1;
                 connection->speed = 0;
                 connection->bytesTransfered = -EAGAIN;
+                connection->transferBuffer = NULL;
 
                 memcpy(&connection->address, &client_address, sizeof(client_address));
                 uint32_t connection_index;
                 if (write_reply(connection, 220, "---------====={ WiiUFtpServer }=====---------") < 0) {
                     display("! ERROR : Error writing greeting");
                     network_close(peer);
-                    MEMFreeToDefaultHeap(connection->transferThreadStack);
                     free(connection);
                 } else {
                     #ifdef LOG2FILE
@@ -1567,7 +1592,6 @@ static bool processConnections() {
                                 if (!transferBuffers[connection_index]) {
                                     display("! ERROR : failed to allocate user buffer for the c[%d]", connection_index+1);
                                     network_close(peer);
-                                    MEMFreeToDefaultHeap(connection->transferThreadStack);
                                     free(connection);
                                     return false;
                                 }

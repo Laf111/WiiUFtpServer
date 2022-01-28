@@ -73,24 +73,21 @@ extern "C"{
 #define UNSCALED_BUFFER_SIZE (8*1024) 
 
 // setsockopt send buffer size (the value will be doubled by the system when setsockopt)
-// 131072 bytes (128KB = 128 x 1024) = 16*(8*1024)
-#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
+// 17*(8*1024) = 139264 
+#define SOCKET_BUFFER_SIZE (17*UNSCALED_BUFFER_SIZE) 
 
 // socket memory buffer size = (2*SND+2*RCV) double buffered (x2)
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
 // recv can send a max of 2*SOCKET_BUFFER_SIZE at one time
 // the recv loop needs to use a double sized buffer to avoid overflow
-// 4*SOCKET_BUFFER_SIZE =>  524288 bytes
+// 4*SOCKET_BUFFER_SIZE =>  557056 bytes
 #define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// number of chunks (blocs) to send/receive per network operations
-#define NB_TRANSFER_CHUNKS 64
+// 142*(4*17*8*1024) = 79101952 => 79.2MB per connection
+#define NB_TRANSFER_CHUNKS 142
 
-// 64*(4*128*1024)=33554432 => ~34MB in RAM per connection 
-// + MIN_TRANSFER_CHUNK_SIZE for the file's internal buffer size
- 
-// => 9 connections preallocated = (9*(33554432+524288)) ~ 306MB of RAM used for transfers
+// => 9 connections preallocated = (9*(79101952+557056)) = 716931072 ~ 717MB of RAM used for transfers
 #define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*TRANSFER_CHUNK_SIZE)
 
 // --------------------------------------------------------------------------------------------------
@@ -124,8 +121,6 @@ int32_t send_exact(int32_t s, char *buf, int32_t length);
 int32_t send_from_file(int32_t data_socket, connection_t* connection);
 
 int32_t recv_to_file(int32_t data_socket, connection_t* connection);
-
-void    setFsaFdInNet(int hfd);
 
 #ifdef __cplusplus
 }

@@ -61,9 +61,6 @@ static uint32_t nbFilesUL = 0;
     extern void writeToLog(const char *fmt, ...);
 #endif
 
-// IOSUHAX fd
-static int fsaFd = -1;
-
 static uint32_t hostIpAddress = 0;
 
 static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((float)NET_RETRY_TIME_STEP_MILLISECS/1000.0));
@@ -136,8 +133,6 @@ int32_t initialize_network()
         display("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
         display("network retries number        = %d", retriesNumber);
         display("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
-        display("SOCKET_BUFFER_SIZE               = %d", SOCKET_BUFFER_SIZE);
-        display("SOCKET_BUFFER_SIZE               = %d", SOCKET_BUFFER_SIZE);
         display("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
         display("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
         display("----------------------------------------------");
@@ -559,6 +554,3 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     return result;
 }
 
-void setFsaFdInNet(int hfd) {
-    fsaFd = hfd;
-}
