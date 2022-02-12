@@ -17,6 +17,7 @@
 #include <whb/proc.h>
 #include <whb/libmanager.h>
 #include <coreinit/dynload.h>
+#include <coreinit/ios.h>
 #include <coreinit/thread.h>
 #include <coreinit/mcp.h>
 #include <coreinit/core.h>
@@ -28,8 +29,8 @@
 #include <sysapp/launch.h>
 #include <nsysnet/_socket.h>
 
+#include <iosuhax.h>
 #include <iosuhax_disc_interface.h>
-#include <iosuhax_cfw.h>
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -64,8 +65,9 @@ static VPADStatus vpadStatus;
 volatile APP_STATE app = APP_STATE_RUNNING;
 
 static int serverSocket = -99;
+
 // iosuhax file descriptor
-static int fsaFd = -1;
+int fsaFd = -1;
 
 // mcp_hook_fd
 static int mcp_hook_fd = -1;
@@ -74,7 +76,7 @@ static int mcp_hook_fd = -1;
 static spinlock displayLock = false;
 
 #ifdef LOG2FILE
-// log file
+// log files
 static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
 static char previous[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.old";
 static FILE * logFile=NULL;
@@ -87,6 +89,14 @@ static spinlock logLock = false;
 /****************************************************************************/
 // LOCAL FUNCTIONS
 /****************************************************************************/
+
+void lockDisplay() {
+    spinLock(displayLock);
+}
+
+void unlockDisplay() {
+    spinReleaseLock(displayLock);
+}
 
 //--------------------------------------------------------------------------
 
@@ -137,7 +147,7 @@ void display(const char *fmt, ...)
 
 //--------------------------------------------------------------------------
 //just to be able to call asyn
-void someFunc(IOSError err UNUSED, void *arg) {
+void someFunc(IMError err UNUSED, void *arg) {
     (void)arg;
 }
 
@@ -306,8 +316,8 @@ int main()
         // set the name
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to FTP_NB_SIMULTANEOUS_TRANSFERS+2
-        OSSetThreadPriority(thread, FTP_NB_SIMULTANEOUS_TRANSFERS+2);
+        // set a priority to 0
+        OSSetThreadPriority(thread, 0);
     }
 
     display(" -=============================-");
@@ -350,12 +360,6 @@ int main()
     /*--------------------------------------------------------------------------*/
     /* IOSUHAX operations and mounting devices                                  */
     /*--------------------------------------------------------------------------*/
-    // Check if a CFW is active
-    IOSUHAX_CFW_Family cfw = IOSUHAX_CFW_GetFamily();
-    if (cfw == 0) {
-        display("! ERROR : No running CFW detected");
-        goto exitCFW;
-    }
 
     int res = IOSUHAX_Open(NULL);
     if (res < 0)
@@ -372,9 +376,6 @@ int main()
         else IOSUHAX_Close();
         goto exit;
     }
-
-    // provide the IOSUHAX file descriptor to modules that uses lib IOSUHAX
-    setFsaFdInFtp(fsaFd);
 
 #ifdef CHECK_CONTROLLER
     // Check your controller
@@ -588,8 +589,8 @@ int main()
 
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
-
         if (userExitRequest) break;
+        
     }
 
     /*--------------------------------------------------------------------------*/

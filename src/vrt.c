@@ -258,10 +258,7 @@ int vrt_checkdir(char *cwd, char *path) {
     char *real_path = to_real_path(cwd, path);
 
     if (!real_path)
-    {
-#ifdef LOG2FILE
-        display("~ WARNING : vrt_checkdir realPath null, cwd=%s, path=%s", cwd, path);
-#endif                        
+    {                       
         return -1;
     }
     else if (!*real_path || (strcmp(path, ".") == 0) || ((strlen(cwd) == 1) && (strcmp(cwd, "/") != 0)) || ((strlen(cwd) > 1) && (strcmp(path, "..") == 0)))

@@ -78,13 +78,13 @@ static int FSAR(int result) {
 }
 
 uint32_t checkEntry(const char * fPath) {
-	IOSUHAX_FSA_Stat fStat;
+	fileStat_s fStat;
 	int ret = FSAR(IOSUHAX_FSA_GetStat(fsaFd, fPath, &fStat));
 
 	if (ret == FSA_STATUS_NOT_FOUND) return 0;
 	else if (ret < 0) return -1;
 
-	if (fStat.flags & DIR_ENTRY_IS_DIRECTORY) return 2;
+	if (fStat.flag & DIR_ENTRY_IS_DIRECTORY) return 2;
 	return 1;
 }
 
@@ -92,7 +92,7 @@ uint32_t folderEmpty(const char * fPath) {
 	int dirH;
 
 	if (IOSUHAX_FSA_OpenDir(fsaFd, fPath, &dirH) >= 0) {
-		IOSUHAX_FSA_DirectoryEntry data;
+		directoryEntry_s data;
 		int ret = FSAR(IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data));
 		IOSUHAX_FSA_CloseDir(fsaFd, dirH);
 		if (ret == FSA_STATUS_END_OF_DIRECTORY)
@@ -120,7 +120,7 @@ uint32_t copyFile(char* srcFilePath, const char* targetFilePath) {
 
 	ret = IOSUHAX_FSA_OpenFile(fsaFd, srcFilePath, "rb", &srcFd);
 	if (ret >= 0) {
-		IOSUHAX_FSA_Stat fStat;
+		fileStat_s fStat;
 		IOSUHAX_FSA_StatFile(fsaFd, srcFd, &fStat);
 		if ((ret = IOSUHAX_FSA_OpenFile(fsaFd, targetFilePath, "wb", &destFd)) >= 0) {
 
@@ -159,7 +159,7 @@ uint32_t copyFolder(char* srcFolderPath, const char* targetFolderPath) {
 
     int nbFilesCopied = 0;
     while (1) {
-		IOSUHAX_FSA_DirectoryEntry data;
+		directoryEntry_s data;
 		int ret = IOSUHAX_FSA_ReadDir(fsaFd, dirH, &data);
 		if (ret != 0)
 			break;
@@ -169,7 +169,7 @@ uint32_t copyFolder(char* srcFolderPath, const char* targetFolderPath) {
         int len = strlen(srcFolderPath);
         snprintf(srcFolderPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", data.name);
 
-        if (data.info.flags & DIR_ENTRY_IS_DIRECTORY) {
+        if (data.stat.flag & DIR_ENTRY_IS_DIRECTORY) {
             char* targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
             snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s/%s", targetFolderPath, data.name);
 

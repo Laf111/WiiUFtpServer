@@ -84,11 +84,14 @@ extern "C"{
 // 4*SOCKET_BUFFER_SIZE =>  524288 bytes
 #define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// 150*(4*16*8*1024) = 78643200 => 78.7MB per connection
-#define NB_TRANSFER_CHUNKS 150
+#define MAX_RAM_AVAILABLE 1024*1024*1024
+// ~ 90MB of RAM preallocated per transfer
+#define MAX_RAM_TRANSFER_SIZE (MAX_RAM_AVAILABLE/(FTP_NB_SIMULTANEOUS_TRANSFERS+3))
 
-// => 9 connections preallocated = (9*(78643200+524288)) = 712507392 ~ 713MB of RAM used for transfers
+#define NB_TRANSFER_CHUNKS (MAX_RAM_TRANSFER_SIZE/TRANSFER_CHUNK_SIZE)
+// = 170
 #define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*TRANSFER_CHUNK_SIZE)
+// 9*170*(4*128*1024) => 802MB preallocated for transfers (mainly used for recv = upload way)
 
 // --------------------------------------------------------------------------------------------------
 

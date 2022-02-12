@@ -100,6 +100,8 @@ struct connection_struct {
     char *volPath;
     // thread for transfering
     OSThread transferThread;
+    // thread for changing rights on file
+    OSThread chmodThread;
     // preallocated transfer thread stack
     uint8_t transferThreadStack[FTP_TRANSFER_STACK_SIZE];
 	// preallocated buffer for transferring files
@@ -109,7 +111,7 @@ struct connection_struct {
     // last speed computed in MB/s
     float speed;	
     // return code of send/recv functions
-    int32_t bytesTransfered;
+    int32_t bytesTransferred;
     OSTime data_connection_timer;
 };
 
@@ -123,6 +125,8 @@ void    cleanup_ftp();
 
 void    setOsTime(struct tm *tmTime);
 void    setFsaFdInFtp(int hfd);
+
+int     getActiveTransfersNumber();
 
 #ifdef __cplusplus
 }

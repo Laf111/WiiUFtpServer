@@ -13,7 +13,10 @@
 #include "controllers.h"
 
 extern void display(const char *fmt, ...);
+extern void lockDisplay();
+extern void unlockDisplay();
 
+static int controllerUsed = -1;
 
 static bool checkButton(VPADStatus *vpadStatus, int button) {
     bool status = false;
@@ -42,6 +45,194 @@ static bool checkButton(VPADStatus *vpadStatus, int button) {
 
 
 //--------------------------------------------------------------------------
+static int getControllerEvents(VPADStatus *vpadStatus) {
+
+    uint32_t controllerType;
+    WPADProbe(controllerUsed, &controllerType);
+
+    KPADStatus kpadStatus;
+    memset(&kpadStatus, 0, sizeof(kpadStatus));
+
+    if (KPADRead(controllerUsed, &kpadStatus, 1) < 0)  {
+        display("Unknown KPAD error!");
+        return -1;
+    } else {
+
+        // switch on controler type, map wpadStatus, kpadStatus to vpadStatus
+        switch (controllerType) {
+
+            case WPAD_EXT_CLASSIC:
+            {
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_A) {
+                    vpadStatus->trigger = VPAD_BUTTON_A;
+                    vpadStatus->hold = VPAD_BUTTON_A;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_B) {
+                    vpadStatus->trigger = VPAD_BUTTON_B;
+                    vpadStatus->hold = VPAD_BUTTON_B;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_UP) {
+                    vpadStatus->trigger = VPAD_BUTTON_UP;
+                    vpadStatus->hold = VPAD_BUTTON_UP;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_DOWN) {
+                    vpadStatus->trigger = VPAD_BUTTON_DOWN;
+                    vpadStatus->hold = VPAD_BUTTON_DOWN;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_LEFT) {
+                    vpadStatus->trigger = VPAD_BUTTON_LEFT;
+                    vpadStatus->hold = VPAD_BUTTON_LEFT;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_RIGHT) {
+                    vpadStatus->trigger = VPAD_BUTTON_RIGHT;
+                    vpadStatus->hold = VPAD_BUTTON_RIGHT;
+                    return 0;
+                }
+                if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_HOME) {
+                    vpadStatus->trigger = WPAD_CLASSIC_BUTTON_HOME;
+                    vpadStatus->hold = WPAD_CLASSIC_BUTTON_HOME;
+                    return 0;
+                }
+                break;
+            }
+            case WPAD_EXT_PRO_CONTROLLER:
+            {
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_A) {
+                    vpadStatus->trigger = VPAD_BUTTON_A;
+                    vpadStatus->hold = VPAD_BUTTON_A;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_B) {
+                    vpadStatus->trigger = VPAD_BUTTON_B;
+                    vpadStatus->hold = VPAD_BUTTON_B;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_UP) {
+                    vpadStatus->trigger = VPAD_BUTTON_UP;
+                    vpadStatus->hold = VPAD_BUTTON_UP;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_DOWN) {
+                    vpadStatus->trigger = VPAD_BUTTON_DOWN;
+                    vpadStatus->hold = VPAD_BUTTON_DOWN;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_HOME) {
+                    vpadStatus->trigger = VPAD_BUTTON_HOME;
+                    vpadStatus->hold = VPAD_BUTTON_HOME;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_LEFT) {
+                    vpadStatus->trigger = VPAD_BUTTON_LEFT;
+                    vpadStatus->hold = VPAD_BUTTON_LEFT;
+                    return 0;
+                }
+                if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_RIGHT) {
+                    vpadStatus->trigger = VPAD_BUTTON_RIGHT;
+                    vpadStatus->hold = VPAD_BUTTON_RIGHT;
+                    return 0;
+                }
+                break;
+            }
+
+            case WPAD_EXT_CORE:
+            case WPAD_EXT_MPLUS:
+            case WPAD_EXT_MPLUS_CLASSIC:
+            case WPAD_EXT_MPLUS_NUNCHUK:
+            {
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_A) {
+                    vpadStatus->trigger = VPAD_BUTTON_A;
+                    vpadStatus->hold = VPAD_BUTTON_A;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_B) {
+                    vpadStatus->trigger = VPAD_BUTTON_B;
+                    vpadStatus->hold = VPAD_BUTTON_B;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_UP) {
+                    vpadStatus->trigger = VPAD_BUTTON_UP;
+                    vpadStatus->hold = VPAD_BUTTON_UP;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_DOWN) {
+                    vpadStatus->trigger = VPAD_BUTTON_DOWN;
+                    vpadStatus->hold = VPAD_BUTTON_DOWN;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_LEFT) {
+                    vpadStatus->trigger = VPAD_BUTTON_LEFT;
+                    vpadStatus->hold = VPAD_BUTTON_LEFT;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_RIGHT) {
+                    vpadStatus->trigger = VPAD_BUTTON_RIGHT;
+                    vpadStatus->hold = VPAD_BUTTON_RIGHT;
+                    return 0;
+                }
+                if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_HOME) {
+                    vpadStatus->trigger = VPAD_BUTTON_HOME;
+                    vpadStatus->hold = VPAD_BUTTON_HOME;
+                    return 0;
+                }
+                break;
+            }
+            
+            case WPAD_EXT_NUNCHUK:
+            {
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_A) {
+                    vpadStatus->trigger = VPAD_BUTTON_A;
+                    vpadStatus->hold = VPAD_BUTTON_A;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_B) {
+                    vpadStatus->trigger = VPAD_BUTTON_B;
+                    vpadStatus->hold = VPAD_BUTTON_B;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_UP) {
+                    vpadStatus->trigger = VPAD_BUTTON_UP;
+                    vpadStatus->hold = VPAD_BUTTON_UP;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_DOWN) {
+                    vpadStatus->trigger = VPAD_BUTTON_DOWN;
+                    vpadStatus->hold = VPAD_BUTTON_DOWN;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_LEFT) {
+                    vpadStatus->trigger = VPAD_BUTTON_LEFT;
+                    vpadStatus->hold = VPAD_BUTTON_LEFT;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_RIGHT) {
+                    vpadStatus->trigger = VPAD_BUTTON_RIGHT;
+                    vpadStatus->hold = VPAD_BUTTON_RIGHT;
+                    return 0;
+                }
+                if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_HOME) {
+                    vpadStatus->trigger = VPAD_BUTTON_HOME;
+                    vpadStatus->hold = VPAD_BUTTON_HOME;
+                    return 0;
+                }
+                break;
+            }
+            default:
+            {
+                display("! ERROR : controller not recognized");
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+//--------------------------------------------------------------------------
 void listenControlerEvent (VPADStatus *vpadStatus) {
 
     VPADReadError vpadError = -1;
@@ -54,7 +245,7 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
             break;
         }
         case VPAD_READ_INVALID_CONTROLLER: {
-            display("Controller disconnected!");
+            if (controllerUsed == -1) display("~ WARNING : GamePad not detected!");
             break;
         }
         default: {
@@ -62,167 +253,28 @@ void listenControlerEvent (VPADStatus *vpadStatus) {
             return;
         }
     }
+    
 	// do not remove this draw ! (cancel timeout when selecting path to mount)
+    lockDisplay();
     WHBLogConsoleDraw();
-    for (int i = 0; i < 4; i++)
-    {
-        uint32_t controllerType;
-        // check if the controller is connected
-        if (WPADProbe(i, &controllerType) != 0)
-            continue;
-
-        KPADStatus kpadStatus;
-        memset(&kpadStatus, 0, sizeof(kpadStatus));
-
-        if (KPADRead(i, &kpadStatus, 1) < 0)  {
-                display("Unknown KPAD error!");
-                return;
-        } else {
-
-            // switch on controler type, map wpadStatus, kpadStatus to vpadStatus
-            switch (controllerType) {
-
-                case WPAD_EXT_CLASSIC:
-                {
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_A) {
-                        vpadStatus->trigger = VPAD_BUTTON_A;
-                        vpadStatus->hold = VPAD_BUTTON_A;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_B) {
-                        vpadStatus->trigger = VPAD_BUTTON_B;
-                        vpadStatus->hold = VPAD_BUTTON_B;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_UP) {
-                        vpadStatus->trigger = VPAD_BUTTON_UP;
-                        vpadStatus->hold = VPAD_BUTTON_UP;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_DOWN) {
-                        vpadStatus->trigger = VPAD_BUTTON_DOWN;
-                        vpadStatus->hold = VPAD_BUTTON_DOWN;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_LEFT) {
-                        vpadStatus->trigger = VPAD_BUTTON_LEFT;
-                        vpadStatus->hold = VPAD_BUTTON_LEFT;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_RIGHT) {
-                        vpadStatus->trigger = VPAD_BUTTON_RIGHT;
-                        vpadStatus->hold = VPAD_BUTTON_RIGHT;
-                    }
-                    if ((kpadStatus.classic.trigger | kpadStatus.classic.hold) & WPAD_CLASSIC_BUTTON_HOME) {
-                        vpadStatus->trigger = WPAD_CLASSIC_BUTTON_HOME;
-                        vpadStatus->hold = WPAD_CLASSIC_BUTTON_HOME;
-                    }
-                    break;
-                }
-                case WPAD_EXT_PRO_CONTROLLER:
-                {
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_A) {
-                        vpadStatus->trigger = VPAD_BUTTON_A;
-                        vpadStatus->hold = VPAD_BUTTON_A;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_B) {
-                        vpadStatus->trigger = VPAD_BUTTON_B;
-                        vpadStatus->hold = VPAD_BUTTON_B;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_UP) {
-                        vpadStatus->trigger = VPAD_BUTTON_UP;
-                        vpadStatus->hold = VPAD_BUTTON_UP;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_DOWN) {
-                        vpadStatus->trigger = VPAD_BUTTON_DOWN;
-                        vpadStatus->hold = VPAD_BUTTON_DOWN;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_HOME) {
-                        vpadStatus->trigger = VPAD_BUTTON_HOME;
-                        vpadStatus->hold = VPAD_BUTTON_HOME;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_LEFT) {
-                        vpadStatus->trigger = VPAD_BUTTON_LEFT;
-                        vpadStatus->hold = VPAD_BUTTON_LEFT;
-                    }
-                    if ((kpadStatus.pro.trigger | kpadStatus.pro.hold) & WPAD_PRO_BUTTON_RIGHT) {
-                        vpadStatus->trigger = VPAD_BUTTON_RIGHT;
-                        vpadStatus->hold = VPAD_BUTTON_RIGHT;
-                    }
-                    break;
-                }
-
-                case WPAD_EXT_CORE:
-                case WPAD_EXT_MPLUS:
-                case WPAD_EXT_MPLUS_CLASSIC:
-                case WPAD_EXT_MPLUS_NUNCHUK:
-                {
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_A) {
-                        vpadStatus->trigger = VPAD_BUTTON_A;
-                        vpadStatus->hold = VPAD_BUTTON_A;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_B) {
-                        vpadStatus->trigger = VPAD_BUTTON_B;
-                        vpadStatus->hold = VPAD_BUTTON_B;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_UP) {
-                        vpadStatus->trigger = VPAD_BUTTON_UP;
-                        vpadStatus->hold = VPAD_BUTTON_UP;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_DOWN) {
-                        vpadStatus->trigger = VPAD_BUTTON_DOWN;
-                        vpadStatus->hold = VPAD_BUTTON_DOWN;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_LEFT) {
-                        vpadStatus->trigger = VPAD_BUTTON_LEFT;
-                        vpadStatus->hold = VPAD_BUTTON_LEFT;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_RIGHT) {
-                        vpadStatus->trigger = VPAD_BUTTON_RIGHT;
-                        vpadStatus->hold = VPAD_BUTTON_RIGHT;
-                    }
-                    if ((kpadStatus.trigger | kpadStatus.hold) & WPAD_BUTTON_HOME) {
-                        vpadStatus->trigger = VPAD_BUTTON_HOME;
-                        vpadStatus->hold = VPAD_BUTTON_HOME;
-                    }
-                    break;
-                }
-                
-                case WPAD_EXT_NUNCHUK:
-                {
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_A) {
-                        vpadStatus->trigger = VPAD_BUTTON_A;
-                        vpadStatus->hold = VPAD_BUTTON_A;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_B) {
-                        vpadStatus->trigger = VPAD_BUTTON_B;
-                        vpadStatus->hold = VPAD_BUTTON_B;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_UP) {
-                        vpadStatus->trigger = VPAD_BUTTON_UP;
-                        vpadStatus->hold = VPAD_BUTTON_UP;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_DOWN) {
-                        vpadStatus->trigger = VPAD_BUTTON_DOWN;
-                        vpadStatus->hold = VPAD_BUTTON_DOWN;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_LEFT) {
-                        vpadStatus->trigger = VPAD_BUTTON_LEFT;
-                        vpadStatus->hold = VPAD_BUTTON_LEFT;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_RIGHT) {
-                        vpadStatus->trigger = VPAD_BUTTON_RIGHT;
-                        vpadStatus->hold = VPAD_BUTTON_RIGHT;
-                    }
-                    if ((kpadStatus.nunchuck.trigger | kpadStatus.nunchuck.hold) & WPAD_BUTTON_HOME) {
-                        vpadStatus->trigger = VPAD_BUTTON_HOME;
-                        vpadStatus->hold = VPAD_BUTTON_HOME;
-                    }
-                    break;
-                }
-                default:
-                {
-                    display("! ERROR : controller not recognized");
-                    break;
-                }
-            }
+    unlockDisplay();
+    if (controllerUsed == -1) {
+    
+        for (int i = 0; i < 4; i++)
+        {
+            uint32_t controllerType;
+            // check if the controller is connected
+            if (WPADProbe(i, &controllerType) != 0)
+                continue;
+            else 
+                controllerUsed = i;   
+            
+            getControllerEvents(vpadStatus);
+            
         }
-    }
+        
+    } else 
+        getControllerEvents(vpadStatus);
 }
 
 //--------------------------------------------------------------------------

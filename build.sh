@@ -4,7 +4,7 @@
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
 VERSION_MAJOR=8
-VERSION_MINOR=1
+VERSION_MINOR=2
 VERSION_PATCH=0
 export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -35,7 +35,7 @@ else
             # wutVersion=${line##*" * wut "}
             wutVersion="1.0.0-beta12"
             echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
-            echo "libIOSUHAX : [YaWut version] in $DEVKITPRO/iosuhax"
+            echo "libIOSUHAX : [Wiiu-env]      in $DEVKITPRO/iosuhax"
         fi
     else
         echo "$DEVKITPRO is invalid"
