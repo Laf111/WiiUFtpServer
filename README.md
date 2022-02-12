@@ -5,23 +5,18 @@
 
 **A robust and optimized FTP server for the WiiU !**
 
+
+
+https://user-images.githubusercontent.com/47532310/153688829-2e39085a-c96e-43cc-9c7a-caf48838b12e.mp4
+
+
+
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
 - file's dates (timestamps)
 - **file injection (add rights on files received using IOSUHAX lib)**
 - remove the one slot limitation on upload and unlock up to **8 simultaneous transfers (download/upload)**
 - **much more faster than the original**
-
-Here the top max speeds i get on my LAN :
-
-
-<p align="center">
-  <img src="NetworkConfig.png">
-</p>
-
-<p align="center">
-  <img src="Ethernet.png">
-</p>
 
 Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
 
