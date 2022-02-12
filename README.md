@@ -34,9 +34,9 @@ The very first time you mount them, you'll be asked to create a NAND system file
 
 You can choose to create a partial one (< 3MB) or a full (system files only) NAND backup (500MB are requiered on the SD card)
 
-In any case, **only files contained in the partial backup** will be used and **only** to recover the network in case it don't work anymore.
+In any case, **only files contained in the partial backup** will be used and **only** to recover the network in case it doesn't work anymore (leading in a white screen on reboot).
 
-After the restoration process, you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one)
+After the restoration process (boot on HBL menu, launch WiiuFtpServer and restore backup process), you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one elsewhere than on the SDcard)
 
 **NOTES :**
 
@@ -58,7 +58,7 @@ To build from scratch :
 
 - install devkitPro (in DEVKITPRO_PATH)
 - get WUT >= beta12 from https://github.com/devkitPro/wut 
-- libIOSUHAX from https://github.com/yawut/libiosuhax.
+- libIOSUHAX from https://github.com/wiiu-env/libiosuhax.
 
 
 Launch "msys2\msys2_shell.bat" 
