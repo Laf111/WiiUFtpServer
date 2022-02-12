@@ -219,9 +219,9 @@ HISTORY :
         - rare corruption on uploaded file (~ 1 file on 3000)
         - support cyberduck FTP client (enhance global FTP clients support)
     > change libiosuhax (YaWut) to official one (Wiiu-Env)
-    > fix issue on display when activate log file
-    > multi-transfer enhancements : 
+    > fix refresh display issue when sending msg from threads
+    > add the possibility to switch ON/OFF auto-shutdown now during the FTP session
+    > multi-transfers enhancement : 
         - optimize the main loop and/with the controller events monitoring
         - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
-
     

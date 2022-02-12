@@ -587,6 +587,20 @@ int main()
 
         listenControlerEvent(&vpadStatus);
 
+        // add the possibility to switch auto-shutdown during the session
+        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_DOWN) {
+            if (autoShutDown) {
+                display("(auto-shutdown OFF)");
+                IMDisableAPD(); // Disable auto-shutdown feature
+				autoShutDown = 0;
+            } else {
+                display("(auto-shutdown ON)");
+                IMEnableAPD(); // Disable auto-shutdown feature
+				autoShutDown = 1;
+            }
+            OSSleepTicks(OSMillisecondsToTicks(1000));
+        }
+        
         // check button pressed and/or hold
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_HOME) userExitRequest = true;
         if (userExitRequest) break;

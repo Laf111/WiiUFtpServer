@@ -308,6 +308,16 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    displayData(connection->index);
 		#endif
 
+        // allocate transfer buffer (upload = TRANSFER_BUFFER_SIZE, download = TRANSFER_CHUNK_SIZE;
+        int32_t transferBufferSize = TRANSFER_BUFFER_SIZE;
+        if (connection->volPath == NULL) transferBufferSize = TRANSFER_CHUNK_SIZE;
+        
+        connection->transferBuffer = MEMAllocFromDefaultHeapEx(transferBufferSize, 64);
+        if (!connection->transferBuffer) {
+            display("! ERROR : C[%d] failed to allocate user buffer for %s", connection->index+1, connection->fileName);
+            return -ENOMEM;
+        }         
+        
         // Launching transfer thread with a priority from 0 to NB_SIMULTANEOUS_TRANSFERS
         // Give the highest priority to the last openned connections
         if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, NB_SIMULTANEOUS_TRANSFERS - activeTransfersNumber, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
@@ -706,7 +716,7 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
     static const int retriesNumber = 4;
     close_passive_socket(connection);
     // leave this sleep to avoid error on client console
-    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*25));
+    OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*15));
     
     int nbTries=0;
     while (1)
@@ -1138,13 +1148,6 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     if (fileName != NULL) free(fileName);
     if (folder != NULL) free(folder);
     
-    // allocate transfer buffer
-    connection->transferBuffer = MEMAllocFromDefaultHeapEx(TRANSFER_CHUNK_SIZE, 64);
-    if (!connection->transferBuffer) {
-        display("! ERROR : C[%d] failed to allocate user buffer for %s", connection->index+1, connection->fileName);
-        return -ENOMEM;
-    }    
-    
     display("> C[%d] sending %s...", connection->index+1, connection->fileName);
     
     connection->f = vrt_fopen(connection->cwd, path, "rb");
@@ -1153,9 +1156,6 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         display("! ERROR : err = %s", strerror(errno));            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when RETR %s%s : err = %s", connection->cwd, path, strerror(errno)); 
-        // free transfer buffer
-        if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
-        connection->transferBuffer = NULL;
         
         return write_reply(connection, 550, msg);
     }
@@ -1165,9 +1165,6 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         int32_t lseek_error = errno;
         fclose(connection->f);
         connection->restart_marker = 0;
-        // free transfer buffer
-        if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
-        connection->transferBuffer = NULL;
         
         return write_reply(connection, 550, strerror(lseek_error));
     }
@@ -1231,22 +1228,13 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
     if (parentFolder != NULL) free(parentFolder);
     if (folderName != NULL) free(folderName);                
     
-    // allocate transfer buffer
-    connection->transferBuffer = MEMAllocFromDefaultHeapEx(TRANSFER_BUFFER_SIZE, 64);
-    if (!connection->transferBuffer) {
-        display("! ERROR : C[%d] failed to allocate user buffer for %s", connection->index+1, connection->fileName);
-        return -ENOMEM;
-    }    
-
 	connection->f = vrt_fopen(connection->cwd, path, mode);    
     if (!connection->f) {
         display("! ERROR : ftp_STOR failed to open %s", path);            
         display("! ERROR : err = %s", strerror(errno));            
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error storing %s%s : err = %s", connection->cwd, path, strerror(errno)); 
-        // free transfer buffer
-        if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
-        connection->transferBuffer = NULL;
+        
         return write_reply(connection, 550, msg);
     }
     

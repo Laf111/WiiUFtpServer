@@ -432,7 +432,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
 
     // if more than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)   
     int nbt = getActiveTransfersNumber();
-    if ( nbt >= 4) OSSleepTicks(OSMillisecondsToTicks(60));
+    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(60));
     
     // lower values reduce the open/close times and leave more for other connection
     int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;        
@@ -520,20 +520,20 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         writeToLog("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     #endif
 
-    // if more than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
+    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
-    if ( nbt >= 4) OSSleepTicks(OSMillisecondsToTicks(30));
+    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(30));
     
     uint32_t retryNumber = 0;
 
     // use a half sized buffer for recv 
-    int32_t uploadBufferSize = TRANSFER_BUFFER_SIZE/2;    
+    int32_t recvBufferSize = TRANSFER_BUFFER_SIZE/2;    
 	
-    int32_t bytes_received = uploadBufferSize;
+    int32_t bytes_received = recvBufferSize;
     while (bytes_received) {
         
         read_again:
-        bytes_received = network_readChunk(s, connection->transferBuffer, uploadBufferSize);
+        bytes_received = network_readChunk(s, connection->transferBuffer, recvBufferSize);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
                     
