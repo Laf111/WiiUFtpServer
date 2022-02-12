@@ -213,3 +213,15 @@ HISTORY :
     > display transfer rate calculate on server in client's log
     > spinLocks, loop optimizations and cleanup WUT use mistakes by V10Lator
     > thanks also to Masana, godreborn and TheLegendOfXela for their checks on release candidate versions
+    
+2022/02/12 V8-2 :    
+    > fix issue#10
+        - rare corruption on uploaded file (~ 1 file on 3000)
+        - support cyberduck FTP client (enhance global FTP clients support)
+    > change libiosuhax (YaWut) to official one (Wiiu-Env)
+    > fix issue on display when activate log file
+    > multi-transfer enhancements : 
+        - optimize the main loop and/with the controller events monitoring
+        - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
+
+    
