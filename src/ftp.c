@@ -124,7 +124,6 @@ int32_t create_server(uint16_t port) {
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     display(ipText);
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    display(" ");
     if (timeOs != NULL && tsOs == 0) {
         time_t ts1970=mktime(timeOs);
         tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);        
@@ -307,19 +306,18 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    writeToLog("Using data_socket (%d) of C[%d] to transfer %s", data_socket, connection->index+1, connection->fileName);
 		    displayData(connection->index);
 		#endif
-
-        // allocate transfer buffer (upload = TRANSFER_BUFFER_SIZE, download = TRANSFER_CHUNK_SIZE;
+		
+        // allocate transfer buffer
         int32_t transferBufferSize = TRANSFER_BUFFER_SIZE;
         if (connection->volPath == NULL) transferBufferSize = TRANSFER_CHUNK_SIZE;
-        
         connection->transferBuffer = MEMAllocFromDefaultHeapEx(transferBufferSize, 64);
         if (!connection->transferBuffer) {
-            display("! ERROR : C[%d] failed to allocate user buffer for %s", connection->index+1, connection->fileName);
+            display("! ERROR : C[%d] failed to allocate the transfer buffer", connection->index+1);
             return -ENOMEM;
-        }         
+        }
         
         // Launching transfer thread with a priority from 0 to NB_SIMULTANEOUS_TRANSFERS
-        // Give the highest priority to the last openned connections
+        // Give the highest priority to the last openned connections to optimize multi transfer (connections dispatch over the 3 cores)        
         if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, NB_SIMULTANEOUS_TRANSFERS - activeTransfersNumber, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
             display("! ERROR : when creating transferThread!");        
             return -105;
@@ -336,7 +334,6 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 /*     #ifdef LOG2FILE
         writeToLog("C[%d] Transfer thread stack size = %d", connection->index+1, OSCheckThreadStackUsage(&connection->transferThread));   
     #endif */
-        
         if (connection->bytesTransferred <= 0) {
             OSJoinThread(&connection->transferThread, &result);
             #ifdef LOG2FILE    
@@ -355,9 +352,17 @@ static int32_t closeTransferredFile(connection_t *connection) {
         writeToLog("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
     #endif         
 
-    if (connection->volPath != NULL) free(connection->volPath);
+    if (connection->volPath != NULL) {
+        // change rights on file
+        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
+        
+        if (rc < 0 ) {
+            display("~ WARNING : when settings file's rights, rc = %d !", rc);
+            display("~ WARNING : file = %s", connection->fileName);        		
+        }
+        free(connection->volPath);
+    }
     connection->volPath = NULL;        
-    
     
     activeTransfersNumber--;
     
@@ -366,8 +371,7 @@ static int32_t closeTransferredFile(connection_t *connection) {
     
     // free transfer buffer
     if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
-    connection->transferBuffer = NULL;
-
+    
     return result;
 }
 
@@ -653,8 +657,8 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
 #endif                        
 
         } else {
-            display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));            
-            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+            sprintf(msg, "C[%d] MKD failed when cd to %s%s : err = %s", connection->index+1, connection->cwd, path, strerror(errno)); 
+            display("! ERROR : %s", msg);            
             return write_reply(connection, msgCode, strerror(errno));
         }
     }
@@ -664,19 +668,31 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
 
 static int32_t ftp_RNFR(connection_t *connection, char *path) {
     strcpy(connection->pending_rename, path);
-    return write_reply(connection, 350, "Ready for RNTO");
+    char msg[MAXPATHLEN + 24] = "";
+    sprintf(msg, "C[%d] Ready for RNTO", connection->index+1);
+    
+    return write_reply(connection, 350, msg);
 }
 
 static int32_t ftp_RNTO(connection_t *connection, char *path) {
+    char msg[MAXPATHLEN + 60] = "";
     if (!*connection->pending_rename) {
-        return write_reply(connection, 503, "RNFR required first");
+        sprintf(msg, "C[%d] RNFR required first", connection->index+1);
+        return write_reply(connection, 503, msg);
     }
     int32_t result;
+    
+    
+// display("DEBUG : FTP_RTNO cwd=%s, path=%s, pending_rename=%s", connection->cwd, path, connection->pending_rename);   
+    
     if (!vrt_rename(connection->cwd, connection->pending_rename, path)) {
-        result = write_reply(connection, 250, "Rename successful");
+        sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, path);
+        result = write_reply(connection, 250, msg);
     } else {
-        display("! ERROR : error from vrt_rename in ftp_RNTO : %s", strerror(errno));             
-        result = write_reply(connection, 550, strerror(errno));
+        sprintf(msg, "C[%d] failed to rename %s to %s : err = %s", connection->index+1, connection->pending_rename, path, strerror(errno)); 
+        display("! ERROR : %s", msg);
+        
+        result = write_reply(connection, 550, msg); 
     }
     *connection->pending_rename = '\0';
     return result;
@@ -842,10 +858,7 @@ static int32_t prepare_data_connection_passive(connection_t *connection, data_co
 static int32_t prepare_data_connection(connection_t *connection, void *callback, void *arg, void *cleanup) {
     
     char msgStatus[MAXPATHLEN + 60] = "";
-    if (strcmp(connection->fileName, "."))
-        sprintf(msgStatus, "C[%d] transferring data...", connection->index+1); 
-    else
-        sprintf(msgStatus, "C[%d] transferring %s...", connection->index+1, connection->fileName); 
+    sprintf(msgStatus, "C[%d] connected", connection->index+1); 
         
     int32_t result = write_reply(connection, 150, msgStatus);
     if (result >= 0) {
@@ -1463,9 +1476,6 @@ static void cleanup_data_resources(connection_t *connection) {
     connection->volPath = NULL;
     connection->f = NULL;
 	
-	// free transfer buffer
-    if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
-    connection->transferBuffer = NULL;
     connection->f = NULL;
                 
 }
@@ -1531,7 +1541,8 @@ void cleanup_ftp() {
                     #endif                     
                 }                
                 cleanup_connection(connection);				
-            }            
+            }
+            
         }
         if (password != NULL) free(password);
         

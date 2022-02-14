@@ -570,6 +570,10 @@ int main()
 #ifdef LOG2FILE
     writeToLog("Server created, adress = %s", inet_ntoa(addr));
 #endif
+
+    if (autoShutDown) display(" (auto shutdown is ON, use DOWN button to toggle state)");
+    else display(" (auto shutdown is OFF, use DOWN button to toggle state)");
+
     bool userExitRequest = false;
     while (!networkDown && !userExitRequest)
     {
@@ -590,11 +594,11 @@ int main()
         // add the possibility to switch auto-shutdown during the session
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_DOWN) {
             if (autoShutDown) {
-                display("(auto-shutdown OFF)");
+                display("- auto-shutdown OFF");
                 IMDisableAPD(); // Disable auto-shutdown feature
 				autoShutDown = 0;
             } else {
-                display("(auto-shutdown ON)");
+                display("- auto-shutdown ON");
                 IMEnableAPD(); // Disable auto-shutdown feature
 				autoShutDown = 1;
             }

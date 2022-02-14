@@ -229,4 +229,9 @@ HISTORY :
     > multi-transfers enhancement : 
         - optimize the main loop and/with the controller events monitoring
         - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
+    > upload single transfer enhancement : nearly double the size of the preallocated transfer buffer for the upload transfer buffer
+      use a size of TRANSFER_BUFFER_SIZE + TRANSFER_CHUNK_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
+      network_readChunk() overflow, knowing that TRANSFER_CHUNK_SIZE is the max number of bytes returned by recv()
+      now files lower than 80MB are transfered in one shot (it was 45MB in V8-1)
+    > lower the RAM consumption (now less than 800MB)
     

@@ -81,17 +81,14 @@ extern "C"{
 
 // recv can send a max of 2*SOCKET_BUFFER_SIZE at one time
 // the recv loop needs to use a double sized buffer to avoid overflow
-// 4*SOCKET_BUFFER_SIZE =>  524288 bytes
+// 4*SOCKET_BUFFER_SIZE =>  4*128*1024 = 524288 bytes
 #define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
-#define MAX_RAM_AVAILABLE 1024*1024*1024
-// ~ 90MB of RAM preallocated per transfer
-#define MAX_RAM_TRANSFER_SIZE (MAX_RAM_AVAILABLE/(FTP_NB_SIMULTANEOUS_TRANSFERS+3))
+// 160*(4*128*1024) = 83886080 bytes (84MB per connections)
+#define TRANSFER_BUFFER_SIZE (TRANSFER_CHUNK_SIZE*160)
 
-#define NB_TRANSFER_CHUNKS (MAX_RAM_TRANSFER_SIZE/TRANSFER_CHUNK_SIZE)
-// = 170
-#define TRANSFER_BUFFER_SIZE (NB_TRANSFER_CHUNKS*TRANSFER_CHUNK_SIZE)
-// 9*170*(4*128*1024) => 802MB preallocated for transfers (mainly used for recv = upload way)
+// when using 9 connections (1 browse + 8 simultaneous uploads)
+// 9*160*(4*128*1024) => 755MB of RAM used for transfers (mainly used for recv = upload way)
 
 // --------------------------------------------------------------------------------------------------
 

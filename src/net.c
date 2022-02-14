@@ -295,11 +295,6 @@ static int32_t network_readChunk(int32_t s, void *mem, int32_t len) {
 
     int32_t received = 0;
     int ret = -1;
-
-    // fix #10 : File Corruption when using Filezilla on Windows, extra folders created by Cyberduck #10 
-    // fix #10 : fix randomly file's corruption with initializing to 0 the buffer
-	// init the recv buffer (real size is 2*len to handle data overflow)
-	memset(mem, 0x00, 2*len);
     
     // while buffer is not full (len >0)
     while (len>0)
@@ -430,15 +425,19 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    // if more than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)   
+    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)   
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(60));
+    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(40));
     
     // lower values reduce the open/close times and leave more for other connection
     int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;        
 
     int32_t bytes_read = downloadBufferSize;        
 	while (bytes_read) {
+
+		// init to 0 the send buffer before filling it
+		memset(connection->transferBuffer, 0x00, downloadBufferSize);
+	
         bytes_read = fread(connection->transferBuffer, 1, downloadBufferSize, connection->f);
         if (bytes_read == 0) {
             // SUCCESS, no more to write to file                    
@@ -522,32 +521,28 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
     // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(30));
+    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(10));
     
+    // network_readChunk() overflow cannot exceed TRANSFER_CHUNK_SIZE bytes setsockopt(RCVBUF)
+    // use a buffer size = TRANSFER_BUFFER_SIZE - TRANSFER_CHUNK_SIZE to handle the bytes overflow
+    int32_t bufferSize = TRANSFER_BUFFER_SIZE - TRANSFER_CHUNK_SIZE;
     uint32_t retryNumber = 0;
 
-    // use a half sized buffer for recv 
-    int32_t recvBufferSize = TRANSFER_BUFFER_SIZE/2;    
-	
-    int32_t bytes_received = recvBufferSize;
+    int32_t bytes_received = bufferSize;
     while (bytes_received) {
         
+        // fix #10 : fix randomly file's corruption with initializing to 0 the buffer
+        // re/init the recv buffer 
+		memset(connection->transferBuffer, 0x00, TRANSFER_BUFFER_SIZE);
+                
         read_again:
-        bytes_received = network_readChunk(s, connection->transferBuffer, recvBufferSize);
+        bytes_received = network_readChunk(s, connection->transferBuffer, bufferSize);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
                     
             nbFilesUL++;
             result = 0;
-            
-            // change rights on file
-            int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
-            
-            if (rc < 0 ) {
-                display("~ WARNING : when settings file's rights, rc = %d !", rc);
-                display("~ WARNING : file = %s", connection->fileName);        		
-            }            
-            
+                        
         } else if (bytes_received < 0) {
 
             if (retry(bytes_received)) {

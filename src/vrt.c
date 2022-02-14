@@ -317,7 +317,8 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
     if (!real_to_path || !*real_to_path) return -1;
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
-    
+    if (result < 0)
+        display("! ERROR : vrt_rename failed to rename %s to %s : err = %s", from_path, real_to_path, strerror(errno)); 
 
     free(real_to_path);
     return result;

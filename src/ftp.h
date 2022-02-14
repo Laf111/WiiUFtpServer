@@ -100,8 +100,6 @@ struct connection_struct {
     char *volPath;
     // thread for transfering
     OSThread transferThread;
-    // thread for changing rights on file
-    OSThread chmodThread;
     // preallocated transfer thread stack
     uint8_t transferThreadStack[FTP_TRANSFER_STACK_SIZE];
 	// preallocated buffer for transferring files
