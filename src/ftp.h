@@ -102,7 +102,7 @@ struct connection_struct {
     OSThread transferThread;
     // preallocated transfer thread stack
     uint8_t transferThreadStack[FTP_TRANSFER_STACK_SIZE];
-	// preallocated buffer for transferring files
+	// buffer for transferring files
     void *transferBuffer;	
     // for data transfer tracking
     int32_t dataTransferOffset;

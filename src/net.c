@@ -300,7 +300,7 @@ static int32_t network_readChunk(int32_t s, void *mem, int32_t len) {
     while (len>0)
     {
         // max ret value is 2*SOCKET_BUFFER_SIZE, mem size is 4*SOCKET_BUFFER_SIZE
-        ret = recv(s, mem, len, 0);        
+        ret = recv(s, mem, len-1, 0);        
         if (ret == 0) {
             // client EOF detected
             break;
@@ -427,7 +427,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
 
     // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)   
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(40));
+    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(60));
     
     // lower values reduce the open/close times and leave more for other connection
     int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;        

@@ -225,13 +225,12 @@ HISTORY :
         - support cyberduck FTP client (enhance global FTP clients support)
     > change libiosuhax (YaWut) to official one (Wiiu-Env)
     > fix refresh display issue when sending msg from threads
-    > add the possibility to switch ON/OFF auto-shutdown now during the FTP session
+    > add the possibility to toggle ON/OFF the auto-shutdown feature now during the FTP session
     > multi-transfers enhancement : 
-        - optimize the main loop and/with the controller events monitoring
+        - optimize controller events monitoring (and so the main loop)
         - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
-    > upload single transfer enhancement : nearly double the size of the preallocated transfer buffer for the upload transfer buffer
+    > upload single transfer enhancement : nearly double the size of the transfer buffer for upload
       use a size of TRANSFER_BUFFER_SIZE + TRANSFER_CHUNK_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
       network_readChunk() overflow, knowing that TRANSFER_CHUNK_SIZE is the max number of bytes returned by recv()
-      now files lower than 80MB are transfered in one shot (it was 45MB in V8-1)
     > lower the RAM consumption (now less than 800MB)
     

@@ -642,7 +642,7 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
 		msgCode = 257;
 		strcpy(msg, "folder already exist");
 #ifdef LOG2FILE
-        writeToLog("ftp_MKD on C[%d] %s already exist", connection->index+1, path);
+        display("ftp_MKD on C[%d] %s already exist", connection->index+1, path);
 #endif                        
         
     } else {
@@ -652,13 +652,13 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
             sprintf(msg, "%s%s directory created", connection->cwd, path);
             					
 #ifdef LOG2FILE
-        writeToLog("ftp_MKD on C[%d] folder %s was created", connection->index+1, path);
-        writeToLog("ftp_MKD on C[%d] current dir = %s", connection->index+1, connection->cwd);
+        display("ftp_MKD on C[%d] folder %s was created", connection->index+1, path);
+        display("ftp_MKD on C[%d] current dir = %s", connection->index+1, connection->cwd);
 #endif                        
 
         } else {
-            sprintf(msg, "C[%d] MKD failed when cd to %s%s : err = %s", connection->index+1, connection->cwd, path, strerror(errno)); 
-            display("! ERROR : %s", msg);            
+            display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));            
+            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, path, strerror(errno)); 
             return write_reply(connection, msgCode, strerror(errno));
         }
     }
