@@ -42,6 +42,14 @@ After the restoration process (boot on HBL menu, launch WiiuFtpServer and restor
   <img src="timestamps.png">
 </p>
 
+- Recommended FTP client settings :
+    - 90 sec for timeout which ensure to not timeout on transfer
+    - 99 or unlimited retry number
+    - 0 sec between retries 
+    - Auto : ASCII/bin
+    - auto : IPV4 / V6
+    - allow retry in active mode (full **active mode is not working**)
+
 
 #
 # BUILD :
