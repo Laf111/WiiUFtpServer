@@ -129,20 +129,19 @@ REM : main
         ftp -A -s:ftp.txt !wiiuIp!
 
         if not exist !crc32_report! (
-            set "mlc="/storage_mlc/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
-            if [!svfFile!] == [!mlc!] (
+            set "mlc="/storage_mlc/usr/tmp/!crc32_report:"=!""
+            if [!sfvFile!] == [!mlc!] (
                 echo report not found on mlc^, looking at usb^.^.^.
                 pause
                 REM : try on usb
-                set "sfvFile="/storage_usb/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
+                set "sfvFile="/storage_usb/usr/tmp/!crc32_report:"=!""
                 goto:downloadReport
             ) else (
-                set "usb="/storage_usb/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
-                if [!svfFile!] == [!usb!] (
+                if [!sfvFile!] == [!usb!] (
                     echo report not found on usb too^, looking at sdcard^.^.^.
                     pause
-                    REM : try on usb
-                    set "sfvFile="/storage_usb/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
+                    REM : try on sdcard
+                    set "sfvFile="/storage_sdcard/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
                     goto:downloadReport
                 ) else (
                     echo ERROR ^: fail to download !crc32_report!
