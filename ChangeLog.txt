@@ -233,7 +233,7 @@ HISTORY :
         - optimize controller events monitoring (and so the main loop)
         - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
     > upload single transfer enhancement : nearly double the size of the transfer buffer for upload
-      use a size of TRANSFER_BUFFER_SIZE + TRANSFER_CHUNK_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
-      network_readChunk() overflow, knowing that TRANSFER_CHUNK_SIZE is the max number of bytes returned by recv()
+      use a size of TRANSFER_BUFFER_SIZE + 2*SOCKET_BUFFER_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
+      network_readChunk() overflow, knowing that 2*SOCKET_BUFFER_SIZE is the max number of bytes returned by recv()
     > lower the RAM consumption (now less than 800MB)
     
