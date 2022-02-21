@@ -102,8 +102,10 @@ struct connection_struct {
     OSThread transferThread;
     // preallocated transfer thread stack
     uint8_t transferThreadStack[FTP_TRANSFER_STACK_SIZE];
-	// buffer for transferring files
-    void *transferBuffer;	
+	// preallocated buffer for transferring files
+    void *transferBuffer;
+    // CRC-32 decimal value of file transferred
+    unsigned long crc32;
     // for data transfer tracking
     int32_t dataTransferOffset;
     // last speed computed in MB/s

@@ -298,3 +298,4 @@ void UmountVirtualDevices() {
         storage_slc = 0;
     }
 }
+

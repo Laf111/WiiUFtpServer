@@ -23,8 +23,6 @@
 
 #define DIR_ENTRY_IS_DIRECTORY              0x80000000
 
-void setFsaFdCopyFiles(int fd);
-
 uint32_t folderEmpty(const char * fPath);
 uint32_t checkEntry(const char * fPath);
 

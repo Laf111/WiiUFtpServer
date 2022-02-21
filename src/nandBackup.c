@@ -64,11 +64,7 @@ const char remoteSubFolders[17][FS_MAX_LOCALPATH_SIZE] = {"system/proc",
                                                           "storage_mlc01/usr/boss/00050010/10066000",
                                                           "storage_mlc01/sys/title/00050030/1001a10a"};
                                                           
-static int fsaFd = -1;
-
-void setFsaFdCopyFiles(int fd) {
-	fsaFd = fd;
-}
+extern int fsaFd;
 
 static int FSAR(int result) {
 	if ((result & 0xFFFF0000) == 0xFFFC0000)

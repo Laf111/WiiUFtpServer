@@ -87,8 +87,8 @@ extern "C"{
 // 160*(4*128*1024) = 83886080 bytes (84MB per connections)
 #define TRANSFER_BUFFER_SIZE (TRANSFER_CHUNK_SIZE*160)
 
-// when using 9 connections (1 browse + 8 simultaneous uploads)
-// 9*160*(4*128*1024) => 755MB of RAM used for transfers (mainly used for recv = upload way)
+// when using 9 connections (1 browse + 8 simultaneous transfers)
+// 9*160*(4*128*1024) => 755MB of RAM used for transfers
 
 // --------------------------------------------------------------------------------------------------
 

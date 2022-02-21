@@ -57,8 +57,7 @@ static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
     if (virtual_path[0] == '/') {
         path = virtual_path;
-    } else {
-        
+    } else {        
         size_t path_size = strlen(virtual_cwd) + strlen(virtual_path) + 1;
         if (path_size > MAXPATHLEN || !(path = malloc(path_size))) return NULL;
         strcpy(path, virtual_cwd);
@@ -114,8 +113,9 @@ static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
             normalised_path[--end] = '\x00';
         }
     }
-
+    // free only if virtual_path[0] != '/' (path = virtual_path)
     if (path != virtual_path) free(path);
+    
     return normalised_path;
 }
 
