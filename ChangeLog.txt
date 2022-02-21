@@ -219,8 +219,11 @@ HISTORY :
     > spinLocks, loop optimizations and cleanup WUT use mistakes by V10Lator
     > thanks also to Masana, godreborn and TheLegendOfXela for their checks on release candidate versions
     
-2022/02/12 V8-2 :    
-    > fix issue#10
+2022/02/21 V8-2 :    
+    > add a CRC32 calculation on server side. The report is saved under "wiiu/apps/WiiuFtpServer/crc32_report.sfv" with
+      a 2 level (.old to backup the previous session) 
+    > add a CRC32 verification tool (windows version, i'll release a linux's version later)
+    > fix issue#10 (remove the resizing of internal file's buffer)
         - rare corruption on uploaded file (~ 1 file on 3000)
         - support cyberduck FTP client (enhance global FTP clients support)
     > change libiosuhax (YaWut) to official one (Wiiu-Env)
