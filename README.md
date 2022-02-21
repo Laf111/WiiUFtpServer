@@ -32,6 +32,12 @@ In any case, **only files contained in the partial backup** will be used and **o
 
 After the restoration process (boot on HBL menu, launch WiiuFtpServer and restore backup process), you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one elsewhere than on the SDcard)
 
+- **a CRC checker tool, to be sure that files were transferred sucessfully (on a CRC error, the file size could be OK)** 
+
+
+https://user-images.githubusercontent.com/47532310/155005764-72990fa4-b271-4ab4-bb66-08c4c4b301bb.mp4
+
+
 **NOTES :**
 
 - No user/password requiered, only one client allowed with 8 simultaneous transfers max
