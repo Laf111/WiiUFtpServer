@@ -40,7 +40,7 @@ https://user-images.githubusercontent.com/47532310/155005764-72990fa4-b271-4ab4-
 
 **NOTES :**
 
-- No user/password requiered, only one client allowed with 8 simultaneous transfers max
+- No user/password requiered, only one client allowed with **8 simultaneous transfers max**
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
