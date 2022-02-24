@@ -2,8 +2,11 @@
 REM ****************************************************************************
 REM  WiiUFtpServer SRC checker
 REM  2022-02-20:Laf111:V1-0: Create file
+REM  2022-02-20:Laf111:V1-1: Fix minor issues and paralellize treatments (vbs scripts)
+REM  2022-02-24:Laf111:V1-2: Fix false CRC errors on files with a name containing 2 dots
+REM                          Performance enhancement and minor fixes
 REM ****************************************************************************
-set "VERSION=V1-0"
+set "VERSION=V1-2"
 setlocal EnableExtensions
 REM : ------------------------------------------------------------------
 REM : main
@@ -18,8 +21,14 @@ REM : main
     set "THIS_SCRIPT=%~0"
     REM : directory of this script
     set "SCRIPT_FOLDER="%~dp0"" && set "HERE=!SCRIPT_FOLDER:\"="!"
+    set "browseFolder="!HERE:"=!\resources\vbs\BrowseFolderDialog.vbs""
+    set "StartHidden="!HERE:"=!\resources\vbs\StartHidden.vbs""
+    set "StartHiddenWait="!HERE:"=!\resources\vbs\StartHiddenWait.vbs""
 
-    set "crc32exe="!HERE:"=!\crc32.exe""
+    set "computeFileCrc="!HERE:"=!\resources\computeFileCrc.bat""
+    REM : number of process max the script will try to launch simultaneously
+    set /A "nbp=32"
+
     set "crc32_report="WiiuFtpServer_crc32_report.sfv""
 
     set "logFile="!HERE:"=!\checkCrc.log""
@@ -28,20 +37,19 @@ REM : main
 
     pushd !HERE!
 
-    REM : check if the file was converted to AINSI
+    REM : TODO cmd -> call fix bat files ?
     set "convertedToAinsi=0"
     type !THIS_SCRIPT! | find "convertedToAinsi" | find /V "find" > NUL 2>&1 && (
         set "convertedFile=!THIS_SCRIPT:.cmd=.bat!"
         echo GitHub format file to UTF-8 breaking silently windows batch files
         echo Creating an ASCII bat file ^(AINSI^) !convertedFile!
-        type !THIS_SCRIPT! | find /v "convertedToAinsi=0" 2>NUL > !convertedFile!
         echo This script will deleted^.
         echo Please now use !convertedFile!
         pause
         del /F !THIS_SCRIPT!
         exit /b 90
     )
-    
+
     echo  -==============================-
     echo ^| WiiuFtpServer CRC checker %VERSION% ^|
     echo  -==============================-
@@ -91,9 +99,6 @@ REM : main
 
     ) else (
         REM : ask for it
-        set "browseFolder="!TEMP!\browseFolder.vbs""
-        call:createBrowser
-
         :askFolder
         for /F %%b in ('cscript /nologo !browseFolder! "Browse to the folder containing the files to check..."') do set "folder=%%b" && set "folderPath=!folder:?= !"
         if [!NEW_GAMES_FOLDER_PATH!] == ["NONE"] (
@@ -101,16 +106,23 @@ REM : main
             if !ERRORLEVEL! EQU 1 timeout /T 1 > NUL 2>&1 && exit 75
             goto:askFolder
         )
-
-        del /F !browseFolder! > NUL 2>&1
     )
+
     del /F !crcErrorFiles! > NUL 2>&1
     del /F !ignoredFiles! > NUL 2>&1
-  
+
+    set "backupFolder="!HERE:"=!\FILES2FIX""
+    set "oldBackupFolder="!HERE:"=!\FILES2FIX_backup""
+    rmdir /Q /S !oldBackupFolder! > NUL 2>&1
+    if exist !backupFolder! move /Y !backupFolder! !oldBackupFolder! > NUL 2>&1
+
+    REM : set processes to priority to high
+    wmic process where "CommandLine like '%%checkCrc%%'" call setpriority 128 > NUL 2>&1
+
     REM : search for WiiuFtpServer report
     :getReport
     if not exist !crc32_report! (
-        
+
         REM : download it
         echo Download CRC32 report from WiiuFtpServer^.^.^.
         echo Download CRC32 report from WiiuFtpServer^.^.^. >> !logFile!
@@ -118,9 +130,9 @@ REM : main
         :getIp
         set /P "wiiuIp=Please enter your Wii-U local IP adress : "
         echo !wiiuIp!| findStr /R /V "[0-9][0-9][0-9]\.[0-9\.]*$" > NUL 2>&1 && goto:getIp
-        
-        set "sfvFile="/storage_mlc/usr/tmp/!crc32_report:"=!""
-        
+
+        set "sfvFile="/storage_sdcard/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
+
         :downloadReport
         REM : create the ftp commands file
         echo get !sfvFile! > ftp.txt
@@ -129,27 +141,10 @@ REM : main
         ftp -A -s:ftp.txt !wiiuIp!
 
         if not exist !crc32_report! (
-            set "mlc="/storage_mlc/usr/tmp/!crc32_report:"=!""
-            if [!sfvFile!] == [!mlc!] (
-                echo report not found on mlc^, looking at usb^.^.^.
-                pause
-                REM : try on usb
-                set "sfvFile="/storage_usb/usr/tmp/!crc32_report:"=!""
-                goto:downloadReport
-            ) else (
-                if [!sfvFile!] == [!usb!] (
-                    echo report not found on usb too^, looking at sdcard^.^.^.
-                    pause
-                    REM : try on sdcard
-                    set "sfvFile="/storage_sdcard/wiiu/apps/WiiuFtpServer/!crc32_report:"=!""
-                    goto:downloadReport
-                ) else (
-                    echo ERROR ^: fail to download !crc32_report!
-                    echo please check the IP passed and if WiiuFtpServer is running
-                    if %nbArgs% EQU 0 pause
-                    exit /b 50
-                )
-            )
+            echo ERROR ^: fail to download !crc32_report!
+            echo please check the IP passed and if WiiuFtpServer is running
+            if %nbArgs% EQU 0 pause
+            exit /b 50
         )
     )
 
@@ -157,10 +152,10 @@ REM : main
     echo ================================================================= >> !logFile!
     echo.
     echo input folder = !folderPath!
-    echo.    
+    echo.
 
     REM : display the first line of the report, confirm the use
-    
+
     REM : get the FTP session date from sfv header
     set "line=NOT_FOUND"
     for /F "delims=;" %%k in ('type !crc32_report! ^| find /I "WiiuFtpServer CRC-32 report of FTP session on" 2^>NUL') do set "line=%%k"
@@ -173,15 +168,15 @@ REM : main
         echo.
         echo CRC32 report file details ^: >> !logFile!
         echo. >> !logFile!
-        
+
         echo !line!
         echo !line! >> !logFile!
     )
 
     echo -----------------------------------------------------------------
     echo ----------------------------------------------------------------- >> !logFile!
-    echo Compute CRC32 of files in !folderPath!^.^.^.
-    echo Compute CRC32 of files in !folderPath!^.^.^. >> !logFile!
+    echo Compute CRC32 and compare with server one^.^.^.
+    echo Compute CRC32 and compare with server one^.^.^. >> !logFile!
     echo.
     REM : get current date
     for /F "usebackq tokens=1,2 delims=~=" %%i in (`wmic os get LocalDateTime /VALUE 2^>NUL`) do if '.%%i.'=='.LocalDateTime.' set "ldt=%%j"
@@ -194,8 +189,7 @@ REM : main
     echo.
 
     set /A "nbFiles=0"
-    set /A "nbErrors=0"
-    set /A "nbIgnored=0"
+
     call:checkCrcFolder !folderPath!
 
     REM : get current date
@@ -208,7 +202,7 @@ REM : main
     echo Started at !startDate! >> !logFile!
     echo Started at !startDate!
     echo Ending at !date! >> !logFile!
-    echo Ending at !date!    
+    echo Ending at !date!
     echo.
     echo !nbFiles! files treated
     echo.
@@ -236,6 +230,13 @@ REM : main
         echo. >> !logFile!
         type !crcErrorFiles!
         type !crcErrorFiles! >> !logFile!
+        echo.
+        echo IF YOU UPLOAD THOSE FILES ON SERVER SIDE, PLEASE TRANSFER
+        echo THEM AGAIN AND RE-CHECK
+        echo.
+        echo !nbErrors! erros found ^:
+        echo !nbErrors! found ^: >> !logFile!
+
         set /A "rc=2"
     )
     echo =================================================================
@@ -244,127 +245,32 @@ REM : main
     if !rc! EQU 2 echo !nbErrors! errors^, exit !rc!
     if !rc! EQU 1 echo Warning !nbIgnored! files were not found in the server report^, exit !rc!
     if !rc! EQU 0 echo Done with no errors^, exit !rc!
-    if %nbArgs% EQU 0 pause
+    REM if %nbArgs% EQU 0 pause
+    pause
     exit !rc!
 
 REM : ------------------------------------------------------------------
 REM : functions
 
     REM : ------------------------------------------------------------------
-    :computeCrc32File
-
-        set "fullFilePath="%~1""
-        set "%2=0x00000000"
-
-        for /F "delims=(x tokens=2" %%c in ('"!crc32exe! !fullFilePath!"') do (
-
-            set "result="%%c""
-            set "crc32=!result:(=!"
-            set "crc32=!crc32:)=!"
-            set "%2=%%c"
-        )
-
-    goto:eof
-
-    REM : ------------------------------------------------------------------
-    :checkFile
-
-        for /F "delims=~" %%j in (!file!) do set "fileName=%%~nxj"
-
-        REM : get folder
-        for /F "delims=~" %%k in (!file!) do set "dirname="%%~dpk""
-        set "str=!dirname:~0,-2!""
-        set "strNoQuotes=!str:"=!"
-        set "folderPathNoQuotes=!folderPath:"=!"
-        set "relativePath=!strNoQuotes:%folderPathNoQuotes%=!"
-        set "relativePath=%relativePath:\=/%"
-        
-        for /F "delims=~" %%j in (!str!) do set "folder=%%~nxj"
-        
-        set "pattern=%relativePath%/!fileName!"
-
-        set "line="NOT_FOUND""
-        for /F "delims=~" %%k in ('type !crc32_report! ^| find /I "!pattern!" 2^>NUL') do (
-            set "line="%%k""
-
-            echo !line! | find /I "!crc32!" > NUL 2>&1 && (
-                REM echo !line! | find /I "<" > NUL 2>&1 && echo CRC_OK    ^: !file! uploaded sucessfully
-                REM echo !line! | find /I ">" > NUL 2>&1 && echo CRC_OK    ^: !file! dowloaded sucessfully
-                exit /b 0
-            )
-
-            echo !line! | find /I "<" > NUL 2>&1 && echo CRC_ERROR ^: !file! upload failed ^(crc_PC = !crc32!^)
-            echo !line! | find /I ">" > NUL 2>&1 && echo CRC_ERROR ^: !file! download failed
-
-            echo !file! >> !crcErrorFiles!
-            set /A "nbErrors+=1"
-            exit /b 2
-        )
-        if [!line!] == ["NOT_FOUND"] (
-            echo CRC_INFO  : !file! not found in WiiuFtpServer CRC32 report
-            echo !file! >> !ignoredFiles!
-            set /A "nbIgnored+=1"            
-            exit /b 1
-        )        
-    goto:eof
-
-
-    REM : ------------------------------------------------------------------
     :checkCrcFolder
 
         set "fullFolderPath="%~1""
+
+        set /A "nbL=0"
         for /F "delims=~" %%i in ('dir /a-d /s /b !fullFolderPath! 2^>NUL') do (
             set "file="%%i""
-            call:computeCrc32File !file! crc32
-            set "crc32=!crc32: =!"
-            rem echo !file! !crc32! >> !logFile!
-            call:checkFile
-            set /A "nbFiles+=1"
+
+            set /A "nbL+=1" && if !nbL! LSS !nbp! (
+                    wscript /nologo !StartHidden! !computeFileCrc! !fullFolderPath! !file! & set /A "nbFiles+=1"
+                ) else (
+                    wscript /nologo !StartHiddenWait! !computeFileCrc! !fullFolderPath! !file! & set /A "nbFiles+=1"
+                    set /A "nbL=0"
+                )
         )
 
     goto:eof
 
-
-    REM : ------------------------------------------------------------------
-    :createBrowser
-
-        echo Option Explicit > !browseFolder!
-        echo. >> !browseFolder!
-        echo Dim strPath^, objArgs^, messageText^, myStartFolder >> !browseFolder!
-        echo. >> !browseFolder!
-        echo Set objArgs = WScript^.Arguments >> !browseFolder!
-        echo. >> !browseFolder!
-        echo messageText = objArgs^(0^) >> !browseFolder!
-        echo myStartFolder="" >> !browseFolder!
-        echo If objArgs^.Count=2 Then >> !browseFolder!
-        echo     myStartFolder = objArgs^(1^) >> !browseFolder!
-        echo End If >> !browseFolder!
-        echo. >> !browseFolder!
-        echo strPath = SelectFolder^( myStartFolder^, messageText ^) >> !browseFolder!
-        echo If strPath = vbNull Then >> !browseFolder!
-        echo     WScript^.Echo """NONE""" >> !browseFolder!
-        echo Else >> !browseFolder!
-        echo     WScript^.Echo """" ^& Replace^(strPath^," "^,"?"^) ^& """" >> !browseFolder!
-        echo End If >> !browseFolder!
-        echo. >> !browseFolder!
-        echo Function SelectFolder^( myStartFolder^, messageText ^) >> !browseFolder!
-        echo. >> !browseFolder!
-        echo. >> !browseFolder!
-        echo     Dim objFolder^, objItem^, objShell >> !browseFolder!
-        echo. >> !browseFolder!
-        echo     On Error Resume Next >> !browseFolder!
-        echo     SelectFolder = vbNull >> !browseFolder!
-        echo. >> !browseFolder!
-        echo. >> !browseFolder!
-        echo. >> !browseFolder!
-        echo     Set objShell  = CreateObject^( "Shell.Application" ^) >> !browseFolder!
-        echo     Set objFolder = objShell^.BrowseForFolder^( 0^, messageText^, 0^, myStartFolder ^) >> !browseFolder!
-        echo. >> !browseFolder!
-        echo     If IsObject^( objfolder ^) Then SelectFolder = objFolder^.Self^.Path >> !browseFolder!
-        echo. >> !browseFolder!
-        echo End Function >> !browseFolder!
-
-    goto:eof
 
     REM : ------------------------------------------------------------------
     REM : function to get and set char set code for current host
