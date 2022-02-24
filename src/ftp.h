@@ -118,7 +118,7 @@ struct connection_struct {
 typedef struct connection_struct connection_t;
 
 char*   virtualToVolPath(char *vPath);
-void    setVerboseMode(bool flag);
+
 int32_t create_server(uint16_t port);
 bool    process_ftp_events();
 void    cleanup_ftp();

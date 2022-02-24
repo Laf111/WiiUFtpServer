@@ -54,8 +54,10 @@ typedef enum
 } APP_STATE;
 
 /****************************************************************************/
-// PARAMETERS
+// STATIC VARS
 /****************************************************************************/
+// flag to en/disable the CRC32 report file update (upadte sdcard copy)
+static bool updateSfvFile = false;
 
 // Wii-U date (GMT) %02d/%02d/%04d %02d:%02d:%02d
 static char sessionDate[40] = "";
@@ -69,9 +71,6 @@ static VPADStatus vpadStatus;
 static volatile APP_STATE app = APP_STATE_RUNNING;
 
 static int serverSocket = -99;
-
-// iosuhax file descriptor
-int fsaFd = -1;
 
 // mcp_hook_fd
 static int mcp_hook_fd = -1;
@@ -92,25 +91,31 @@ static spinlock displayLock = false;
     static spinlock logLock = false;
 #endif
 
-#ifdef CREATE_CRC32_SFV_REPORT
-    // 2 level CRC32 SFV report 
-    static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv";
-    static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.old";
-    static FILE * sfvFile = NULL;
 
-    // lock to limit to one access at a time for the CRC32 SFV file
-    static spinlock sfvLock = false;
-#endif
+// 2 level CRC32 SFV report 
+static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv";
+static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.old";
+static FILE * sfvFile = NULL;
+
+// lock to limit to one access at a time for the CRC32 SFV file
+static spinlock sfvLock = false;
+    
+    
+/****************************************************************************/
+// GLOBAL VARS
+/****************************************************************************/
+// iosuhax file descriptor
+int fsaFd = -1;
+
+// verbose mode for server
+bool verboseMode = false;
 
 
 /****************************************************************************/
-// FUNCTIONS
+// GLOBAL FUNCTIONS
 /****************************************************************************/
 
-/****************************************************************************/
-// FUNCTIONS
-/****************************************************************************/
-
+//--------------------------------------------------------------------------
 void lockDisplay() {
     spinLock(displayLock);
 }
@@ -120,7 +125,6 @@ void unlockDisplay() {
 }
 
 //--------------------------------------------------------------------------
-
 #ifdef LOG2FILE
     // method to output a message to gamePad and TV (thread safe)
     void writeToLog(const char *fmt, ...)
@@ -144,22 +148,10 @@ void unlockDisplay() {
             logFile = NULL;
         }    
         spinReleaseLock(logLock);
-    }
-    
-    // because writing to the sdcard cripple transfer speeds and cause errors (sync thread in low level of WUT ??)
-    // now write the log to tmp folder (on mlc or usb) and refresh a copy version on the SDCard
-    // NOTE that the tmp folder must be ram disk because their content is wipe on every reboot of the Wii-U
-    void updateLogOnSdCard() {
-        spinLock(logLock);
-        if (mountMlc)
-            copyFile("/vol/storage_mlc01/usr/tmp/WiiuFtpServer.log", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log");
-        else
-            copyFile("/vol/storage_usb01/usr/tmp/WiiuFtpServer.log", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log");
-        spinReleaseLock(logLock);
-    }
-    
+    }        
 #endif
 
+//--------------------------------------------------------------------------
 // method to output a message to gamePad and TV (thread safe)
 void display(const char *fmt, ...)
 {
@@ -180,60 +172,58 @@ void display(const char *fmt, ...)
     spinReleaseLock(displayLock);
 }
 
-#ifdef CREATE_CRC32_SFV_REPORT
-
-    void writeSfvHeader() {
-        
-        if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
-        if (sfvFile == NULL) {
-            display("! ERROR : Unable to reopen crc report file?");
-            OSSleepTicks(OSMillisecondsToTicks(5000));            
-        } else {
-            
-            char sfvHeader[128*5] = "";
-            strcpy(sfvHeader, ";============================================================================================\n"); 
-            strcat(sfvHeader, "; WiiuFtpServer CRC-32 report of FTP session on "); 
-            strcat(sfvHeader, sessionDate);
-            strcat(sfvHeader, "\n");
-            strcat(sfvHeader, ";--------------------------------------------------------------------------------------------\n"); 
-            strcat(sfvHeader, "; prefix '<' means file was received by server (client upload), '>' for sent (client download)\n"); 
-            strcat(sfvHeader, ";============================================================================================\n"); 
-            fprintf(sfvFile, "%s", sfvHeader);            
-            fclose(sfvFile);
-            sfvFile = NULL;
-        }    
-    }
-
-    void writeCRC32(const char way, const char *cwd, const char *name, const int crc32)
-    {
-        spinLock(sfvLock);
-        
-        if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
-        if (sfvFile == NULL) {
-            display("! ERROR : Unable to reopen crc report file?");
-            OSSleepTicks(OSMillisecondsToTicks(5000));            
-        } else {
-            
-            fprintf(sfvFile, "%c%s%s %08" PRIX32 "\n", way, cwd, name, crc32);            
-            fclose(sfvFile);
-            sfvFile = NULL;
-
-        }    
-        spinReleaseLock(sfvLock);
-    }
+//--------------------------------------------------------------------------
+void writeCRC32(const char way, const char *cwd, const char *name, const int crc32)
+{
+    spinLock(sfvLock);
     
-    // because writing to the sdcard cripple transfer speeds and cause errors (sync thread in low level of WUT ??)
-    // write CRC32 report to tmp folder (on mlc or usb) and refresh a copy version on the SDCard
-    // NOTE that the tmp folder must be ram disk because their content is wipe on every reboot of the Wii-U
-    void updateSfvOnSdCard() {
-        spinLock(sfvLock);
-        if (mountMlc)
-            copyFile("/vol/storage_mlc01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
-        else
-            copyFile("/vol/storage_usb01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
-        spinReleaseLock(sfvLock);
-    }
-#endif
+    if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
+    if (sfvFile == NULL) {
+        display("! ERROR : Unable to reopen crc report file?");
+        OSSleepTicks(OSMillisecondsToTicks(5000));            
+    } else {
+        
+        fprintf(sfvFile, "%c%s%s %08" PRIX32 "\n", way, cwd, name, crc32);            
+        fclose(sfvFile);
+        sfvFile = NULL;
+
+    }    
+    spinReleaseLock(sfvLock);
+}
+
+//--------------------------------------------------------------------------
+// because writing to the sdcard cripple transfer speeds and cause errors (sync thread in low level of WUT ??)
+// write CRC32 report to tmp folder (on mlc or usb) and refresh a copy version on the SDCard
+// NOTE that the tmp folder must be ram disk because their content is wipe on every reboot of the Wii-U
+void updateSfvOnSdCard() {
+
+// #ifdef LOG2FILE       
+//    writeToLog("- updating WiiuFtpServer_crc32_report.sfv on SDCard, please wait...");    
+// #endif
+
+    spinLock(sfvLock);
+    if (mountMlc)
+        copyFile("/vol/storage_mlc01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
+    else
+        copyFile("/vol/storage_usb01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
+    spinReleaseLock(sfvLock);
+}
+
+void enableSfvUpdate() {
+    updateSfvFile = true;
+}
+    
+void disableSfvUpdate() {
+    updateSfvFile = false;
+}
+
+bool updateCopyOfSfvFile() {
+    return updateSfvFile;
+}
+
+/****************************************************************************/
+// LOCAL FUNCTIONS
+/****************************************************************************/
 
 //--------------------------------------------------------------------------
 //just to be able to call asyn
@@ -347,6 +337,45 @@ static uint32_t homeButtonCallback(void *dummy UNUSED)
 	return 0;
 }
 
+//--------------------------------------------------------------------------
+static void writeSfvHeader() {
+    
+    if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
+    if (sfvFile == NULL) {
+        display("! ERROR : Unable to reopen crc report file?");
+        OSSleepTicks(OSMillisecondsToTicks(5000));            
+    } else {
+        
+        char sfvHeader[128*5] = "";
+        strcpy(sfvHeader, ";============================================================================================\n"); 
+        strcat(sfvHeader, "; WiiuFtpServer CRC-32 report of FTP session on "); 
+        strcat(sfvHeader, sessionDate);
+        strcat(sfvHeader, "\n");
+        strcat(sfvHeader, ";--------------------------------------------------------------------------------------------\n"); 
+        strcat(sfvHeader, "; prefix '<' means file was received by server (client upload), '>' for sent (client download)\n"); 
+        strcat(sfvHeader, ";============================================================================================\n"); 
+        fprintf(sfvFile, "%s", sfvHeader);            
+        fclose(sfvFile);
+        sfvFile = NULL;
+    }    
+}
+
+
+//--------------------------------------------------------------------------
+static void displayCrcWarning() {
+    display(" ");
+    display("!!!!!!!!!!!");
+    display("! WARNING !");
+    display("!!!!!!!!!!!");
+    display(" ");
+    display("Only a CRC32 check can guarantee the integrity of the files");
+    display("you have just transferred.");
+    display(" ");
+    display("> Use the CrcChecker to check your files");
+    display(" ");
+    display(" ");
+}
+
 
 /****************************************************************************/
 // MAIN PROGRAM
@@ -354,7 +383,6 @@ static uint32_t homeButtonCallback(void *dummy UNUSED)
 int main()
 {
     setlocale(LC_ALL, "");
-    bool verbose = false;
     
     // Console init
     WHBLogUdpInit();
@@ -469,7 +497,8 @@ int main()
     }
     display("   > UP, disable/toggle verbose mode (OFF by default)");
     display("   > A, for only USB and SDCard (default after timeout)");
-    display("   > B, mount ALL paths (use at your own risk)");
+    display("   > B, mount ALL paths (please, check files with CrcChecker.py)");
+    display(" ");
     if (!autoShutDown) {
         display(" ");
     }
@@ -487,12 +516,12 @@ int main()
             buttonPressed = true;
         }
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_UP) {
-            if (verbose) {
+            if (verboseMode) {
                 display("(verbose mode OFF)");
-                verbose=false;
+                verboseMode = false;
             } else {
                 display("(verbose mode ON)");
-                verbose=true;
+                verboseMode = true;
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
         }
@@ -510,52 +539,40 @@ int main()
         }
 
         OSSleepTicks(OSMillisecondsToTicks(1));
-        cpt=cpt+1;
+        cpt = cpt+1;
 
     }
 
-    // verbose mode (disabled by default)
-    if (verbose) setVerboseMode(verbose);
     display(" ");
-
     int nbDrives=MountVirtualDevices(fsaFd, mountMlc);
     if (nbDrives == 0) {
         display("! ERROR : No virtual devices mounted !");
         goto exit;
     }
     
-#ifdef LOG2FILE
-    
-    // if log file exists
-    if (access(logFilePath, F_OK) == 0) {
-        // file exists
+    #ifdef LOG2FILE
+        
+        // if log file exists
+        if (access(logFilePath, F_OK) == 0) {
+            // file exists
 
-        // check if second log file exists
-        if (access(previousLogFilePath, F_OK) == 0) {
-            // remove previousLogFilePath
-            if (remove(previousLogFilePath) != 0) {
-                WHBLogPrintf("! ERROR : Failed to remove old log file");
+            // check if second log file exists
+            if (access(previousLogFilePath, F_OK) == 0) {
+                // remove previousLogFilePath
+                if (remove(previousLogFilePath) != 0) {
+                    WHBLogPrintf("! ERROR : Failed to remove old log file");
+                }
             }
-        }
 
-        // backup : log -> previous
-        if (rename(logFilePath, previousLogFilePath) != 0) {
-            WHBLogPrintf("! ERROR : Failed to rename log file");
-            
+            // backup : log -> previous
+            if (rename(logFilePath, previousLogFilePath) != 0) {
+                WHBLogPrintf("! ERROR : Failed to rename log file");
+                
+            }
+            WHBLogConsoleDraw();  
         }
-        WHBLogConsoleDraw();  
-    }
-    
-    // update path of logFilePath before writing to it
-    if (mountMlc) {
-        strcpy(logFilePath, "storage_mlc:/usr/tmp/WiiuFtpServer.log");
-    } else {
-        strcpy(logFilePath, "storage_usb:/usr/tmp/WiiuFtpServer.log");
-    }
-    
-#endif    
-
-#ifdef CREATE_CRC32_SFV_REPORT
+        
+    #endif    
 
     // if SFV file exists
     if (access(sfvFilePath, F_OK) == 0) {
@@ -584,7 +601,6 @@ int main()
     
     // write Sfv header
     writeSfvHeader();
-#endif    
     
     display(" ");
     display("Starting network and create server...");
@@ -738,17 +754,14 @@ int main()
             OSSleepTicks(OSMillisecondsToTicks(1000));
         }
 
-        cpt += 1;
-        // update files on SdCard every ~6s when not on full load ~60s when transferring 8 files
-        if (cpt > 240) {
-            // backup WiiuFtpServer Files on SdCard each
-            #ifdef LOG2FILE
-                updateLogOnSdCard();
-            #endif    
-            #ifdef CREATE_CRC32_SFV_REPORT
+        if (updateSfvFile) {
+            cpt += 1;
+            // update files on SdCard every ~100s on full load
+            if (cpt > 150) {
+                // backup WiiuFtpServer report on SDCard
                 updateSfvOnSdCard();
-            #endif
-            cpt = 0;
+                cpt = 0;
+            }
         }
         
         // check button pressed and/or hold
@@ -770,25 +783,22 @@ int main()
 
 exit:
 
-    // copy WiiuFtpServer Files on SdCard
-#ifdef LOG2FILE
-    updateLogOnSdCard();
-#endif    
-#ifdef CREATE_CRC32_SFV_REPORT
-    updateSfvOnSdCard();
-#endif
-
 	cleanUp();
 	OSSleepTicks(OSMillisecondsToTicks(1000));
-	display(" ");
-	display(" ");
+    cls();
+
+    displayCrcWarning();
+    
+    // copy WiiuFtpServer CRC32 report on SdCard  
+    display("Updating WiiuFtpServer_crc32_report.sfv on SDCard, please wait...");    
+    updateSfvOnSdCard();
+    OSSleepTicks(OSMillisecondsToTicks(4000));    
     
 #ifdef LOG2FILE
     if (logFile != NULL) fclose(logFile);
 #endif
-#ifdef CREATE_CRC32_SFV_REPORT
     if (sfvFile != NULL) fclose(sfvFile);
-#endif
+    
     if (isChannel()) {
         SYSLaunchMenu();
         // loop to exit to the Wii-U Menu
@@ -796,6 +806,7 @@ exit:
 	        AppRunning();
 	    }
     }
+    
 exitCFW:
 
     WHBLogConsoleFree();

@@ -28,7 +28,7 @@ misrepresented as being the original software.
   * 2021-12-05:Laf111:V7-1: complete some TODO left, fix upload file corruption
  ***************************************************************************/
 #include <coreinit/memory.h>
- 
+
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
@@ -39,19 +39,22 @@ misrepresented as being the original software.
 // used to compute transfer rate
 #define BUS_SPEED 248625000
 
-extern void display(const char *fmt, ...);
 extern int fsaFd;
+extern bool verboseMode;
+
+extern void display(const char *fmt, ...);
+extern void updateSfvOnSdCard();
+extern void enableSfvUpdate();
+extern void disableSfvUpdate();
+extern bool updateCopyOfSfvFile();
 
 #ifdef LOG2FILE
     extern void writeToLog(const char *fmt, ...);
     int nbDataSocketsOpened = 0;
 #endif
 
-#ifdef CREATE_CRC32_SFV_REPORT
-    extern void writeCRC32(const char way, const char *cwd, const char *name, const int crc32);
-#endif
+extern void writeCRC32(const char way, const char *cwd, const char *name, const int crc32);
 
-static bool verboseMode=false;
 static const uint16_t SRC_PORT = 20;
 static const int32_t EQUIT = 696969;
 static const char *CRLF = "\r\n";
@@ -87,17 +90,12 @@ static float sumAvgSpeed = 0;
 // number of measures used for average computation
 static uint32_t nbSpeedMeasures = 0;
 
-// function to toggle verbose mode
-void setVerboseMode(bool flag) {
-    verboseMode=flag;
-}
-
 int32_t create_server(uint16_t port) {
 
     listener = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (listener < 0) {
         display("! ERROR : network_socket failed to create listener %d", listener);
-		return listener;   
+		return listener;
     }
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));
@@ -131,12 +129,12 @@ int32_t create_server(uint16_t port) {
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     if (timeOs != NULL && tsOs == 0) {
         time_t ts1970=mktime(timeOs);
-        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);        
-    }       
-    
+        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);
+    }
+
     return listener;
 }
- 
+
 // transform a date from J1980 with microseconds to J1970 (UNIX epoch)
 // GetStat can return 0 with faulty time stamp ! -> add check on time stamp value
 static struct tm getDateEpoch(time_t ts1980) {
@@ -162,7 +160,7 @@ static struct tm getDateEpoch(time_t ts1980) {
     time=localtime(&ts1970);
 
     return (*time);
-    
+
 }
 
 // vPath : /storage_usb/path/saveinfo.xml -> vlPath : /vol/storage_usb01/path/saveinfo.xml
@@ -247,32 +245,32 @@ void displayData(uint32_t index) {
         writeToLog("pending_rename             = %c", connections[index]->pending_rename);
         writeToLog("authenticated              = %d", connections[index]->authenticated);
     }
-    
+
     writeToLog("cwd                        = %s", connections[index]->cwd);
-    writeToLog("offset                     = %d", connections[index]->offset);       
+    writeToLog("offset                     = %d", connections[index]->offset);
     writeToLog("passive_socket             = %d", connections[index]->passive_socket);
-    
+
     writeToLog("data_socket                = %d", connections[index]->data_socket);
     writeToLog("restart_marker             = %d", connections[index]->restart_marker);
     writeToLog("data_connection_connected  = %d", connections[index]->data_connection_connected);
     writeToLog("data_connection_timer      = %d", connections[index]->data_connection_timer);
-    
-    if (connections[index]->f != NULL) {            
+
+    if (connections[index]->f != NULL) {
         writeToLog("filename                   = %s", connections[index]->fileName);
         writeToLog("fd                         = %d", fileno(connections[index]->f));
         writeToLog("volPath                    = %s", connections[index]->volPath);
         writeToLog("dataTransferOffset         = %d", connections[index]->dataTransferOffset);
         writeToLog("speed                      = %.2f", connections[index]->speed);
         writeToLog("bytesTransferred            = %d", connections[index]->bytesTransferred);
-            
-    }
-         
-    writeToLog("Number of avg files used   = %d", nbSpeedMeasures);        
-    writeToLog("Sum of speed rate          = %.2f", sumAvgSpeed);        
 
-    writeToLog("Max transfer speed         = %.2f", maxTransferRate);        
-    writeToLog("Min transfer speed         = %.2f", minTransferRate);        
-    
+    }
+
+    writeToLog("Number of avg files used   = %d", nbSpeedMeasures);
+    writeToLog("Sum of speed rate          = %.2f", sumAvgSpeed);
+
+    writeToLog("Max transfer speed         = %.2f", maxTransferRate);
+    writeToLog("Min transfer speed         = %.2f", minTransferRate);
+
 }
 #endif
 
@@ -281,104 +279,101 @@ int launchTransfer(int argc UNUSED, const char **argv)
     int32_t result = -101;
     connection_t* activeConnection = (connection_t*) argv;
 
-    #ifdef LOG2FILE    
+    #ifdef LOG2FILE
         display("C[%d] launching transfer for %s", activeConnection->index+1, activeConnection->fileName);
     #endif
-    
+
     if (activeConnection->volPath == NULL) {
         result = send_from_file(activeConnection->data_socket, activeConnection);
-    } else {        
-        result = recv_to_file(activeConnection->data_socket, activeConnection);        
+    } else {
+        result = recv_to_file(activeConnection->data_socket, activeConnection);
     }
 
     return result;
 }
 
 static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
-    int32_t result = -EAGAIN;    
-                
+    int32_t result = -EAGAIN;
+
     if (connection->dataTransferOffset == -1) {
 
         activeTransfersNumber++;
-        
+
         // init bytes counter
         connection->dataTransferOffset = 0;
-        
+
         // init speed to 0
         connection->speed = 0;
-               
-		#ifdef LOG2FILE    
+
+		#ifdef LOG2FILE
 		    writeToLog("Using data_socket (%d) of C[%d] to transfer %s", data_socket, connection->index+1, connection->fileName);
 		    displayData(connection->index);
 		#endif
 
         // fix #10 : fix randomly file's corruption with removing the resizing of file's internal buffer
-        
+
         // Launching transfer thread with a priority from 0 to NB_SIMULTANEOUS_TRANSFERS
-        // Give the highest priority to the last openned connections to optimize multi transfer (connections dispatch over the 3 cores)        
+        // Give the highest priority to the last openned connections to optimize multi transfer (connections dispatch over the 3 cores)
         if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, NB_SIMULTANEOUS_TRANSFERS - activeTransfersNumber, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
-            display("! ERROR : when creating transferThread!");        
+            display("! ERROR : when creating transferThread!");
             return -105;
         }
-        
-        #ifdef LOG2FILE    
+
+        #ifdef LOG2FILE
             OSSetThreadStackUsage(&connection->transferThread);
         #endif
-        
+
         OSResumeThread(&connection->transferThread);
-                    
+
     } else {
-        
+
 /*     #ifdef LOG2FILE
-        writeToLog("C[%d] Transfer thread stack size = %d", connection->index+1, OSCheckThreadStackUsage(&connection->transferThread));   
+        writeToLog("C[%d] Transfer thread stack size = %d", connection->index+1, OSCheckThreadStackUsage(&connection->transferThread));
     #endif */
         if (connection->bytesTransferred <= 0) {
             OSJoinThread(&connection->transferThread, &result);
-            #ifdef LOG2FILE    
+            #ifdef LOG2FILE
                 writeToLog("Transfer thread on C[%d] ended successfully", connection->index+1);
-            #endif            
+            #endif
         }
     }
-       
+
     return result;
 }
 
 static int32_t closeTransferredFile(connection_t *connection) {
-    int32_t result = -120;    
-    
-    #ifdef LOG2FILE    
+    int32_t result = -120;
+
+    #ifdef LOG2FILE
         writeToLog("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
-    #endif         
+    #endif
 
     if (connection->volPath != NULL) {
         // change rights on file
         int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
-        
+
         if (rc < 0 ) {
             display("~ WARNING : when settings file's rights, rc = %d !", rc);
-            display("~ WARNING : file = %s", connection->fileName);        		
+            display("~ WARNING : file = %s", connection->fileName);
         }
         free(connection->volPath);
-        #ifdef CREATE_CRC32_SFV_REPORT   
-            // for all files except WiiuFtpServer_crc32_report.sfv
-            if (strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0)        
-                // add the CRC32 value to the SFV file
-                writeCRC32('<', connection->cwd, connection->fileName, connection->crc32); 
-        #endif
-        
+
+        // for all files except WiiuFtpServer_crc32_report.sfv
+        if ( strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0 )
+            // add the CRC32 value to the SFV file
+            writeCRC32('<', connection->cwd, connection->fileName, connection->crc32);
+
     }
-#ifdef CREATE_CRC32_SFV_REPORT   
     else {
         // for all files except WiiuFtpServer_crc32_report.sfv
-        if (strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0)        
+        if ( strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0 )
             // add the CRC32 value to the SFV file
-            writeCRC32('>', connection->cwd, connection->fileName, connection->crc32); 
+            writeCRC32('>', connection->cwd, connection->fileName, connection->crc32);
     }
-#endif
-    connection->volPath = NULL;        
-    
+    connection->volPath = NULL;
+
     activeTransfersNumber--;
-    
+
     if (connection->f != NULL) {
         fclose(connection->f);
     }
@@ -410,7 +405,7 @@ static bool compare_ftp_password(char *password_attempt) {
 */
 static int32_t write_reply(connection_t *connection, uint16_t code, char *msg) {
     uint32_t msglen = 4 + strlen(msg) + CRLF_LENGTH;
-    
+
     char msgbuf[msglen + 1];
 	if (msgbuf == NULL) return -ENOMEM;
     sprintf(msgbuf, "%u %s\r\n", code, msg);
@@ -524,13 +519,13 @@ static int32_t ftp_MODE(connection_t *connection, char *rest) {
 
 static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
     char msg[MAXPATHLEN + 24] = "";
-    
-    // check if folder exist 
+
+    // check if folder exist
     char *parentFolder = NULL;
     parentFolder = (char *)malloc (strlen(connection->cwd)+1);
     strcpy(parentFolder, connection->cwd);
     char *pos = strrchr(parentFolder, '/');
-    
+
     char *folder = NULL;
     folder = strdup (pos + 1);
 
@@ -542,7 +537,7 @@ static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
             sprintf(msg, "C[%d] \"%s\" is current directory", connection->index+1, connection->cwd);
     } else {
         display("! ERROR : C[%d] failed to PWD to %s (does not exist)", connection->index+1, connection->cwd);
-        
+
     }
     if (folder != NULL) free(folder);
     if (parentFolder != NULL) free(parentFolder);
@@ -550,29 +545,29 @@ static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
 }
 
 static int32_t ftp_CWD(connection_t *connection, char *path) {
-    int32_t result = 0;    
-    
+    int32_t result = 0;
+
 // #ifdef LOG2FILE
 //         writeToLog("ftp_CWD on C[%d] previous dir = %s", connection->inde+1x, connection->cwd);
 // #endif
-                        
+
     if (!vrt_chdir(connection->cwd, path)) {
-        
+
 // #ifdef LOG2FILE
 //         writeToLog("ftp_CWD on C[%d] current dir = %s", connection->index+1, connection->cwd);
-// #endif                        
+// #endif
         char msg[MAXPATHLEN + 60] = "";
-        sprintf(msg, "C[%d] CWD successful to %s", connection->index+1, connection->cwd); 
+        sprintf(msg, "C[%d] CWD successful to %s", connection->index+1, connection->cwd);
         write_reply(connection, 250, msg);
     } else  {
-//        display("~ WARNING : error in vrt_chdir in ftp_CWD : %s+%s", connection->cwd, path);            
-//        display("~ WARNING : errno = %d (%s)", errno, strerror(errno));         
+//        display("~ WARNING : error in vrt_chdir in ftp_CWD : %s+%s", connection->cwd, path);
+//        display("~ WARNING : errno = %d (%s)", errno, strerror(errno));
 
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when CWD to %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        sprintf(msg, "Error when CWD to %s%s : err = %s", connection->cwd, path, strerror(errno));
         write_reply(connection, 550, msg);
     }
-    // always return 0 on server side 
+    // always return 0 on server side
     // - when connection needs to create a folder tree on server side, connection try CWD until it do not fail before launching the MKD command)
     // - note that when ftp_CWD fails, an error is sent to the connection with the 550 error code
     return result;
@@ -582,13 +577,13 @@ static int32_t ftp_CDUP(connection_t *connection, char *rest UNUSED) {
     int32_t result;
     if (!vrt_chdir(connection->cwd, "..")) {
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "C[%d] CDUP command successful", connection->index+1); 
+        sprintf(msg, "C[%d] CDUP command successful", connection->index+1);
         return write_reply(connection, 250, msg);
     } else  {
-        display("! ERROR : error in vrt_chdir in ftp_CDUP : %s/..", connection->cwd);            
-        display("! ERROR : errno = %d (%s)", errno, strerror(errno));            
+        display("! ERROR : error in vrt_chdir in ftp_CDUP : %s/..", connection->cwd);
+        display("! ERROR : errno = %d (%s)", errno, strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when CDUP to %s : err = %s", connection->cwd, strerror(errno)); 
+        sprintf(msg, "Error when CDUP to %s : err = %s", connection->cwd, strerror(errno));
         result = write_reply(connection, 550, msg);
     }
     return result;
@@ -601,16 +596,16 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
 
     char *folder = NULL;
     char *fileName = NULL;
-    
-    // check if folder exist, creates it if needed    
+
+    // check if folder exist, creates it if needed
     if (path[0] == '/') {
         sprintf(vPath, "%s", path);
-        // get the folder from path        
+        // get the folder from path
         folder = (char *)malloc (strlen(path)+1);
         strcpy(folder, path);
-        char *pos = strrchr(folder, '/');  
+        char *pos = strrchr(folder, '/');
         fileName = strdup (pos + 1);
-    } else {  
+    } else {
         // folder = connection_cwd
         sprintf(vPath, "%s/%s", connection->cwd, path);
         folder = (char *)malloc (strlen(connection->cwd)+1);
@@ -618,24 +613,24 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
         fileName = (char *)malloc (strlen(path)+1);
         strcpy (fileName, path);
     }
-    
+
     char *volPath = NULL;
     volPath = virtualToVolPath(vPath);
 
-    // chmod 
+    // chmod
     IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
     free(volPath);
-    
+
     if (!vrt_unlink(folder, fileName)) {
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "C[%d] File or directory removed", connection->index+1); 
+        sprintf(msg, "C[%d] File or directory removed", connection->index+1);
         if (fileName != NULL) free(fileName);
         if (folder != NULL) free(folder);
         return write_reply(connection, 250, msg);
     } else {
-        display("~ WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));                            
+        display("~ WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when DELE %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        sprintf(msg, "Error when DELE %s%s : err = %s", connection->cwd, path, strerror(errno));
         if (fileName != NULL) free(fileName);
         if (folder != NULL) free(folder);
         return write_reply(connection, 550, msg);
@@ -649,32 +644,32 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
 
     char msg[MAXPATHLEN + 60] = "";
 	int msgCode = 550;
-        
+
     if (vrt_checkdir(connection->cwd, path) == 0) {
 		msgCode = 257;
 		strcpy(msg, "folder already exist");
 #ifdef LOG2FILE
         display("ftp_MKD on C[%d] %s already exist", connection->index+1, path);
-#endif                        
-        
+#endif
+
     } else {
-        
+
         if (!vrt_mkdir(connection->cwd, path, 0775)) {
-            msgCode = 250;               
+            msgCode = 250;
             sprintf(msg, "%s%s directory created", connection->cwd, path);
-            					
+
 #ifdef LOG2FILE
         display("ftp_MKD on C[%d] folder %s was created", connection->index+1, path);
         display("ftp_MKD on C[%d] current dir = %s", connection->index+1, connection->cwd);
-#endif                        
+#endif
 
         } else {
-            display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));            
-            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+            display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));
+            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, path, strerror(errno));
             return write_reply(connection, msgCode, strerror(errno));
         }
     }
-	
+
     return write_reply(connection, msgCode, msg);
 }
 
@@ -682,7 +677,7 @@ static int32_t ftp_RNFR(connection_t *connection, char *path) {
     strcpy(connection->pending_rename, path);
     char msg[MAXPATHLEN + 24] = "";
     sprintf(msg, "C[%d] Ready for RNTO", connection->index+1);
-    
+
     return write_reply(connection, 350, msg);
 }
 
@@ -693,18 +688,18 @@ static int32_t ftp_RNTO(connection_t *connection, char *path) {
         return write_reply(connection, 503, msg);
     }
     int32_t result;
-    
-    
-// display("DEBUG : FTP_RTNO cwd=%s, path=%s, pending_rename=%s", connection->cwd, path, connection->pending_rename);   
-    
+
+
+// display("DEBUG : FTP_RTNO cwd=%s, path=%s, pending_rename=%s", connection->cwd, path, connection->pending_rename);
+
     if (!vrt_rename(connection->cwd, connection->pending_rename, path)) {
         sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, path);
         result = write_reply(connection, 250, msg);
     } else {
-        sprintf(msg, "C[%d] failed to rename %s to %s : err = %s", connection->index+1, connection->pending_rename, path, strerror(errno)); 
+        sprintf(msg, "C[%d] failed to rename %s to %s : err = %s", connection->index+1, connection->pending_rename, path, strerror(errno));
         display("! ERROR : %s", msg);
-        
-        result = write_reply(connection, 550, msg); 
+
+        result = write_reply(connection, 550, msg);
     }
     *connection->pending_rename = '\0';
     return result;
@@ -722,30 +717,30 @@ static int32_t ftp_SIZE(connection_t *connection, char *path) {
             sprintf(size_buf, "%llu", st.st_size);
             return write_reply(connection, 213, size_buf);
         } else {
-            display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE, ret = %d", connection->index+1, ret);  
-            display("! C[%d], cwd=%s, path=%s", connection->index+1, connection->cwd, path);  
+            display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE, ret = %d", connection->index+1, ret);
+            display("! C[%d], cwd=%s, path=%s", connection->index+1, connection->cwd, path);
 
             char msg[MAXPATHLEN + 40] = "";
-            sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+            sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno));
             return write_reply(connection, 550, msg);
         }
     } else {
-        display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE on %s%s", connection->index+1, connection->cwd, path);  
-        display("! failed to open %s%s", connection->cwd, path);  
+        display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE on %s%s", connection->index+1, connection->cwd, path);
+        display("! failed to open %s%s", connection->cwd, path);
 
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno));
         return write_reply(connection, 550, msg);
     }
 }
 
 static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
-    
+
     static const int retriesNumber = 4;
     close_passive_socket(connection);
     // leave this sleep to avoid error on client console
     OSSleepTicks(OSMillisecondsToTicks(NB_SIMULTANEOUS_TRANSFERS*15));
-    
+
     int nbTries=0;
     while (1)
     {
@@ -753,12 +748,11 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
         if (connection->passive_socket >= 0)
             break;
 
-        OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
         if (++nbTries > retriesNumber)
             return write_reply(connection, 520, "Unable to create listening socket");
     }
 #ifdef LOG2FILE
-        writeToLog("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);        
+        writeToLog("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);
 #endif
 
     struct sockaddr_in bindAddress;
@@ -769,13 +763,13 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
         passive_port = 1024;
 #ifdef LOG2FILE
         display("Passive port overflow !, reset to 1024");
-#endif                
+#endif
     }
     bindAddress.sin_port = htons(passive_port++);
     bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
     int32_t result;
     if ((result = network_bind(connection->passive_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
-	    display("! ERROR : failed to bind passive socket %s", connection->passive_socket);        
+	    display("! ERROR : failed to bind passive socket %s", connection->passive_socket);
         close_passive_socket(connection);
         return write_reply(connection, 520, "Unable to bind listening socket");
     }
@@ -808,7 +802,7 @@ static int32_t ftp_PORT(connection_t *connection, char *portspec) {
         return write_reply(connection, 501, "Syntax error in parameters");
     }
     close_passive_socket(connection);
-	
+
     uint16_t port = ((p1 &0xff) << 8) | (p2 & 0xff);
     connection->address.sin_addr = sin_addr;
     connection->address.sin_port = htons(port);
@@ -826,18 +820,17 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
 
     int32_t data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if (data_socket < 0) {
-        OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
         nbTries++;
         if (nbTries <= retriesNumber) goto try_again;
         return data_socket;
     }
-    
+
 #ifdef LOG2FILE
         nbDataSocketsOpened+=1;
         writeToLog("opening data socket = %d", data_socket);
-        writeToLog("total sockets opened = %d", nbDataSocketsOpened);        
-#endif        
-    
+        writeToLog("total sockets opened = %d", nbDataSocketsOpened);
+#endif
+
     struct sockaddr_in bindAddress;
     memset(&bindAddress, 0, sizeof(bindAddress));
     bindAddress.sin_family = AF_INET;
@@ -846,13 +839,12 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
     int32_t result;
     if ((result = network_bind(data_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
         network_close(data_socket);
-        
+
         char msg[FTP_MSG_BUFFER_SIZE];
-        sprintf(msg, "failed to bind active socket %d of C[%d] %d (%s)", connection->data_socket, connection->index+1, errno, strerror(errno));                
+        sprintf(msg, "failed to bind active socket %d of C[%d] %d (%s)", connection->data_socket, connection->index+1, errno, strerror(errno));
         display("~ WARNING : %s", msg);
-        OSSleepTicks(OSMillisecondsToTicks(NET_RETRY_TIME_STEP_MILLISECS));
         write_reply(connection, 421, msg);
-                
+
         return result;
     }
 
@@ -868,10 +860,10 @@ static int32_t prepare_data_connection_passive(connection_t *connection, data_co
 }
 
 static int32_t prepare_data_connection(connection_t *connection, void *callback, void *arg, void *cleanup) {
-    
+
     char msgStatus[MAXPATHLEN + 60] = "";
-    sprintf(msgStatus, "C[%d] connected", connection->index+1); 
-        
+    sprintf(msgStatus, "C[%d] connected", connection->index+1);
+
     int32_t result = write_reply(connection, 150, msgStatus);
     if (result >= 0) {
         data_connection_handler handler = prepare_data_connection_active;
@@ -882,7 +874,7 @@ static int32_t prepare_data_connection(connection_t *connection, void *callback,
             display("! ERROR : error = %s", strerror(errno));
             display("! ERROR : file = %s", connection->fileName);
             char msg[MAXPATHLEN + 50] = "";
-            sprintf(msg, "Closing C[%d], transfer failed (%s)", connection->index+1, connection->fileName); 
+            sprintf(msg, "Closing C[%d], transfer failed (%s)", connection->index+1, connection->fileName);
             result = write_reply(connection, 520, msg);
         } else {
             connection->data_connection_connected = false;
@@ -950,22 +942,22 @@ static int32_t ftp_NLST(connection_t *connection, char *path) {
     DIR_P *dir = vrt_opendir(connection->cwd, path);
     if (dir == NULL) {
         display("! ERROR : error from vrt_opendir in ftp_NLST : %s", strerror(errno));
-        
+
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when NLIST %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        sprintf(msg, "Error when NLIST %s%s : err = %s", connection->cwd, path, strerror(errno));
         return write_reply(connection, 550, msg);
     }
     int32_t result = prepare_data_connection(connection, send_nlst, dir, vrt_closedir);
     if (result < 0) {
         display("! ERROR : prepare_data_connection failed in ftp_NLST for %s", path);
-        
+
         vrt_closedir(dir);
         if (result == -ENOMEM) {
             display("! ERROR : out of memory in prepare_data_connection");
         }
     }
     return result;
-	
+
 }
 
 static int32_t ftp_LIST(connection_t *connection, char *path) {
@@ -977,23 +969,23 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
         split(path, ' ', 1, args);
         path = rest;
     }
-    
+
     if (!*path) {
         path = ".";
     }
 
     if (path && connection->cwd) if (strcmp(path, ".") == 0 && strcmp(connection->cwd, "/") == 0) {
-#ifdef LOG2FILE    
+#ifdef LOG2FILE
         writeToLog("ResetVirtualPaths from ftp_LIST");
-#endif        
+#endif
         ResetVirtualPaths();
-    }    
+    }
     DIR_P *dir = vrt_opendir(connection->cwd, path);
     if (dir == NULL) {
         display("! ERROR : C[%d] vrt_opendir failed in ftp_LIST() on %s", connection->index+1, path);
-        
+
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when LIST %s%s : err = %s", connection->cwd, path, strerror(errno)); 
+        sprintf(msg, "Error when LIST %s%s : err = %s", connection->cwd, path, strerror(errno));
         return write_reply(connection, 550, msg);
     }
 
@@ -1014,7 +1006,7 @@ static void removeTrailingSlash(char **cwd) {
         if ( (strlen(*cwd) > 0) && (strcmp(*cwd, "/") != 0) ) {
             char *path = (char *)malloc (strlen(*cwd)+1);
             strcpy(path, *cwd);
-            char *pos = strrchr(path, '/');    
+            char *pos = strrchr(path, '/');
             if (strcmp(pos,"/") == 0) {
                 // folder is allocated by strndup
                 char *folder = strndup(*cwd, strlen(path)-strlen(pos));
@@ -1033,7 +1025,7 @@ static char* getLastItemOfPath(char *cwd) {
     if ( (strlen(cwd) > 0) && (strcmp(cwd, "/") != 0) ) {
         char *path = (char *)malloc (strlen(cwd)+1);
         strcpy(path, cwd);
-        char *pos = strrchr(path, '/');    
+        char *pos = strrchr(path, '/');
         // final is allocated by strdup
         final = strdup(pos+1);
         free(path);
@@ -1043,73 +1035,73 @@ static char* getLastItemOfPath(char *cwd) {
 
 
 // caller must free folder and fileName strings
-static void secureAndSplitPath(char *cwd, char* path, char **folder, char **fileName) {    
+static void secureAndSplitPath(char *cwd, char* path, char **folder, char **fileName) {
 
     *fileName = NULL;
     *folder = NULL;
     char *pos = NULL;
-    
+
     char *cwdNoSlash = NULL;
     // allocate and copy fileName with path
     cwdNoSlash = (char *)malloc (strlen(cwd)+1);
     strcpy(cwdNoSlash, cwd);
-    
+
     // remove any trailing slash when cwd != "/"
     removeTrailingSlash(&cwdNoSlash);
 
     // fix #10 : cyberduck support
     if (path) {
         // path is given
-        
-        // if first char is a slash    
+
+        // if first char is a slash
         if (path[0] == '/') {
             // path gives the whole full path
-            
+
             // get the folder from path
-            *fileName = getLastItemOfPath(path);    
-            pos = strrchr(path, '/');    
+            *fileName = getLastItemOfPath(path);
+            pos = strrchr(path, '/');
             // folder is allocated by strndup
             *folder = strndup(path, strlen(path)-strlen(pos));
-        
+
         } else {
-            
+
             if (strlen(path) > 1) {
 
-                // path gives file's name 
-                
+                // path gives file's name
+
                 // check if cwd contains path (cyberduck)
                 if (strstr(cwdNoSlash, path) != NULL) {
                     // remove file's name from the path
 
                     // get the fileName from cwd
-                    *fileName = getLastItemOfPath(cwdNoSlash);    
-                    pos = strrchr(cwdNoSlash, '/');    
+                    *fileName = getLastItemOfPath(cwdNoSlash);
+                    pos = strrchr(cwdNoSlash, '/');
                     // folder is allocated by strndup
                     *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
-                    
+
                     // update cwd
                     strcpy(cwd, *folder);
                     strcat(cwd, "/");
 
                 } else {
-                    
+
                     if ( strcmp(cwdNoSlash,"") != 0 ) {
-                        
+
                         // allocate and copy fileName with path
                         *fileName = (char *)malloc (strlen(path)+1);
                         strcpy(*fileName, path);
-                        // allocate and copy folder with cwd                        
+                        // allocate and copy folder with cwd
                         *folder = (char *)malloc (strlen(cwdNoSlash)+1);
                         strcpy(*folder, cwdNoSlash);
 
                     } else {
-                        
+
                         // get the folder from path
-                        *fileName = getLastItemOfPath(path);    
-                        pos = strrchr(path, '/');    
+                        *fileName = getLastItemOfPath(path);
+                        pos = strrchr(path, '/');
                         // folder is allocated by strndup
                         *folder = strndup(path, strlen(path)-strlen(pos));
-                        
+
                         // update cwd
                         strcpy(cwd, *folder);
                         strcat(cwd, "/");
@@ -1124,76 +1116,76 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                 path = getLastItemOfPath(cwdNoSlash);
                 *fileName = (char *)malloc (strlen(path)+1);
                 strcpy(*fileName, path);
-                
-                pos = strrchr(cwdNoSlash, '/');    
+
+                pos = strrchr(cwdNoSlash, '/');
                 // folder is allocated by strndup
                 *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
-                            
+
                 // update cwd
                 strcpy(cwd, *folder);
                 strcat(cwd, "/");
             }
         }
-    } else { 
+    } else {
         // path is not given, cwd gives the whole full path
         // get path from cwd
         path = getLastItemOfPath(cwdNoSlash);
         *fileName = (char *)malloc (strlen(path)+1);
         strcpy(*fileName, path);
-        
-        pos = strrchr(cwdNoSlash, '/');    
+
+        pos = strrchr(cwdNoSlash, '/');
         // folder is allocated by strndup
         *folder = strndup(cwdNoSlash, strlen(path)-strlen(pos));
-                    
+
         // update cwd
         strcpy(cwd, *folder);
-        strcat(cwd, "/");        
+        strcat(cwd, "/");
     }
-}    
-    
-    
+}
+
+
 static int32_t ftp_RETR(connection_t *connection, char *path) {
 
     char *folder = NULL;
     char *fileName = NULL;
 
 #ifdef LOG2FILE
-    writeToLog("C[%d] ftp_RETR cwd=%s, path=%s", connection->index+1, connection->cwd, path);        
+    writeToLog("C[%d] ftp_RETR cwd=%s, path=%s", connection->index+1, connection->cwd, path);
 #endif
-    
-    secureAndSplitPath(connection->cwd, path, &folder, &fileName);    
-    strcpy(connection->fileName, fileName);     
+
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+    strcpy(connection->fileName, fileName);
 
 #ifdef LOG2FILE
-    writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);        
-    writeToLog("C[%d] secured path folder=(%s), fileName=(%s)", connection->index+1, folder, fileName);        
+    writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);
+    writeToLog("C[%d] secured path folder=(%s), fileName=(%s)", connection->index+1, folder, fileName);
 #endif
-    
+
     if (fileName != NULL) free(fileName);
     if (folder != NULL) free(folder);
-    
+
     display("> C[%d] sending %s...", connection->index+1, connection->fileName);
-    
+
     connection->f = vrt_fopen(connection->cwd, path, "rb");
     if (!connection->f) {
-        display("! ERROR : C[%d] ftp_RETR failed to open %s", connection->index+1, path);            
-        display("! ERROR : err = %s", strerror(errno));            
+        display("! ERROR : C[%d] ftp_RETR failed to open %s", connection->index+1, path);
+        display("! ERROR : err = %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when RETR %s%s : err = %s", connection->cwd, path, strerror(errno)); 
-        
+        sprintf(msg, "Error when RETR %s%s : err = %s", connection->cwd, path, strerror(errno));
+
         return write_reply(connection, 550, msg);
     }
-    
+
     int fd = fileno(connection->f);
     if (connection->restart_marker && lseek(fd, connection->restart_marker, SEEK_SET) != connection->restart_marker) {
         int32_t lseek_error = errno;
         fclose(connection->f);
         connection->restart_marker = 0;
-        
+
         return write_reply(connection, 550, strerror(lseek_error));
     }
     connection->volPath = NULL;
-    
+
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
 
     if (result < 0) {
@@ -1213,55 +1205,55 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
     char vPath[MAXPATHLEN*2] = "";
     char *folder = NULL;
     char *fileName = NULL;
-        
-#ifdef LOG2FILE
-    writeToLog("C[%d] stor_or_append cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);        
-#endif
-
-    secureAndSplitPath(connection->cwd, path, &folder, &fileName);   
-    strcpy(connection->fileName, fileName);     
 
 #ifdef LOG2FILE
-    writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);        
-    writeToLog("C[%d] secured path folder=(%s), fileName=(%s)", connection->index+1, folder, fileName);        
+    writeToLog("C[%d] stor_or_append cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);
 #endif
-    
+
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+    strcpy(connection->fileName, fileName);
+
+#ifdef LOG2FILE
+    writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);
+    writeToLog("C[%d] secured path folder=(%s), fileName=(%s)", connection->index+1, folder, fileName);
+#endif
+
     sprintf(vPath, "%s/%s", folder, fileName);
     connection->volPath = virtualToVolPath(vPath);
 
 #ifdef LOG2FILE
-    writeToLog("C[%d] vol path=(%s)", connection->index+1, connection->volPath);        
-#endif
-    
-    char *folderName = getLastItemOfPath(folder);    
-    char *pos = strrchr (folder, '/');
-    char *parentFolder = strndup(folder, strlen(folder)-strlen(pos)+1);
-    
-#ifdef LOG2FILE
-    writeToLog("C[%d] check/create (%s%s)", connection->index+1, parentFolder, folderName);        
+    writeToLog("C[%d] vol path=(%s)", connection->index+1, connection->volPath);
 #endif
 
-    if (vrt_checkdir(parentFolder, folderName)) {       
+    char *folderName = getLastItemOfPath(folder);
+    char *pos = strrchr (folder, '/');
+    char *parentFolder = strndup(folder, strlen(folder)-strlen(pos)+1);
+
+#ifdef LOG2FILE
+    writeToLog("C[%d] check/create (%s%s)", connection->index+1, parentFolder, folderName);
+#endif
+
+    if (vrt_checkdir(parentFolder, folderName)) {
         if (vrt_mkdir(parentFolder, folderName, 0775)!=0) {
-            display("! ERROR : C[%d] error from stor_or_append when creating %s/%s", connection->index+1, parentFolder, folderName);            
+            display("! ERROR : C[%d] error from stor_or_append when creating %s/%s", connection->index+1, parentFolder, folderName);
         }
     }
-    
-    if (fileName != NULL) free(fileName);        
-    if (folder != NULL) free(folder);        
+
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
     if (parentFolder != NULL) free(parentFolder);
-    if (folderName != NULL) free(folderName);                
-    
-	connection->f = vrt_fopen(connection->cwd, path, mode);    
+    if (folderName != NULL) free(folderName);
+
+	connection->f = vrt_fopen(connection->cwd, path, mode);
     if (!connection->f) {
-        display("! ERROR : ftp_STOR failed to open %s", path);            
-        display("! ERROR : err = %s", strerror(errno));            
+        display("! ERROR : ftp_STOR failed to open %s", path);
+        display("! ERROR : err = %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error storing %s%s : err = %s", connection->cwd, path, strerror(errno)); 
-        
+        sprintf(msg, "Error storing %s%s : err = %s", connection->cwd, path, strerror(errno));
+
         return write_reply(connection, 550, msg);
     }
-    
+
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
 
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
@@ -1272,7 +1264,7 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
         }
         closeTransferredFile(connection);
     }
-    
+
     return result;
 }
 
@@ -1293,9 +1285,9 @@ static int32_t ftp_REST(connection_t *connection, char *offset_str) {
         return write_reply(connection, 501, "Syntax error in parameters");
     }
     connection->restart_marker = offset;
-    
+
     display("> C[%d] restarting %s from %u...", connection->index+1, connection->fileName, offset);
-    
+
     char msg[MAXPATHLEN+100] = "";
     sprintf(msg, "C[%d] restart position accepted (%lli) for %s", connection->index+1, offset, connection->fileName);
     return write_reply(connection, 350, msg);
@@ -1332,7 +1324,7 @@ static int32_t ftp_SITE_CHMOD(connection_t *connection, char *rest UNUSED) {
 
     char msg[MAXPATHLEN+50] = "";
     sprintf(msg, "C[%d] CHMOD %s sucessfully", connection->index+1, connection->cwd);
-    
+
     return write_reply(connection, 250, "SITE CHMOD command ok");
 }
 
@@ -1408,7 +1400,7 @@ static int32_t ftp_SUPERFLUOUS(connection_t *connection, char *rest UNUSED) {
 static int32_t ftp_NEEDAUTH(connection_t *connection, char *rest UNUSED) {
     char msg[FTP_MSG_BUFFER_SIZE+50] = "";
     sprintf(msg, "C[%d] Please login with USER and PASS", connection->index+1);
-    
+
     return write_reply(connection, 530, msg);
 }
 
@@ -1468,43 +1460,41 @@ static void cleanup_data_resources(connection_t *connection) {
 
     // first close the data_socket
     if (connection->data_socket >= 0 && connection->data_socket != connection->passive_socket) {
-        network_close(connection->data_socket);        
-        
+        network_close(connection->data_socket);
+
 #ifdef LOG2FILE
-        writeToLog("C[%d] closing socket %d", connection->index+1, connection->data_socket);        
+        writeToLog("C[%d] closing socket %d", connection->index+1, connection->data_socket);
 #endif
     }
     connection->data_socket = -1;
     connection->data_connection_connected = false;
-    
 
-    if (connection->data_connection_cleanup) {        
+
+    if (connection->data_connection_cleanup) {
         connection->data_connection_cleanup(connection->data_connection_callback_arg);
-    }    
-    connection->data_callback = NULL;        
+    }
+    connection->data_callback = NULL;
     connection->data_connection_callback_arg = NULL;
     connection->data_connection_cleanup = NULL;
-    
+
     strcpy(connection->fileName, "");
     connection->crc32 = 0;
-    
+
     connection->data_connection_timer = 0;
     connection->dataTransferOffset = -1;
     connection->volPath = NULL;
     connection->f = NULL;
-	
-    connection->f = NULL;
-                
+
 }
 
 static void cleanup_connection(connection_t *connection) {
-    
-    network_close(connection->socket);    
+
+    network_close(connection->socket);
     cleanup_data_resources(connection);
     // volontary set to -EAGAIN here and not in cleanup_data_resources for msg 226 to connection
     connection->bytesTransferred = -EAGAIN;
     close_passive_socket(connection);
-	                
+
     uint32_t connection_index;
     for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
         if (connections[connection_index]) {
@@ -1517,7 +1507,7 @@ static void cleanup_connection(connection_t *connection) {
 
     // set pointer to transferBuffer to null (connection->transferBuffer is not deallocated here but only in cleanup_ftp when stopping the server)
     connection->transferBuffer = NULL;
-    
+
     free(connection);
     activeConnectionsNumber--;
     display("- %s connection C[%d] closed", clientIp, connection_index+1);
@@ -1525,22 +1515,22 @@ static void cleanup_connection(connection_t *connection) {
 
 
 static connection_t* getFirstConnectionAvailable() {
-    
+
     uint32_t connection_index;
 
     for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
-        
-        connection_t *connection = connections[connection_index];        
+
+        connection_t *connection = connections[connection_index];
         if (connection) return connection;
     }
-    
+
     return NULL;
 }
 
 void cleanup_ftp() {
-    
+
     if (listener != -1) {
-        
+
 #ifdef LOG2FILE
         writeToLog("total data sockets opened = %d", nbDataSocketsOpened);
 #endif
@@ -1550,42 +1540,44 @@ void cleanup_ftp() {
         uint32_t connection_index;
         for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
             connection_t *connection = connections[connection_index];
-            
+
             if (connection) {
-                
+
                 if (!OSIsThreadTerminated(&connection->transferThread)) {
                     OSCancelThread(&connection->transferThread);
-                    OSTestThreadCancel();        
-                    #ifdef LOG2FILE    
+                    OSTestThreadCancel();
+                    #ifdef LOG2FILE
                         writeToLog("Cancel transfer thread of C[%d]", connection->index+1);
-                    #endif                     
-                }                
-                cleanup_connection(connection);				
+                    #endif
+                }
+                cleanup_connection(connection);
             }
-            
+
             // free transfer buffer
             if (transferBuffers[connection_index] != NULL) MEMFreeToDefaultHeap((void*)transferBuffers[connection_index]);
             transferBuffers[connection_index] = NULL;
         }
         if (password != NULL) free(password);
-        
+
         if (nbSpeedMeasures != 0) {
-            display(" ");    
+            display(" ");
             display("------------------------------------------------------------");
             display("  Speed (MB/s) [min = %.2f, mean = %.2f, max = %.2f]", minTransferRate, sumAvgSpeed/(float)nbSpeedMeasures, maxTransferRate);
-        }        
+        }
     }
 }
-        
+
 static bool processConnections() {
-    
-    // if the max connections number is not reached, treat incomming connections 
+    // if more than one connection are active and sfvFileUpdate is disabled, enable it
+    if ( (activeConnectionsNumber > 1) && (!updateCopyOfSfvFile()) ) enableSfvUpdate();
+
+    // if the max connections number is not reached, treat incomming connections
     if (activeConnectionsNumber < FTP_NB_SIMULTANEOUS_TRANSFERS) {
-    
+
         int32_t peer;
         struct sockaddr_in client_address;
         int32_t addrlen = sizeof(client_address);
-        
+
         while ((peer = network_accept(listener, (struct sockaddr *)&client_address, &addrlen)) != -EAGAIN) {
             if (peer < 0) {
                 char msg[FTP_MSG_BUFFER_SIZE];
@@ -1593,7 +1585,7 @@ static bool processConnections() {
                 display("! ERROR : %s", msg);
                 connection_t *last = getFirstConnectionAvailable();
                 if (last) return write_reply(last, 520, msg);
-                                
+
                 // if cannot inform client, stop server
                 return false;
             }
@@ -1604,7 +1596,7 @@ static bool processConnections() {
                 display("~ WARNING : Sorry %s, %s is already connected ! close all his connections first !", inet_ntoa(client_address.sin_addr), clientIp);
                 network_close(peer);
             } else {
-                    
+
                 // Allocate a new connection
                 connection_t *connection = malloc(sizeof(connection_t));
                 if (!connection) {
@@ -1616,7 +1608,7 @@ static bool processConnections() {
                 connection->representation_type = 'A';
                 connection->passive_socket = -1;
                 connection->data_socket = -1;
-                strcpy(connection->cwd, "/");        
+                strcpy(connection->cwd, "/");
                 *connection->pending_rename = '\0';
                 connection->restart_marker = 0;
                 connection->authenticated = false;
@@ -1629,7 +1621,7 @@ static bool processConnections() {
                 connection->index = -1;
                 strcpy(connection->fileName, "");
                 connection->volPath = NULL;
-                connection->f = NULL;                
+                connection->f = NULL;
                 connection->dataTransferOffset = -1;
                 connection->speed = 0;
                 connection->bytesTransferred = -EAGAIN;
@@ -1651,8 +1643,8 @@ static bool processConnections() {
                         if (!connections[connection_index]) {
                             connection->index = connection_index;
                             connections[connection_index] = connection;
-                             
-                            if (transferBuffers[connection_index] != NULL) 
+
+                            if (transferBuffers[connection_index] != NULL)
                                 // already allocated, use it
                                 connection->transferBuffer = (void *)transferBuffers[connection_index];
                             else {
@@ -1664,16 +1656,16 @@ static bool processConnections() {
                                     free(connection);
                                     return false;
                                 }
-                                
+
                                 connection->transferBuffer = (void *)transferBuffers[connection_index];
                             }
-                            
+
                             activeConnectionsNumber++;
-                                    
+
                             display("- %s opening connection C[%d]", clientIp, connection_index+1);
-                            #ifdef LOG2FILE    
+                            #ifdef LOG2FILE
                                 displayData(connection_index);
-                            #endif                        
+                            #endif
                             return true;
                         }
                     }
@@ -1686,16 +1678,16 @@ static bool processConnections() {
 
 static void process_data_events(connection_t *connection) {
     int32_t result;
-    
+
     if (!connection->data_connection_connected) {
-        
+
         if (connection->passive_socket >= 0) {
-			#ifdef LOG2FILE    
+			#ifdef LOG2FILE
 			    writeToLog("C[%d] using passive_socket (%d)", connection->index+1, connection->passive_socket);
-			#endif            
+			#endif
             struct sockaddr_in data_peer_address;
             int32_t addrlen = sizeof(data_peer_address);
-            
+
             result = network_accept(connection->passive_socket, (struct sockaddr *)&data_peer_address ,&addrlen);
             if (result >= 0) {
                 connection->data_socket = result;
@@ -1704,12 +1696,12 @@ static void process_data_events(connection_t *connection) {
             } else {
 				if (result != -EAGAIN) {
 	                char msg[FTP_MSG_BUFFER_SIZE];
-	                sprintf(msg, "Error accepting C[%d] %d (%s)",  connection->index+1, errno, strerror(errno));                
+	                sprintf(msg, "Error accepting C[%d] %d (%s)",  connection->index+1, errno, strerror(errno));
 	                display("~ WARNING : %s", msg);
 	                write_reply(connection, 550, msg);
 				}
             }
-            
+
         } else {
 
 			#ifdef LOG2FILE
@@ -1722,10 +1714,10 @@ static void process_data_events(connection_t *connection) {
                 if (result == -EINPROGRESS || result == -EALREADY) {
                     nbTries++;
                     if (nbTries <= 2) goto try_again;
-                    // no need to set to -EAGAIN, exit 
+                    // no need to set to -EAGAIN, exit
                     return;
                 }
-                
+
                 if ((result != -EAGAIN) && (result != -EISCONN))
                 {
                     display("! ERROR : C[%d] unable to connect to client: rc=%d, err=%s", connection->index+1, -result, strerror(-result));
@@ -1733,39 +1725,39 @@ static void process_data_events(connection_t *connection) {
             }
             if (result >= 0 || result == -EISCONN) {
                 connection->data_connection_connected = true;
-                #ifdef LOG2FILE    
+                #ifdef LOG2FILE
                     display("Opened connections = %d / %d", activeConnectionsNumber, NB_SIMULTANEOUS_TRANSFERS);
                 #endif
                 if (result > 0) return;
             }
         }
-        
-        if (connection->data_connection_connected) {            
+
+        if (connection->data_connection_connected) {
             return;
         } else if (OSGetTime() > connection->data_connection_timer) {
-            
-            result = -99;                
+
+            result = -99;
             char msg[MAXPATHLEN] = "";
-            sprintf(msg, "C[%d] timed out when connecting", connection->index+1); 
-            display("~ WARNING : %s", msg);                
-            write_reply(connection, 520, msg); 
-        } 
-        // here result = 1 or -99        
-        
+            sprintf(msg, "C[%d] timed out when connecting", connection->index+1);
+            display("~ WARNING : %s", msg);
+            write_reply(connection, 520, msg);
+        }
+        // here result = 1 or -99
+
     } else {
-        
+
         result = connection->data_callback(connection->data_socket, connection->data_connection_callback_arg);
-        // file transfer finished 
+        // file transfer finished
         if (connection->bytesTransferred != -EAGAIN && result == 0 && connection->dataTransferOffset > 0) {
-            
+
             // compute transfer speed
             uint64_t duration = (OSGetTime() - (connection->data_connection_timer - FTP_CONNECTION_TIMEOUT*1000000)) * 4000ULL / BUS_SPEED;
             if (duration != 0) {
-                
+
                 // set a threshold on file size to consider file for average calculation
                 // take only files larger than the network buffer used
-                    
-                if (connection->dataTransferOffset >= 2*SOCKET_BUFFER_SIZE) { 
+
+                if (connection->dataTransferOffset >= 2*SOCKET_BUFFER_SIZE) {
                     connection->speed = (float)(connection->dataTransferOffset) / (float)(duration*1000);
 
                     if (connection->volPath == NULL)
@@ -1774,13 +1766,13 @@ static void process_data_events(connection_t *connection) {
                         display("> C[%d] %s received at %.2f MB/s (%d bytes)", connection->index+1, connection->fileName, connection->speed, connection->dataTransferOffset);
 
                 }
-            }            
+            }
         }
-        
-        #ifdef LOG2FILE    
+
+        #ifdef LOG2FILE
             if (result != -EAGAIN) writeToLog("C[%d] data_callback using socket %d returned %d", connection->index+1, connection->data_socket, result);
         #endif
-        
+
         // check errors
         if (result < 0 && result != -EAGAIN) {
             display("! ERROR : C[%d] data transfer callback using sokcet %d failed , socket error = %d", connection->index+1, connection->data_socket, result);
@@ -1792,23 +1784,23 @@ static void process_data_events(connection_t *connection) {
         if (result < 0) {
             if (result != -99) {
                 char msg[MAXPATHLEN] = "";
-                sprintf(msg, "C[%d] to be closed : error = %d (%s)", connection->index+1, result, strerror(result)); 
-                display("! ERROR : %s", msg);                
+                sprintf(msg, "C[%d] to be closed : error = %d (%s)", connection->index+1, result, strerror(result));
+                display("! ERROR : %s", msg);
                 write_reply(connection, 520, msg);
-            } 
+            }
         } else {
-            
+
             char msg[MAXPATHLEN + 80] = "";
-            // usually set to -EAGAIN when not transferring a file 
+            // usually set to -EAGAIN when not transferring a file
             if (connection->bytesTransferred == 0) {
                 if (connection->speed != 0)
-                    sprintf(msg, "C[%d] %s Transferred sucessfully %.0fKB/s", connection->index+1, connection->fileName, connection->speed*1000); 
+                    sprintf(msg, "C[%d] %s Transferred sucessfully %.0fKB/s", connection->index+1, connection->fileName, connection->speed*1000);
                 else
-                    sprintf(msg, "C[%d] %s Transferred sucessfully", connection->index+1, connection->fileName); 
+                    sprintf(msg, "C[%d] %s Transferred sucessfully", connection->index+1, connection->fileName);
             }
-            else 
-                sprintf(msg, "C[%d] command executed sucessfully", connection->index+1); 
-            
+            else
+                sprintf(msg, "C[%d] command executed sucessfully", connection->index+1);
+
             write_reply(connection, 226, msg);
         }
         // reset connection->fileName here
@@ -1818,7 +1810,7 @@ static void process_data_events(connection_t *connection) {
         if (result < 0) {
             cleanup_connection(connection);
         }
-    } 
+    }
 }
 
 static void process_control_events(connection_t *connection) {
@@ -1880,13 +1872,19 @@ static void process_control_events(connection_t *connection) {
 }
 
 bool process_ftp_events() {
-    
+
     bool network_down = !processConnections();
-    
+
     if (!network_down) {
         uint32_t connection_index;
         float totalSpeedMBs = 0;
-        
+
+        // if only the brwose connection is connected (or 0), update the copy of the sfv file (CRC32) on SDCard
+        // then disable its update         
+        if (activeConnectionsNumber <= 1) {
+            updateSfvOnSdCard();
+            disableSfvUpdate();
+        }
         for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
             connection_t *connection = connections[connection_index];
             if (connection) {
@@ -1902,12 +1900,12 @@ bool process_ftp_events() {
         if (totalSpeedMBs) {
             // increment nbAvgFiles and take speed into account for mean calculation
             nbSpeedMeasures += 1;
-            if (totalSpeedMBs > maxTransferRate) maxTransferRate = totalSpeedMBs; 
-            if (totalSpeedMBs < minTransferRate) minTransferRate = totalSpeedMBs; 
+            if (totalSpeedMBs > maxTransferRate) maxTransferRate = totalSpeedMBs;
+            if (totalSpeedMBs < minTransferRate) minTransferRate = totalSpeedMBs;
             sumAvgSpeed += totalSpeedMBs;
         }
 	}
-    
+
     return network_down;
 }
 

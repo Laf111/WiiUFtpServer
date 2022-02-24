@@ -34,9 +34,9 @@ CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
                 -Ofast -Wall -Wextra -Wno-strict-aliasing \
                 -D__WIIU__ -D__WUT__ \
                 -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
-                
-# keep it, the log file is disabled by default
-# WARNING it seems that is not thread safe (WUT?), if activate use only one transfer slot
+
+# the log file is disabled by default (kill performance)
+# /vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log and .old (previous session)
 #CFLAGS	+=	-DLOG2FILE
 
 # enable controller check 

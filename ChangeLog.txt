@@ -221,7 +221,8 @@ HISTORY :
     
 2022/02/21 V8-2 :    
     > add a CRC32 calculation on server side. The report is saved under "wiiu/apps/WiiuFtpServer/crc32_report.sfv" with
-      a 2 level (.old to backup the previous session) 
+      a 2 level (.old to backup the previous session).
+    > this report and the log file are now located in mlc or usb/usr/tmp
     > add a CRC32 verification tool (windows version, i'll release a linux's version later)
     > fix issue#10 (remove the resizing of internal file's buffer)
         - rare corruption on uploaded file (~ 1 file on 3000)
@@ -233,7 +234,17 @@ HISTORY :
         - optimize controller events monitoring (and so the main loop)
         - final tweaks on thread priorities to optimize the connections dispatching on the 3 cores
     > upload single transfer enhancement : nearly double the size of the transfer buffer for upload
-      use a size of TRANSFER_BUFFER_SIZE + 2*SOCKET_BUFFER_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
-      network_readChunk() overflow, knowing that 2*SOCKET_BUFFER_SIZE is the max number of bytes returned by recv()
-    > lower the RAM consumption (now less than 800MB)
+      use a size of TRANSFER_BUFFER_SIZE + TRANSFER_CHUNK_SIZE instead of use 2 * TRANSFER_BUFFER_SIZE to handle 
+      network_readChunk() overflow, knowing that TRANSFER_CHUNK_SIZE is the max number of bytes returned by recv()
+    > lower the RAM consumption (now less than 800MB)    
     
+2022/02/23 V9 :        
+    > more clever CRC report file handling : add a flag to enable/disable the update process of the CRC32 report on the SDCard . 
+      It is disabled on start, activated if more than one connection is openedthen disabled when only one or less connections
+      are opened.
+    > final tweaks on thread priorities (multi-transfer enhancement)
+    > use the max size buffer for a single transfer download. So CRC32 calculation of a file lower than 80MB does not impact
+      the transfer speed (when multi-transfer, the size is lowered to TRANSFER_CHUNK_SIZE and the CRC32 calcultaion cost 25% of the 
+      download speed on a single file but does not affect the overall speed when downloading at least 2 files at the same time).
+    > revert log file location to SDCard (was a bad idea because in case of crash, the log on SDCard is outdated)
+    > CrcChecker V1-3 in python ( X times faster than V1-2)

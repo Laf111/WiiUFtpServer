@@ -471,10 +471,9 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
     
-#ifdef CREATE_CRC32_SFV_REPORT   
-        // CRC-32 value
-        connection->crc32 = getCrc32(0, NULL, 0);
-#endif        
+    // CRC-32 value
+    connection->crc32 = getCrc32(0, NULL, 0);
+
     #ifdef LOG2FILE    
         writeToLog("C[%d] sending %d bytes of %s on socket %d", connection->index+1, 2*SOCKET_BUFFER_SIZE, connection->fileName,s);
     #endif
@@ -485,35 +484,31 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)   
+    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4) OSSleepTicks(OSMillisecondsToTicks(60));
-    else 
-        // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-        OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
+    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(40));
     
     // transferring a file with the size lower than that will not be impacted by crc32 calculation in terms of transfer speed
-//    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;        
-    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE*8;        
+    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;
+    // when single file transfer : use the max buffer
+    if (nbt <= 2) downloadBufferSize = TRANSFER_BUFFER_SIZE;   
 
+    bool loweredPrio = false;
     int32_t bytes_read = downloadBufferSize;        
 	while (bytes_read) {
 
-// TODO : remove if OK    
-		// init to 0 the send buffer before filling it
-//		memset(connection->transferBuffer, 0x00, downloadBufferSize);
-	
         bytes_read = fread(connection->transferBuffer, 1, downloadBufferSize, connection->f);
         if (bytes_read == 0) {
             // SUCCESS, no more to write                  
             nbFilesDL++;
             result = 0;
-            // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-            OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
             break;
         }        
         if (bytes_read > 0) {
-
+            
+            // after the first chunk received, lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
+            if (!loweredPrio) OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
+        
             // add buffer contribution to the the CRC32 computation
             connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
         
@@ -565,8 +560,6 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             if ((feof(connection->f) != 0) && (result == 0)) {
                 // SUCESS : eof file, last data bloc sent
                 nbFilesDL++;
-                // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
                 break;
             }
         }
@@ -581,10 +574,8 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
 int32_t recv_to_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
-#ifdef CREATE_CRC32_SFV_REPORT   
-        // CRC-32 value
-        connection->crc32 = getCrc32(0, NULL, 0);
-#endif        
+    // CRC-32 value
+    connection->crc32 = getCrc32(0, NULL, 0);
     
     // (the system double the value set)
     int rcvBuffSize = SOCKET_BUFFER_SIZE;
@@ -595,13 +586,12 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         writeToLog("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     #endif
 
-    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
+    // if less than 4 transfers are running, lower the priority to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(30));
-    else 
+    if ( nbt < 4 ) {
         // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
         OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
-        
+    }
     
     // network_readChunk() overflow cannot exceed 2*SOCKET_BUFFER_SIZE bytes after setsockopt(RCVBUF)
     // use a buffer size = TRANSFER_BUFFER_SIZE - 2*SOCKET_BUFFER_SIZE to handle the bytes overflow
@@ -611,20 +601,12 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
     int32_t bytes_received = bufferSize;
     while (bytes_received) {
-        
-// TODO : remove if OK    
-        // fix #10 : fix randomly file's corruption with initializing to 0 the buffer
-        // re/init the recv buffer 
-//		memset(connection->transferBuffer, 0x00, TRANSFER_BUFFER_SIZE);
-                
+                        
         read_again:
         bytes_received = network_readChunk(s, connection->transferBuffer, bufferSize);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
             nbFilesUL++;
-            
-            // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-            OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
             result = 0;
                         
         } else if (bytes_received < 0) {
@@ -666,4 +648,3 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
       
     return result;
 }
-
