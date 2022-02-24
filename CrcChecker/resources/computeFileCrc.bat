@@ -65,9 +65,6 @@ REM : main
         exit /b 100
     )
 
-    REM : set processes to priority to high
-REM    wmic process where "CommandLine like '%%ComputeFileCrc%%'" call setpriority 16384 > NUL 2>&1
-
     REM : get folder
     for /F "delims=~" %%k in (!file!) do set "dirname="%%~dpk""
     set "str=!dirname:~0,-2!""
