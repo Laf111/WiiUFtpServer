@@ -2,6 +2,11 @@
 
 **A robust and optimized FTP server for the WiiU !**
 
+
+<p align="center">
+  <img src="WiiUFtpServer.png">
+</p>
+
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
 - file's dates (timestamps)
@@ -12,7 +17,7 @@ Based on ftpiiu but with the following issues fixed :
 
 https://user-images.githubusercontent.com/47532310/153688829-2e39085a-c96e-43cc-9c7a-caf48838b12e.mp4
 
-Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set using IOSUHAX_FSA_ChangeMode.
+Few games such as WWHD check the save files'rights and refuse to import them if permissions rights are not set.
 
 WiiuFtpServer comes also with some **extra features** : 
 
@@ -61,12 +66,6 @@ https://user-images.githubusercontent.com/47532310/155005764-72990fa4-b271-4ab4-
 # BUILD :
 
 (Binairies are available in the [Releases](https://github.com/Laf111/WiiUFtpServer/releases/latest) section)
-
-
-
-<p align="center">
-  <img src="WiiUFtpServer.png">
-</p>
 
 
 To build from scratch :
