@@ -242,7 +242,7 @@ HISTORY :
     > change CRC format to handle space in path/file's name
     > after bunch of tests, CRC32 is now disabled by default but can be toggled at anytime during session using 'X' button
     > clever handling of sdCard copy of CRC report file : update the copy when only one connection is opened and if the
-      number of files transferred has increased. Deactivate the copy process as soon as 2 connections are openned
+      number of files transferred has increased. Deactivate the copy process as soon as 2 connections are opened
     > embeded the CRC checker on a subfolder on the SDCard, the report is now saved in this subfolder
     > lower "stall time" due to changing the rights on file uploaded. Stall time = writing/flush the network
       buffer (transfer rate on upload does not take into account the writing to file time = that's why the
