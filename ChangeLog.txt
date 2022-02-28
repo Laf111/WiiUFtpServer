@@ -242,16 +242,16 @@ HISTORY :
     > change CRC format to handle space in path/file's name
     > after bunch of tests, CRC32 is now disabled by default but can be toggled at anytime during session using 'X' button
     > clever handling of sdCard copy of CRC report file : update the copy when only one connection is opened and if the
-      number of files trasferred has increased. Deactivate the copy process as soon as 2 connections are openned
-    > embeded the CRC checker on a subfolder ont the SDCard, the report is now saved in this subfolder
+      number of files transferred has increased. Deactivate the copy process as soon as 2 connections are openned
+    > embeded the CRC checker on a subfolder on the SDCard, the report is now saved in this subfolder
     > lower "stall time" due to changing the rights on file uploaded. Stall time = writing/flush the network
       buffer (transfer rate on upload does not take into account the writing to file time = that's why the
       transfer rate is so high in upload way). Use a system'scall instead of IOSUHAX_FSA_ChangeMode
-      function (which seems to re-allocate the buffer for the operation)
+      function (which seems to re-allocate the buffer for the operation???)
     > lower CWD errors numbers (it is normal to get some of them when folders do not exist)      
-    > do not timeout when an opened connection is already opened        
+    > do not timeout when a connection was opened and "stall"       
     > final tweaks on thread priorities (multi-transfer enhancement)
     > revert log file location to SDCard (was a bad idea because in case of crash, the log on SDCard is outdated)
-    > CrcChecker V2 in python (Linux/window, 30 times faster than V1-2 bat file)
+    > CrcChecker V2 in python (Linux/window) 30 times faster than V1-2 bat file
     > update CrcChecker V1-3 (bat file) to the new CRC32 report format
 
