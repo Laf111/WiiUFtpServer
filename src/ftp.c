@@ -28,6 +28,7 @@ misrepresented as being the original software.
   * 2021-12-05:Laf111:V7-1: complete some TODO left, fix upload file corruption
  ***************************************************************************/
 #include <coreinit/memory.h>
+#include <sys/stat.h>
 
 #include "ftp.h"
 #include "virtualpath.h"
@@ -41,19 +42,17 @@ misrepresented as being the original software.
 
 extern int fsaFd;
 extern bool verboseMode;
+extern bool calculateCrc32;
+extern bool updateSfvFile;
 
 extern void display(const char *fmt, ...);
 extern void updateSfvOnSdCard();
-extern void enableSfvUpdate();
-extern void disableSfvUpdate();
-extern bool updateCopyOfSfvFile();
+extern void writeCRC32(const char way, const char *cwd, const char *name, const int crc32);
 
 #ifdef LOG2FILE
     extern void writeToLog(const char *fmt, ...);
     int nbDataSocketsOpened = 0;
 #endif
-
-extern void writeCRC32(const char way, const char *cwd, const char *name, const int crc32);
 
 static const uint16_t SRC_PORT = 20;
 static const int32_t EQUIT = 696969;
@@ -63,6 +62,10 @@ static const uint32_t CRLF_LENGTH = 2;
 // number of active connections
 static volatile uint32_t activeConnectionsNumber = 0;
 static volatile uint32_t activeTransfersNumber = 0;
+
+// number of files transferred used to disable the update process of 
+// CRC32 report file on the SDCard
+static uint32_t nbFilesTransferred = 0;
 
 // unique client IP address
 static char clientIp[15]="UNKNOWN_CLIENT";
@@ -350,23 +353,27 @@ static int32_t closeTransferredFile(connection_t *connection) {
 
     if (connection->volPath != NULL) {
         // change rights on file
-        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
+        // IOSUHAX_FSA_ChangeMode seems to use another buffer, replacing by a system call
+        // lower the "stall" time after writing the file
+        char *filePath = to_real_path(connection->cwd, connection->fileName);
+        int rc = chmod(filePath, S_IRWXU | S_IRWXG | S_IRWXO);
 
         if (rc < 0 ) {
             display("~ WARNING : when settings file's rights, rc = %d !", rc);
+            display("~ WARNING : err = %d (%s)", errno, strerror(errno));
             display("~ WARNING : file = %s", connection->fileName);
         }
         free(connection->volPath);
 
-        // for all files except WiiuFtpServer_crc32_report.sfv
-        if ( strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0 )
+        // for all files except WiiUFtpServer_crc32_report.sfv
+        if ( calculateCrc32 && (strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0) )
             // add the CRC32 value to the SFV file
             writeCRC32('<', connection->cwd, connection->fileName, connection->crc32);
 
     }
     else {
-        // for all files except WiiuFtpServer_crc32_report.sfv
-        if ( strcmp(connection->fileName, "WiiuFtpServer_crc32_report.sfv") != 0 )
+        // for all files except WiiUFtpServer_crc32_report.sfv
+        if ( calculateCrc32 && (strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0 ) )
             // add the CRC32 value to the SFV file
             writeCRC32('>', connection->cwd, connection->fileName, connection->crc32);
     }
@@ -517,15 +524,159 @@ static int32_t ftp_MODE(connection_t *connection, char *rest) {
     }
 }
 
+
+static void removeTrailingSlash(char **cwd) {
+    if (strcmp(*cwd, ".") == 0) strcpy(*cwd, "/");
+    else {
+        if ( (strlen(*cwd) > 0) && (strcmp(*cwd, "/") != 0) ) {
+            char *path = (char *)malloc (strlen(*cwd)+1);
+            strcpy(path, *cwd);
+            char *pos = strrchr(path, '/');
+            if (strcmp(pos,"/") == 0) {
+                // folder is allocated by strndup
+                char *folder = strndup(*cwd, strlen(path)-strlen(pos));
+                // update cwd
+                strcpy (*cwd, folder);
+                free(folder);
+            }
+            free(path);
+        }
+    }
+}
+
+// caller must free the returned string
+static char* getLastItemOfPath(char *cwd) {
+    char *final = NULL;
+    if ( (strlen(cwd) > 0) && (strcmp(cwd, "/") != 0) ) {
+        char *path = (char *)malloc (strlen(cwd)+1);
+        strcpy(path, cwd);
+        char *pos = strrchr(path, '/');
+        // final is allocated by strdup
+        final = strdup(pos+1);
+        free(path);
+    }
+    return final;
+}
+
+
+// caller must free folder and fileName strings
+static void secureAndSplitPath(char *cwd, char* path, char **folder, char **fileName) {
+
+    *fileName = NULL;
+    *folder = NULL;
+    char *pos = NULL;
+
+    char *cwdNoSlash = NULL;
+    // allocate and copy fileName with path
+    cwdNoSlash = (char *)malloc (strlen(cwd)+1);
+    strcpy(cwdNoSlash, cwd);
+
+    // remove any trailing slash when cwd != "/"
+    removeTrailingSlash(&cwdNoSlash);
+
+    // fix #10 : cyberduck support
+    if (path) {
+        // path is given
+
+        // if first char is a slash
+        if (path[0] == '/') {
+            // path gives the whole full path
+
+            // get the folder from path
+            *fileName = getLastItemOfPath(path);
+            pos = strrchr(path, '/');
+            // folder is allocated by strndup
+            *folder = strndup(path, strlen(path)-strlen(pos));
+
+        } else {
+
+            if (strlen(path) > 1) {
+
+                // path gives file's name
+
+                // check if cwd contains path (cyberduck)
+                if (strstr(cwdNoSlash, path) != NULL) {
+                    // remove file's name from the path
+
+                    // get the fileName from cwd
+                    *fileName = getLastItemOfPath(cwdNoSlash);
+                    pos = strrchr(cwdNoSlash, '/');
+                    // folder is allocated by strndup
+                    *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
+
+                    // update cwd
+                    strcpy(cwd, *folder);
+                    strcat(cwd, "/");
+
+                } else {
+
+                    if ( strcmp(cwdNoSlash,"") != 0 ) {
+
+                        // allocate and copy fileName with path
+                        *fileName = (char *)malloc (strlen(path)+1);
+                        strcpy(*fileName, path);
+                        // allocate and copy folder with cwd
+                        *folder = (char *)malloc (strlen(cwdNoSlash)+1);
+                        strcpy(*folder, cwdNoSlash);
+
+                    } else {
+
+                        // get the folder from path
+                        *fileName = getLastItemOfPath(path);
+                        pos = strrchr(path, '/');
+                        // folder is allocated by strndup
+                        *folder = strndup(path, strlen(path)-strlen(pos));
+
+                        // update cwd
+                        strcpy(cwd, *folder);
+                        strcat(cwd, "/");
+                        // update path
+                        strcpy(path, *fileName);
+                    }
+                }
+            } else {
+                // path is not given, cwd gives the whole full path
+
+                // get path from cwd
+                path = getLastItemOfPath(cwdNoSlash);
+                *fileName = (char *)malloc (strlen(path)+1);
+                strcpy(*fileName, path);
+
+                pos = strrchr(cwdNoSlash, '/');
+                // folder is allocated by strndup
+                *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
+
+                // update cwd
+                strcpy(cwd, *folder);
+                strcat(cwd, "/");
+            }
+        }
+    } else {
+        // path is not given, cwd gives the whole full path
+        // get path from cwd
+        path = getLastItemOfPath(cwdNoSlash);
+        *fileName = (char *)malloc (strlen(path)+1);
+        strcpy(*fileName, path);
+
+        pos = strrchr(cwdNoSlash, '/');
+        // folder is allocated by strndup
+        *folder = strndup(cwdNoSlash, strlen(path)-strlen(pos));
+
+        // update cwd
+        strcpy(cwd, *folder);
+        strcat(cwd, "/");
+    }
+}
+
 static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
     char msg[MAXPATHLEN + 24] = "";
-
-    // check if folder exist
+    
+    // check if folder exist 
     char *parentFolder = NULL;
     parentFolder = (char *)malloc (strlen(connection->cwd)+1);
     strcpy(parentFolder, connection->cwd);
     char *pos = strrchr(parentFolder, '/');
-
+    
     char *folder = NULL;
     folder = strdup (pos + 1);
 
@@ -537,7 +688,7 @@ static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
             sprintf(msg, "C[%d] \"%s\" is current directory", connection->index+1, connection->cwd);
     } else {
         display("! ERROR : C[%d] failed to PWD to %s (does not exist)", connection->index+1, connection->cwd);
-
+        
     }
     if (folder != NULL) free(folder);
     if (parentFolder != NULL) free(parentFolder);
@@ -551,22 +702,34 @@ static int32_t ftp_CWD(connection_t *connection, char *path) {
 //         writeToLog("ftp_CWD on C[%d] previous dir = %s", connection->inde+1x, connection->cwd);
 // #endif
 
-    if (!vrt_chdir(connection->cwd, path)) {
+    char *folder = NULL;
+    char *fileName = NULL;
+
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+	strcpy(connection->cwd, folder);
+	if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+	
+    if (!vrt_chdir(connection->cwd, fileName)) {
 
 // #ifdef LOG2FILE
-//         writeToLog("ftp_CWD on C[%d] current dir = %s", connection->index+1, connection->cwd);
+//         writeToLog("ftp_CWD on C[%d] current dir = %s", connection->index+1, folder);
 // #endif
         char msg[MAXPATHLEN + 60] = "";
         sprintf(msg, "C[%d] CWD successful to %s", connection->index+1, connection->cwd);
         write_reply(connection, 250, msg);
     } else  {
-//        display("~ WARNING : error in vrt_chdir in ftp_CWD : %s+%s", connection->cwd, path);
+//        display("~ WARNING : error in vrt_chdir in ftp_CWD : %s+%s", folder, fileName);
 //        display("~ WARNING : errno = %d (%s)", errno, strerror(errno));
 
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error when CWD to %s%s : err = %s", connection->cwd, path, strerror(errno));
+        sprintf(msg, "Error when CWD to %s%s : err = %s", connection->cwd, fileName, strerror(errno));
         write_reply(connection, 550, msg);
     }
+    
+
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
+    
     // always return 0 on server side
     // - when connection needs to create a folder tree on server side, connection try CWD until it do not fail before launching the MKD command)
     // - note that when ftp_CWD fails, an error is sent to the connection with the 550 error code
@@ -642,34 +805,46 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
         return write_reply(connection, 501, "Syntax error in parameters");
     }
 
+    char *folder = NULL;
+    char *fileName = NULL;
+
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);    
+	strcpy(connection->cwd, folder);
+    if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+    
     char msg[MAXPATHLEN + 60] = "";
 	int msgCode = 550;
 
-    if (vrt_checkdir(connection->cwd, path) == 0) {
+    if (vrt_checkdir(connection->cwd, fileName) == 0) {
 		msgCode = 257;
 		strcpy(msg, "folder already exist");
 #ifdef LOG2FILE
-        display("ftp_MKD on C[%d] %s already exist", connection->index+1, path);
+        display("ftp_MKD on C[%d] %s already exist", connection->index+1, fileName);
 #endif
 
     } else {
 
-        if (!vrt_mkdir(connection->cwd, path, 0775)) {
+        if (!vrt_mkdir(connection->cwd, fileName, 0775)) {
             msgCode = 250;
-            sprintf(msg, "%s%s directory created", connection->cwd, path);
+            sprintf(msg, "%s%s directory created", connection->cwd, fileName);
 
 #ifdef LOG2FILE
-        display("ftp_MKD on C[%d] folder %s was created", connection->index+1, path);
+        display("ftp_MKD on C[%d] folder %s was created", connection->index+1, fileName);
         display("ftp_MKD on C[%d] current dir = %s", connection->index+1, connection->cwd);
 #endif
 
         } else {
             display("! ERROR : error from vrt_mkdir in ftp_MKD : %s", strerror(errno));
-            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, path, strerror(errno));
+            sprintf(msg, "Error in MKD when cd to %s%s : err = %s", connection->cwd, fileName, strerror(errno));
+            if (fileName != NULL) free(fileName);
+            if (folder != NULL) free(folder);
+    
             return write_reply(connection, msgCode, strerror(errno));
         }
     }
 
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
     return write_reply(connection, msgCode, msg);
 }
 
@@ -689,49 +864,75 @@ static int32_t ftp_RNTO(connection_t *connection, char *path) {
     }
     int32_t result;
 
+    char *folder = NULL;
+    char *fileName = NULL;
 
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+	strcpy(connection->cwd, folder);
+    if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+   
 // display("DEBUG : FTP_RTNO cwd=%s, path=%s, pending_rename=%s", connection->cwd, path, connection->pending_rename);
 
-    if (!vrt_rename(connection->cwd, connection->pending_rename, path)) {
-        sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, path);
+    if (!vrt_rename(folder, connection->pending_rename, fileName)) {
+        sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, fileName);
         result = write_reply(connection, 250, msg);
     } else {
-        sprintf(msg, "C[%d] failed to rename %s to %s : err = %s", connection->index+1, connection->pending_rename, path, strerror(errno));
+        sprintf(msg, "C[%d] failed to rename %s to %s : err = %s", connection->index+1, connection->pending_rename, fileName, strerror(errno));
         display("! ERROR : %s", msg);
 
         result = write_reply(connection, 550, msg);
     }
     *connection->pending_rename = '\0';
+    
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
+    
     return result;
 }
 
 static int32_t ftp_SIZE(connection_t *connection, char *path) {
     struct stat st;
 
-    FILE *f = vrt_fopen(connection->cwd, path, "rb");
+    char *folder = NULL;
+    char *fileName = NULL;
+
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+	strcpy(connection->cwd, folder);
+    if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+    
+    FILE *f = vrt_fopen(connection->cwd, fileName, "rb");
     if (f) {
         fclose(f);
         int ret = 0;
-        if ((ret = vrt_stat(connection->cwd, path, &st)) == 0) {
+        if ((ret = vrt_stat(connection->cwd, fileName, &st)) == 0) {
             char size_buf[12] = "";
             sprintf(size_buf, "%llu", st.st_size);
+		    if (fileName != NULL) free(fileName);
+		    if (folder != NULL) free(folder);    
             return write_reply(connection, 213, size_buf);
         } else {
             display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE, ret = %d", connection->index+1, ret);
-            display("! C[%d], cwd=%s, path=%s", connection->index+1, connection->cwd, path);
+            display("! C[%d], cwd=%s, path=%s", connection->index+1, connection->cwd, fileName);
 
             char msg[MAXPATHLEN + 40] = "";
-            sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno));
+            sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, fileName, strerror(errno));
+		    if (fileName != NULL) free(fileName);
+		    if (folder != NULL) free(folder);
             return write_reply(connection, 550, msg);
         }
     } else {
-        display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE on %s%s", connection->index+1, connection->cwd, path);
-        display("! failed to open %s%s", connection->cwd, path);
+        display("! ERROR : C[%d], error from vrt_stat in ftp_SIZE on %s%s", connection->index+1, folder, fileName);
+        display("! failed to open %s%s", connection->cwd, fileName);
 
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, path, strerror(errno));
+        sprintf(msg, "Error SIZE on %s%s : err = %s", connection->cwd, fileName, strerror(errno));
+	    if (fileName != NULL) free(fileName);
+	    if (folder != NULL) free(folder);
         return write_reply(connection, 550, msg);
     }
+    if (fileName != NULL) free(fileName);
+    if (folder != NULL) free(folder);
+	
 }
 
 static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
@@ -1000,150 +1201,6 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
 }
 
 
-static void removeTrailingSlash(char **cwd) {
-    if (strcmp(*cwd, ".") == 0) strcpy(*cwd, "/");
-    else {
-        if ( (strlen(*cwd) > 0) && (strcmp(*cwd, "/") != 0) ) {
-            char *path = (char *)malloc (strlen(*cwd)+1);
-            strcpy(path, *cwd);
-            char *pos = strrchr(path, '/');
-            if (strcmp(pos,"/") == 0) {
-                // folder is allocated by strndup
-                char *folder = strndup(*cwd, strlen(path)-strlen(pos));
-                // update cwd
-                strcpy (*cwd, folder);
-                free(folder);
-            }
-            free(path);
-        }
-    }
-}
-
-// caller must free the returned string
-static char* getLastItemOfPath(char *cwd) {
-    char *final = NULL;
-    if ( (strlen(cwd) > 0) && (strcmp(cwd, "/") != 0) ) {
-        char *path = (char *)malloc (strlen(cwd)+1);
-        strcpy(path, cwd);
-        char *pos = strrchr(path, '/');
-        // final is allocated by strdup
-        final = strdup(pos+1);
-        free(path);
-    }
-    return final;
-}
-
-
-// caller must free folder and fileName strings
-static void secureAndSplitPath(char *cwd, char* path, char **folder, char **fileName) {
-
-    *fileName = NULL;
-    *folder = NULL;
-    char *pos = NULL;
-
-    char *cwdNoSlash = NULL;
-    // allocate and copy fileName with path
-    cwdNoSlash = (char *)malloc (strlen(cwd)+1);
-    strcpy(cwdNoSlash, cwd);
-
-    // remove any trailing slash when cwd != "/"
-    removeTrailingSlash(&cwdNoSlash);
-
-    // fix #10 : cyberduck support
-    if (path) {
-        // path is given
-
-        // if first char is a slash
-        if (path[0] == '/') {
-            // path gives the whole full path
-
-            // get the folder from path
-            *fileName = getLastItemOfPath(path);
-            pos = strrchr(path, '/');
-            // folder is allocated by strndup
-            *folder = strndup(path, strlen(path)-strlen(pos));
-
-        } else {
-
-            if (strlen(path) > 1) {
-
-                // path gives file's name
-
-                // check if cwd contains path (cyberduck)
-                if (strstr(cwdNoSlash, path) != NULL) {
-                    // remove file's name from the path
-
-                    // get the fileName from cwd
-                    *fileName = getLastItemOfPath(cwdNoSlash);
-                    pos = strrchr(cwdNoSlash, '/');
-                    // folder is allocated by strndup
-                    *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
-
-                    // update cwd
-                    strcpy(cwd, *folder);
-                    strcat(cwd, "/");
-
-                } else {
-
-                    if ( strcmp(cwdNoSlash,"") != 0 ) {
-
-                        // allocate and copy fileName with path
-                        *fileName = (char *)malloc (strlen(path)+1);
-                        strcpy(*fileName, path);
-                        // allocate and copy folder with cwd
-                        *folder = (char *)malloc (strlen(cwdNoSlash)+1);
-                        strcpy(*folder, cwdNoSlash);
-
-                    } else {
-
-                        // get the folder from path
-                        *fileName = getLastItemOfPath(path);
-                        pos = strrchr(path, '/');
-                        // folder is allocated by strndup
-                        *folder = strndup(path, strlen(path)-strlen(pos));
-
-                        // update cwd
-                        strcpy(cwd, *folder);
-                        strcat(cwd, "/");
-                        // update path
-                        strcpy(path, *fileName);
-                    }
-                }
-            } else {
-                // path is not given, cwd gives the whole full path
-
-                // get path from cwd
-                path = getLastItemOfPath(cwdNoSlash);
-                *fileName = (char *)malloc (strlen(path)+1);
-                strcpy(*fileName, path);
-
-                pos = strrchr(cwdNoSlash, '/');
-                // folder is allocated by strndup
-                *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
-
-                // update cwd
-                strcpy(cwd, *folder);
-                strcat(cwd, "/");
-            }
-        }
-    } else {
-        // path is not given, cwd gives the whole full path
-        // get path from cwd
-        path = getLastItemOfPath(cwdNoSlash);
-        *fileName = (char *)malloc (strlen(path)+1);
-        strcpy(*fileName, path);
-
-        pos = strrchr(cwdNoSlash, '/');
-        // folder is allocated by strndup
-        *folder = strndup(cwdNoSlash, strlen(path)-strlen(pos));
-
-        // update cwd
-        strcpy(cwd, *folder);
-        strcat(cwd, "/");
-    }
-}
-
-
 static int32_t ftp_RETR(connection_t *connection, char *path) {
 
     char *folder = NULL;
@@ -1155,6 +1212,8 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
 
     secureAndSplitPath(connection->cwd, path, &folder, &fileName);
     strcpy(connection->fileName, fileName);
+	strcpy(connection->cwd, folder);
+    if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
 
 #ifdef LOG2FILE
     writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);
@@ -1174,7 +1233,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         sprintf(msg, "Error when RETR %s%s : err = %s", connection->cwd, path, strerror(errno));
 
         return write_reply(connection, 550, msg);
-    }
+    }     
 
     int fd = fileno(connection->f);
     if (connection->restart_marker && lseek(fd, connection->restart_marker, SEEK_SET) != connection->restart_marker) {
@@ -1212,7 +1271,9 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
 
     secureAndSplitPath(connection->cwd, path, &folder, &fileName);
     strcpy(connection->fileName, fileName);
-
+	strcpy(connection->cwd, folder);
+    if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+    
 #ifdef LOG2FILE
     writeToLog("C[%d] cwd=(%s), path=(%s)", connection->index+1, connection->cwd, path);
     writeToLog("C[%d] secured path folder=(%s), fileName=(%s)", connection->index+1, folder, fileName);
@@ -1568,8 +1629,16 @@ void cleanup_ftp() {
 }
 
 static bool processConnections() {
-    // if more than one connection are active and sfvFileUpdate is disabled, enable it
-    if ( (activeConnectionsNumber > 1) && (!updateCopyOfSfvFile()) ) enableSfvUpdate();
+    
+    // if CRC32 computation is enabled : if only one connection is active update the copy of the CRC report on the sdcard if 
+    // new files have been transferred 
+    if ( calculateCrc32 && (activeConnectionsNumber <= 1) ) {
+        if (nbFilesTransferred != getNbFilesTransferred()) {
+            updateSfvOnSdCard();
+            // update the local var
+            nbFilesTransferred = getNbFilesTransferred();
+        }
+    }
 
     // if the max connections number is not reached, treat incomming connections
     if (activeConnectionsNumber < FTP_NB_SIMULTANEOUS_TRANSFERS) {
@@ -1734,8 +1803,8 @@ static void process_data_events(connection_t *connection) {
 
         if (connection->data_connection_connected) {
             return;
-        } else if (OSGetTime() > connection->data_connection_timer) {
-
+        } else if (OSGetTime() > connection->data_connection_timer && connection->dataTransferOffset == 0) {
+            // do not timeout anymore once the connection was estblished a first time
             result = -99;
             char msg[MAXPATHLEN] = "";
             sprintf(msg, "C[%d] timed out when connecting", connection->index+1);
@@ -1879,12 +1948,6 @@ bool process_ftp_events() {
         uint32_t connection_index;
         float totalSpeedMBs = 0;
 
-        // if only the brwose connection is connected (or 0), update the copy of the sfv file (CRC32) on SDCard
-        // then disable its update         
-        if (activeConnectionsNumber <= 1) {
-            updateSfvOnSdCard();
-            disableSfvUpdate();
-        }
         for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
             connection_t *connection = connections[connection_index];
             if (connection) {

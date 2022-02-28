@@ -56,14 +56,12 @@ typedef enum
 /****************************************************************************/
 // STATIC VARS
 /****************************************************************************/
-// flag to en/disable the CRC32 report file update (upadte sdcard copy)
-static bool updateSfvFile = false;
 
 // Wii-U date (GMT) %02d/%02d/%04d %02d:%02d:%02d
 static char sessionDate[40] = "";
 
 // path used to check if a NAND backup exists on SDCard
-static const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
+static const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
 
 // gamepad inputs
 static VPADStatus vpadStatus;
@@ -83,8 +81,8 @@ static spinlock displayLock = false;
 
 #ifdef LOG2FILE
     // log files
-	static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiuFtpServer/WiiuFtpServer.log";
-    static const char previousLogFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer.old";
+	static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiUFtpServer/WiiUFtpServer.log";
+    static const char previousLogFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/WiiUFtpServer.old";
     static FILE * logFile = NULL;
 
     // lock to limit to one access at a time for the loggin method
@@ -93,8 +91,8 @@ static spinlock displayLock = false;
 
 
 // 2 level CRC32 SFV report 
-static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv";
-static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.old";
+static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
+static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
 static FILE * sfvFile = NULL;
 
 // lock to limit to one access at a time for the CRC32 SFV file
@@ -109,6 +107,12 @@ int fsaFd = -1;
 
 // verbose mode for server
 bool verboseMode = false;
+
+// flag to enable CRC32 calculation
+bool calculateCrc32 = false;
+
+// flag to en/disable the CRC32 report file update (upadte sdcard copy)
+bool updateSfvFile = false;
 
 
 /****************************************************************************/
@@ -183,7 +187,7 @@ void writeCRC32(const char way, const char *cwd, const char *name, const int crc
         OSSleepTicks(OSMillisecondsToTicks(5000));            
     } else {
         
-        fprintf(sfvFile, "%c%s%s %08" PRIX32 "\n", way, cwd, name, crc32);            
+        fprintf(sfvFile, "%c'%s%s' %08" PRIX32 "\n", way, cwd, name, crc32);            
         fclose(sfvFile);
         sfvFile = NULL;
 
@@ -197,29 +201,16 @@ void writeCRC32(const char way, const char *cwd, const char *name, const int crc
 // NOTE that the tmp folder must be ram disk because their content is wipe on every reboot of the Wii-U
 void updateSfvOnSdCard() {
 
-// #ifdef LOG2FILE       
-//    writeToLog("- updating WiiuFtpServer_crc32_report.sfv on SDCard, please wait...");    
-// #endif
+    display("- updating WiiUFtpServer_crc32_report.sfv on SDCard...");    
 
     spinLock(sfvLock);
     if (mountMlc)
-        copyFile("/vol/storage_mlc01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
+        copyFile("/vol/storage_mlc01/usr/tmp/WiiUFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv");
     else
-        copyFile("/vol/storage_usb01/usr/tmp/WiiuFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer_crc32_report.sfv");
+        copyFile("/vol/storage_usb01/usr/tmp/WiiUFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv");
     spinReleaseLock(sfvLock);
 }
 
-void enableSfvUpdate() {
-    updateSfvFile = true;
-}
-    
-void disableSfvUpdate() {
-    updateSfvFile = false;
-}
-
-bool updateCopyOfSfvFile() {
-    return updateSfvFile;
-}
 
 /****************************************************************************/
 // LOCAL FUNCTIONS
@@ -270,6 +261,29 @@ static bool isChannel() {
 }
 
 //--------------------------------------------------------------------------
+static void displayCrcWarning() {
+    cls();
+    display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");
+    display("");
+    display("You have chosen to mount system paths, and CRC32 calculation");
+    display("is disabled!");
+    display("");
+    display("If you transfer critical files (such as system ones), you'd");
+    display("better verify the integrity of the files transferred using");
+    display("a CRC check espcially if you're using WIFI and not Ethernet");
+    display("");
+    display("You can toggle it at anytime during the session with 'X'");
+    display("");
+    display("Then use the CrcChecker to check your files afterward.");
+    display("(available in WiiUFtpServer HBL app subfolder on the SDcard)");
+    display("");
+    display("");
+    display("Press A or B button to continue");
+    readUserAnswer(&vpadStatus);
+    cls();
+}
+
+//--------------------------------------------------------------------------
 static void cleanUp() {
 
     cleanup_ftp();
@@ -280,6 +294,13 @@ static void cleanUp() {
     display(" ");
     UmountVirtualDevices();
 
+	OSSleepTicks(OSMillisecondsToTicks(1000));
+    
+    if (calculateCrc32) {
+        // copy WiiUFtpServer CRC32 report on SdCard  
+        updateSfvOnSdCard();    
+    }
+    
     IOSUHAX_sdio_disc_interface.shutdown();
     IOSUHAX_usb_disc_interface.shutdown();
 
@@ -348,7 +369,7 @@ static void writeSfvHeader() {
         
         char sfvHeader[128*5] = "";
         strcpy(sfvHeader, ";============================================================================================\n"); 
-        strcat(sfvHeader, "; WiiuFtpServer CRC-32 report of FTP session on "); 
+        strcat(sfvHeader, "; WiiUFtpServer CRC-32 report of FTP session on "); 
         strcat(sfvHeader, sessionDate);
         strcat(sfvHeader, "\n");
         strcat(sfvHeader, ";--------------------------------------------------------------------------------------------\n"); 
@@ -360,21 +381,6 @@ static void writeSfvHeader() {
     }    
 }
 
-
-//--------------------------------------------------------------------------
-static void displayCrcWarning() {
-    display(" ");
-    display("!!!!!!!!!!!");
-    display("! WARNING !");
-    display("!!!!!!!!!!!");
-    display(" ");
-    display("Only a CRC32 check can guarantee the integrity of the files");
-    display("you have just transferred.");
-    display(" ");
-    display("> Use the CrcChecker to check your files");
-    display(" ");
-    display(" ");
-}
 
 
 /****************************************************************************/
@@ -493,12 +499,12 @@ int main()
     display("Please PRESS : (timeout in 10 sec)");
 	display(" ");
     if (autoShutDown) {
-        display("   > DOWN, disable/toggle auto shutdown (currently enabled)");
+        display("   > DOWN, toggle auto shutdown (currently enabled)");
     }
-    display("   > UP, disable/toggle verbose mode (OFF by default)");
+    display("   > UP, toggle verbose mode (OFF by default)");
     display("   > A, for only USB and SDCard (default after timeout)");
-    display("   > B, mount ALL paths (please, check files with CrcChecker.py)");
-    display(" ");
+    display("   > B, mount ALL paths");
+    display("   > X, toogle CRC32-C calculation (OFF by default)");
     if (!autoShutDown) {
         display(" ");
     }
@@ -522,6 +528,16 @@ int main()
             } else {
                 display("(verbose mode ON)");
                 verboseMode = true;
+            }
+            OSSleepTicks(OSMillisecondsToTicks(500));
+        }
+        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_X) {
+            if (calculateCrc32) {
+                display("(disable CRC32 computation)");
+                calculateCrc32 = false;
+            } else {
+                display("(enable CRC32 computation)");
+                calculateCrc32 = true;
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
         }
@@ -594,9 +610,9 @@ int main()
 
     // update path of sfvFilePath before writing to it
     if (mountMlc) {
-        strcpy(sfvFilePath, "storage_mlc:/usr/tmp/WiiuFtpServer_crc32_report.sfv");
+        strcpy(sfvFilePath, "storage_mlc:/usr/tmp/WiiUFtpServer_crc32_report.sfv");
     } else {
-        strcpy(sfvFilePath, "storage_usb:/usr/tmp/WiiuFtpServer_crc32_report.sfv");
+        strcpy(sfvFilePath, "storage_usb:/usr/tmp/WiiUFtpServer_crc32_report.sfv");
     }
     
     // write Sfv header
@@ -623,7 +639,7 @@ int main()
             display(" ");
             display("- COMPLETE system requires 500MB free space on SD card !");
             display("- PARTIAL one will be only used to unbrick the Wii-U network");
-            display("  in order to start WiiuFtpServer");
+            display("  in order to start WiiUFtpServer");
             display(" ");
             if (readUserAnswer(&vpadStatus)) {
                 display("Creating FULL NAND backup...");
@@ -636,7 +652,7 @@ int main()
                 display("");
                 display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
                 display("This backup is only a PARTIAL one used to unbrick");
-                display("the Wii-U network in order to start WiiuFtpServer");
+                display("the Wii-U network in order to start WiiUFtpServer");
                 display("");
                 display("It is highly recommended to create a FULL backup");
                 display("on your own");
@@ -648,6 +664,7 @@ int main()
             readUserAnswer(&vpadStatus);
             cls();
         }
+        if (!calculateCrc32) displayCrcWarning();
     }
 
     /*--------------------------------------------------------------------------*/
@@ -754,14 +771,15 @@ int main()
             OSSleepTicks(OSMillisecondsToTicks(1000));
         }
 
-        if (updateSfvFile) {
-            cpt += 1;
-            // update files on SdCard every ~100s on full load
-            if (cpt > 150) {
-                // backup WiiuFtpServer report on SDCard
-                updateSfvOnSdCard();
-                cpt = 0;
+        if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_X) {
+            if (calculateCrc32) {
+                display("(disable CRC32 computation)");
+                calculateCrc32 = false;
+            } else {
+                display("(enable CRC32 computation)");
+                calculateCrc32 = true;
             }
+            OSSleepTicks(OSMillisecondsToTicks(500));
         }
         
         // check button pressed and/or hold
@@ -784,15 +802,6 @@ int main()
 exit:
 
 	cleanUp();
-	OSSleepTicks(OSMillisecondsToTicks(1000));
-    cls();
-
-    displayCrcWarning();
-    
-    // copy WiiuFtpServer CRC32 report on SdCard  
-    display("Updating WiiuFtpServer_crc32_report.sfv on SDCard, please wait...");    
-    updateSfvOnSdCard();
-    OSSleepTicks(OSMillisecondsToTicks(4000));    
     
 #ifdef LOG2FILE
     if (logFile != NULL) fclose(logFile);

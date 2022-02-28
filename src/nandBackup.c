@@ -27,7 +27,7 @@
 extern void display(const char *fmt, ...);
 
 // paths on SDCard and Wii-U FS for NAND backups
-const char localRootPath[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiuFtpServer/NandBackup";
+const char localRootPath[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/NandBackup";
 const char localSubFolders[17][FS_MAX_LOCALPATH_SIZE] = {"storage_slc/proc",
                                                          "storage_slc/config",
                                                          "storage_slc/security",
@@ -238,7 +238,7 @@ uint32_t createNandBackup(bool fullFlag) {
         }
     }
 
-    if (grc == 0) display("Backup created in wiiu/apps/WiiuFtpServer/NandBackup");
+    if (grc == 0) display("Backup created in wiiu/apps/WiiUFtpServer/NandBackup");
     else display("! ERROR : failed to create NAND backup");
     display(" ");
 

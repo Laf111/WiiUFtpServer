@@ -110,7 +110,7 @@ HISTORY :
     > put the 2 codes in the same project :
         - version using dynamic libs for HBL (best bandwith ~40% faster than WUT version)
         - building channel using the WUT version
-    > rename WUP package name to WiiuFtpServer
+    > rename WUP package name to WiiUFtpServer
 
 2021/08/05 V4-4 :    
     > fix regression caused by setvbuf (saves was corrupted because of unexpected behavior due to freeing buffer 
@@ -162,10 +162,10 @@ HISTORY :
         +70% UL speed (UL is now faster than DL)    
     > enhance robustness (fix errors -99, -100, ENOMEM, ECONABORTED...). thanks Masana@GBATemp for testing!
     > add a NAND backup/restore process :
-        - when you choose to mount NAND paths, if no backup is found in WiiuFtpServer app folder on the SDcard,
+        - when you choose to mount NAND paths, if no backup is found in WiiUFtpServer app folder on the SDcard,
           create a partial (2MB) or a FULL system files NAND backup (500MB free on SD card are requiered) 
         - if you brick your Wii-U with NO NETWORK AVAILABLE (so you can't start FTP) : restore only the files 
-          needed (partial backup ones) to get WiiuFtpServer working again (then unbrick as the usual way)
+          needed (partial backup ones) to get WiiUFtpServer working again (then unbrick as the usual way)
           
 2021/10/13 V6-2 :    
     > Restore originals headers in source files
@@ -220,7 +220,7 @@ HISTORY :
     > thanks also to Masana, godreborn and TheLegendOfXela for their checks on release candidate versions
     
 2022/02/21 V8-2 :    
-    > add a CRC32 calculation on server side. The report is saved under "wiiu/apps/WiiuFtpServer/crc32_report.sfv" with
+    > add a CRC32 calculation on server side. The report is saved under "wiiu/apps/WiiUFtpServer/crc32_report.sfv" with
       a 2 level (.old to backup the previous session).
     > this report and the log file are now located in mlc or usb/usr/tmp
     > add a CRC32 verification tool (windows version, i'll release a linux's version later)
@@ -238,13 +238,20 @@ HISTORY :
       network_readChunk() overflow, knowing that TRANSFER_CHUNK_SIZE is the max number of bytes returned by recv()
     > lower the RAM consumption (now less than 800MB)    
     
-2022/02/23 V9 :        
-    > more clever CRC report file handling : add a flag to enable/disable the update process of the CRC32 report on the SDCard . 
-      It is disabled on start, activated if more than one connection is openedthen disabled when only one or less connections
-      are opened.
+2022/02/28 V9 :
+    > change CRC format to handle space in path/file's name
+    > after bunch of tests, CRC32 is now disabled by default but can be toggled at anytime during session using 'X' button
+    > clever handling of sdCard copy of CRC report file : update the copy when only one connection is opened and if the
+      number of files trasferred has increased. Deactivate the copy process as soon as 2 connections are openned
+    > embeded the CRC checker on a subfolder ont the SDCard, the report is now saved in this subfolder
+    > lower "stall time" due to changing the rights on file uploaded. Stall time = writing/flush the network
+      buffer (transfer rate on upload does not take into account the writing to file time = that's why the
+      transfer rate is so high in upload way). Use a system'scall instead of IOSUHAX_FSA_ChangeMode
+      function (which seems to re-allocate the buffer for the operation)
+    > lower CWD errors numbers (it is normal to get some of them when folders do not exist)      
+    > do not timeout when an opened connection is already opened        
     > final tweaks on thread priorities (multi-transfer enhancement)
-    > use the max size buffer for a single transfer download. So CRC32 calculation of a file lower than 80MB does not impact
-      the transfer speed (when multi-transfer, the size is lowered to TRANSFER_CHUNK_SIZE and the CRC32 calcultaion cost 25% of the 
-      download speed on a single file but does not affect the overall speed when downloading at least 2 files at the same time).
     > revert log file location to SDCard (was a bad idea because in case of crash, the log on SDCard is outdated)
-    > CrcChecker V1-3 in python ( X times faster than V1-2)
+    > CrcChecker V2 in python (Linux/window, 30 times faster than V1-2 bat file)
+    > update CrcChecker V1-3 (bat file) to the new CRC32 report format
+

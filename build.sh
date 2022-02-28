@@ -3,10 +3,10 @@
 #/****************************************************************************
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
-VERSION_MAJOR=8
-VERSION_MINOR=2
+VERSION_MAJOR=9
+VERSION_MINOR=0
 VERSION_PATCH=0
-export WiiuFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
+export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
 buildDate=$(date  +"%Y%m%d%H%M%S")
 
@@ -15,7 +15,7 @@ uname -a
 date  +"%Y-%m-%dT%H:%M:%S"
 echo " "
 echo =======================
-echo - WiiUFtpServer $WiiuFtpServerVersion                           -
+echo - WiiUFtpServer $WiiUFtpServerVersion                           -
 echo =======================
 echo " "
 echo checking env ...
@@ -60,14 +60,14 @@ make clean
 make
 if [ $? -eq 0 ]; then
     # set version in ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
-    sed -i "s|<version>.*<|<version>$WiiuFtpServerVersion<|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
+    sed -i "s|<version>.*<|<version>$WiiUFtpServerVersion<|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
     find ./_sdCard/wiiu/apps/WiiUFtpServer/NandBackup -name dummy.txt -exec rm -f {} \; > /dev/null 2>&1
     sed -i "s|release_date>00000000000000|release_date>$buildDate|g" ./_sdCard/wiiu/apps/WiiUFtpServer/meta.xml
 
     echo -----------------------------------------------------
     echo ""
     # set version in ./_loadiine/0005000010050421/meta/meta.xml
-    withNoDot=$(echo $WiiuFtpServerVersion | sed "s|\.||g")
+    withNoDot=$(echo $WiiUFtpServerVersion | sed "s|\.||g")
     sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
     # set version in ./_loadiine/0005000010050421/code/app.xml
     sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml

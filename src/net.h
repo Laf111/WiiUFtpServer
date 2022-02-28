@@ -87,9 +87,8 @@ extern "C"{
 // 160*(4*128*1024) = 83886080 bytes (84MB per connections)
 #define TRANSFER_BUFFER_SIZE (TRANSFER_CHUNK_SIZE*160)
 
-// when using 9 connections (1 browse + 8 simultaneous transfers)
-// 9*160*(4*128*1024) => 755MB of RAM used for transfers
-
+// when using 9 connections (1 browse + 8 simultaneous uploads)
+// 9*160*(4*128*1024) => 755MB of RAM used for transfers (mainly used for recv = upload way)
 // --------------------------------------------------------------------------------------------------
 
 int32_t initialize_network();
@@ -121,6 +120,8 @@ int32_t send_exact(int32_t s, char *buf, int32_t length);
 int32_t send_from_file(int32_t data_socket, connection_t* connection);
 
 int32_t recv_to_file(int32_t data_socket, connection_t* connection);
+
+uint32_t getNbFilesTransferred();
 
 #ifdef __cplusplus
 }

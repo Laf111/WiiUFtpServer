@@ -59,6 +59,7 @@ extern int somemopt (int req_type, char* mem, unsigned int memlen, int flags);
 
 extern void display(const char *fmt, ...);
 extern int fsaFd;
+extern bool calculateCrc32;
 
 static uint32_t nbFilesDL = 0;
 static uint32_t nbFilesUL = 0;
@@ -472,7 +473,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     int32_t result = 0;
     
     // CRC-32 value
-    connection->crc32 = getCrc32(0, NULL, 0);
+    if (calculateCrc32) connection->crc32 = getCrc32(0, NULL, 0);
 
     #ifdef LOG2FILE    
         writeToLog("C[%d] sending %d bytes of %s on socket %d", connection->index+1, 2*SOCKET_BUFFER_SIZE, connection->fileName,s);
@@ -484,16 +485,13 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
+    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;
+
     // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(40));
+    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(40));    
     
-    // transferring a file with the size lower than that will not be impacted by crc32 calculation in terms of transfer speed
-    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;
-    // when single file transfer : use the max buffer
-    if (nbt <= 2) downloadBufferSize = TRANSFER_BUFFER_SIZE;   
-
-    bool loweredPrio = false;
+    bool prioLowered = false;
     int32_t bytes_read = downloadBufferSize;        
 	while (bytes_read) {
 
@@ -507,10 +505,13 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         if (bytes_read > 0) {
             
             // after the first chunk received, lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-            if (!loweredPrio) OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
+            if (!prioLowered) {
+                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
+                prioLowered = true;
+            }
         
             // add buffer contribution to the the CRC32 computation
-            connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
+            if (calculateCrc32) connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
         
             uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
@@ -575,7 +576,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // return code
     int32_t result = 0;
     // CRC-32 value
-    connection->crc32 = getCrc32(0, NULL, 0);
+    if (calculateCrc32) connection->crc32 = getCrc32(0, NULL, 0);
     
     // (the system double the value set)
     int rcvBuffSize = SOCKET_BUFFER_SIZE;
@@ -586,24 +587,26 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         writeToLog("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     #endif
 
+    // network_readChunk() overflow cannot exceed 2*SOCKET_BUFFER_SIZE bytes after setsockopt(RCVBUF)
+    // use a buffer with twice the size to handle the bytes overflow
+    int32_t uploadBufferSize = TRANSFER_BUFFER_SIZE - (2*SOCKET_BUFFER_SIZE);
+        
     // if less than 4 transfers are running, lower the priority to let other connections start (only 3 cores are available)
+    bool prioLowered = false;
     int nbt = getActiveTransfersNumber();
     if ( nbt < 4 ) {
         // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
         OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
+        prioLowered = true;
     }
     
-    // network_readChunk() overflow cannot exceed 2*SOCKET_BUFFER_SIZE bytes after setsockopt(RCVBUF)
-    // use a buffer size = TRANSFER_BUFFER_SIZE - 2*SOCKET_BUFFER_SIZE to handle the bytes overflow
-    // transferring a file with the size lower than that will not be impacted by crc32 calculation in terms of transfer speed
-    int32_t bufferSize = TRANSFER_BUFFER_SIZE - (2*SOCKET_BUFFER_SIZE);
     uint32_t retryNumber = 0;
 
-    int32_t bytes_received = bufferSize;
+    int32_t bytes_received = uploadBufferSize;
     while (bytes_received) {
                         
         read_again:
-        bytes_received = network_readChunk(s, connection->transferBuffer, bufferSize);
+        bytes_received = network_readChunk(s, connection->transferBuffer, uploadBufferSize);
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
             nbFilesUL++;
@@ -625,7 +628,13 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
             // bytes_received > 0
 
             // add buffer contribution to the the CRC32 computation
-            connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_received);            
+            if (calculateCrc32) {
+                if (!prioLowered) {
+                    OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
+                    prioLowered = true;
+                }
+                connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_received);            
+            }
             
             // write bytes_received to f
             result = fwrite(connection->transferBuffer, 1, bytes_received, connection->f);
@@ -647,4 +656,8 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 	connection->bytesTransferred = result;
       
     return result;
+}
+
+uint32_t getNbFilesTransferred() {
+    return nbFilesDL + nbFilesUL;
 }

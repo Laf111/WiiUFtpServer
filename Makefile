@@ -2,9 +2,9 @@ ifeq ($(strip $(DEVKITPRO)),)
 $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 endif
 
-ifeq ($(strip $(WiiuFtpServerVersion)),)
-export WiiuFtpServerVersion=0.0.0
-$(info WiiuFtpServerVersion set to $(WiiuFtpServerVersion), use build.sh instead)
+ifeq ($(strip $(WiiUFtpServerVersion)),)
+export WiiUFtpServerVersion=0.0.0
+$(info WiiUFtpServerVersion set to $(WiiUFtpServerVersion), use build.sh instead)
 endif
 
 TOPDIR ?= $(CURDIR)
@@ -33,7 +33,7 @@ INCLUDES	:=	src
 CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
                 -Ofast -Wall -Wextra -Wno-strict-aliasing \
                 -D__WIIU__ -D__WUT__ \
-                -DVERSION_STRING="\"WiiU Ftp Server v$(WiiuFtpServerVersion)\""
+                -DVERSION_STRING="\"WiiU Ftp Server v$(WiiUFtpServerVersion)\""
 
 # the log file is disabled by default (kill performance)
 # /vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log and .old (previous session)
