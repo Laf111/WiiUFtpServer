@@ -46,7 +46,7 @@ The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\
 
 **NOTES :**
 
-- No user/password requiered, only one client allowed with **8 simultaneous transfers max**
+- No user/password requiered and **only one client is allowed**
 
 - The server does not implement the [MTDM](https://support.solarwinds.com/SuccessCenter/s/article/Enable-the-MDTM-command-to-preserve-the-original-time-stamp-of-uploaded-files?language=en_US) function (and so does not preserves files timestamps) but now displays the correct dates : 
 
