@@ -361,7 +361,7 @@ static uint32_t homeButtonCallback(void *dummy UNUSED)
 //--------------------------------------------------------------------------
 static void writeSfvHeader() {
     
-    if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
+    if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "w");
     if (sfvFile == NULL) {
         display("! ERROR : Unable to reopen crc report file?");
         OSSleepTicks(OSMillisecondsToTicks(5000));            
