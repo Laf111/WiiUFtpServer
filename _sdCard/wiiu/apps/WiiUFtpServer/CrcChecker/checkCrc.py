@@ -56,20 +56,19 @@ def browseToDir():
 
         
 def downloadCrc32Report():    
+    global crcReport
     global isWindows
     
-    remotePath = '/storage_sdcard/wiiu/apps/WiiuFtpServer/CrcChecker/'
-    filename = 'WiiUFtpServer_crc32_report.sfv'
-
     wiiuIp = "127.0.0.1"
     pattern = re.compile("^[0-9]{3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$")
     while True:
-        wiiuIp = input("Please enter your Wii-U IP address :")
+        wiiuIp = input("Please enter your Wii-U IP address : ")
         if pattern.match(wiiuIp):
             if isWindows:
-                response = os.system("ping -c 1 " + wiiuIp + "> NULL 2>&1")
+                response = os.system("ping " + wiiuIp + "> NULL 2>&1")
             else:
-                response = os.system("ping -c 1 " + wiiuIp + "> /dev/null 2>&1")
+                response = os.system("ping " + wiiuIp + "> /dev/null 2>&1")
+                
             #and then check the response...
             if response == 0:
                 break
@@ -82,7 +81,7 @@ def downloadCrc32Report():
   
     ftp = ftplib.FTP(wiiuIp)
     ftp.login("USER", "PASSWD")
-    ftp.retrbinary("RETR " + remotePath+filename , open(filename, 'wb').write)
+    ftp.retrbinary("RETR /storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv", open(crcReport, 'wb').write)
     ftp.quit()                    
 
 def checkFile(f, relativePath, root):
@@ -207,7 +206,7 @@ if __name__ == '__main__':
     print(" -================-")
     print("| CrcChecker V2-0  |")
     print(" -================-")
-
+    print("")
     while not os.path.exists(crcReport):
         downloadCrc32Report()
         if not os.path.exists(crcReport):
@@ -235,15 +234,22 @@ if __name__ == '__main__':
     for r in rowsList:
         crcDataList.append(r.split("'"))
 
-    crcData = np.array(crcDataList)
+    crcData = np.array(crcDataList, dtype=object)
     
     #print("DEBUG crcData = "+str(crcData))
 
     folderPath = args.Folder_To_Check
     if not folderPath:
-        print("Please browse to the folder to be checked...")    
+        print("Please browse to the folder to be checked...")  
+        folderPath = os.getcwd()
         # open a browse folder dialog
-        folderPath = browseToDir()       
+        folderPicked = browseToDir()       
+        
+        if not folderPicked:   
+            print("No folder selected, exit with 0")
+            exit(0)
+        else:
+            folderPath = folderPicked
         
     folderPath = str(pathlib.Path(folderPath).resolve())        
 
@@ -286,6 +292,7 @@ if __name__ == '__main__':
                 # relative path
                 relativePath = endPath.replace(os.path.sep, "/")+"/"+f
 
+                # for debugging purpose : checkFile(f, relativePath, root)
                 futures.append(executor.submit(checkFile, f, relativePath, root))
 
         for future in concurrent.futures.as_completed(futures):
