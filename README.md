@@ -42,6 +42,7 @@ After the restoration process (boot on HBL menu, launch WiiuFtpServer and restor
 
 https://user-images.githubusercontent.com/47532310/155005764-72990fa4-b271-4ab4-bb66-08c4c4b301bb.mp4
 
+The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\CrcChecker).
 
 **NOTES :**
 
