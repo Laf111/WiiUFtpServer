@@ -16,9 +16,8 @@ https://docs.conda.io/en/latest/miniconda.html
 GOAL : 
 -----
 
-Look for WiiUFtpServer CRC 32 report (WiiUFtpServer_CRC32_report.sfv) close to the script.
-You can copy it from the SDCard in the same folder of this script otherwise it will be downloaded (do not
-close WiiUFtpServer on the Wii-U in this case)
+This script looks for WiiUFtpServer CRC 32 report (WiiUFtpServer_CRC32_report.sfv) in the same folder of the script.
+You can copy it from the SDCard otherwise it will be downloaded (do not close WiiUFtpServer on the Wii-U in this case)
 
 Given the folder containing the files you've just transferred with WiiUFtpServer : 
     - compute CRC32-C
@@ -46,6 +45,7 @@ This script can be called with the imput folder as argument. If you don't you'll
 If WiiUFtpServer_CRC32_report.sfv is not found in the same folder, it will be downloaded.
 
 The script returns : 
+
     0 : non errors all files from the input folder were checked successfully
     1 : missing files in the report, other files CRC checked sucessfully
     2 : at least one CRC error was found
