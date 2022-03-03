@@ -25,7 +25,7 @@ Given the folder containing the files you've just transferred with WiiUFtpServer
     - compare CRC value with the one computed on server side
 
 The script create a log file (checkCrc.log), a crcErrors.txt (if CRC errors found) and a missings.txt file
-that list the files in the input folder not found in the report.
+which lists the files in the input folder not found in the report.
 
 When crc errors and missing files are found, their paths are reported in the dedicated files but this script
 will also create a folder "FILES2FIX" that contains onlys symlinks to the files in errors in a subfolder "ToTransferAgain"
