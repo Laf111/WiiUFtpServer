@@ -204,13 +204,37 @@ if __name__ == '__main__':
     crcReport = homeFolder+os.path.sep+"WiiUFtpServer_crc32_report.sfv"
 
     print(" -================-")
-    print("| CrcChecker V2-0  |")
+    print("| CrcChecker V2-1  |")
     print(" -================-")
     print("")
-    while not os.path.exists(crcReport):
-        downloadCrc32Report()
-        if not os.path.exists(crcReport):
-            print("Sorry, something went wrong retrying...")
+    if os.path.exists(crcReport):
+        with open(crcReport, "r") as f:
+            rows = f.readlines()
+            print("A report was found close to this script")
+            print(" ")
+            print("Use "+str(rows[1].replace("; ", ""))+" (y/n)?")
+            pattern = re.compile("^[ynYN]{1}$")
+            while True:
+                answer = input("Please enter your Wii-U IP address : ")
+                if pattern.match(answser):
+                    if answer == "y" or answer == "Y":
+                        break
+                    else:
+                        while not os.path.exists(crcReport):
+                            downloadCrc32Report()
+                            if not os.path.exists(crcReport):
+                                print("Sorry, something went wrong retrying...")
+                            else:
+                                break
+                        break
+                else:
+                    print ("Please answer with y or n !")
+                    continue
+    else:                
+        while not os.path.exists(crcReport):
+            downloadCrc32Report()
+            if not os.path.exists(crcReport):
+                print("Sorry, something went wrong retrying...")
 
     logFile = homeFolder+os.path.sep+"checkCrc.log"
     errorsFile = homeFolder+os.path.sep+"crcErrors.txt"
@@ -303,7 +327,7 @@ if __name__ == '__main__':
             except ValueError:
                 print("Could not convert data to an integer.")
             except BaseException as err:
-                print(f"Unexpected {err=}, {type(err)=}")
+                print("Exception raised: ".format(err))
                 raise
 
                     
