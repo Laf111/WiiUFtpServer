@@ -101,7 +101,7 @@ def checkFile(f, relativePath, root):
     crc32 = computeCrc32(os.path.join(root, f))
     
     # search in report the relative Path
-    matchingPathIndexes = np.flatnonzero(np.core.defchararray.find(crcData[:,1],relativePath)!=-1)
+    matchingPathIndexes = np.flatnonzero(np.core.defchararray.find(str(crcData[:,1]),relativePath)!=-1)
     #            print("DEBUG matchingPathIndexes = "+str(matchingPathIndexes))
     if len(matchingPathIndexes) > 0:
         for indp in matchingPathIndexes:
@@ -116,7 +116,7 @@ def checkFile(f, relativePath, root):
             
             if fileNameOnServer == f:
             
-                matchingCrcIndexes = np.flatnonzero(np.core.defchararray.find(line,crc32)!=-1)
+                matchingCrcIndexes = np.flatnonzero(np.core.defchararray.find(str(line),crc32)!=-1)
     #                    print("DEBUG matchingCrcIndexes = "+str(matchingCrcIndexes))
                 if len(matchingCrcIndexes) > 0:
                     
