@@ -25,10 +25,13 @@
 #include <coreinit/time.h>
 #include <coreinit/energysaver.h>
 #include <coreinit/foreground.h>
+#include <coreinit/filesystem.h>
 #include <coreinit/title.h>
 #include <proc_ui/procui.h>
 #include <sysapp/launch.h>
 #include <nsysnet/_socket.h>
+
+#include <fat.h>
 
 #include <iosuhax.h>
 #include <iosuhax_disc_interface.h>
@@ -42,6 +45,10 @@
 
 // return code
 #define EXIT_SUCCESS        0
+
+// defined for 8 simultaneous transferts
+#define SD_CACHE_PAGES (512*NB_SIMULTANEOUS_TRANSFERS)
+#define SD_SECTORS_PAGE (128*NB_SIMULTANEOUS_TRANSFERS)
 
 typedef enum
 {
@@ -61,7 +68,7 @@ typedef enum
 static char sessionDate[40] = "";
 
 // path used to check if a NAND backup exists on SDCard
-static const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
+static const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
 
 // gamepad inputs
 static VPADStatus vpadStatus;
@@ -91,8 +98,8 @@ static spinlock displayLock = false;
 
 
 // 2 level CRC32 SFV report 
-static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
-static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
+static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
+static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
 static FILE * sfvFile = NULL;
 
 // lock to limit to one access at a time for the CRC32 SFV file
@@ -110,9 +117,6 @@ bool verboseMode = false;
 
 // flag to enable CRC32 calculation
 bool calculateCrc32 = false;
-
-// flag to en/disable the CRC32 report file update (upadte sdcard copy)
-bool updateSfvFile = false;
 
 
 /****************************************************************************/
@@ -195,21 +199,6 @@ void writeCRC32(const char way, const char *cwd, const char *name, const int crc
     spinReleaseLock(sfvLock);
 }
 
-//--------------------------------------------------------------------------
-// because writing to the sdcard cripple transfer speeds and cause errors (sync thread in low level of WUT ??)
-// write CRC32 report to tmp folder (on mlc or usb) and refresh a copy version on the SDCard
-// NOTE that the tmp folder must be ram disk because their content is wipe on every reboot of the Wii-U
-void updateSfvOnSdCard() {
-
-    display("- updating WiiUFtpServer_crc32_report.sfv on SDCard...");    
-
-    spinLock(sfvLock);
-    if (mountMlc)
-        copyFile("/vol/storage_mlc01/usr/tmp/WiiUFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv");
-    else
-        copyFile("/vol/storage_usb01/usr/tmp/WiiUFtpServer_crc32_report.sfv", "/vol/storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv");
-    spinReleaseLock(sfvLock);
-}
 
 
 /****************************************************************************/
@@ -296,14 +285,6 @@ static void cleanUp() {
 
 	OSSleepTicks(OSMillisecondsToTicks(1000));
     
-    if (calculateCrc32) {
-        // copy WiiUFtpServer CRC32 report on SdCard  
-        updateSfvOnSdCard();    
-    }
-    
-    IOSUHAX_sdio_disc_interface.shutdown();
-    IOSUHAX_usb_disc_interface.shutdown();
-
     IOSUHAX_FSA_Close(fsaFd);
     if (mcp_hook_fd >= 0) MCPHookClose();
     else IOSUHAX_Close();
@@ -390,19 +371,19 @@ int main()
 {
     setlocale(LC_ALL, "");
     
+    // specific libfat init for WiiUFtpServer
+    fatInitEx(SD_CACHE_PAGES, true, SD_SECTORS_PAGE);
+    
     // Console init
     WHBLogUdpInit();
     WHBProcInit();
     WHBLogConsoleInit();
     
-    // *PAD init
-    KPADInit();
-    WPADInit();
     // enable Universal Remote Console Communication Protocol
     WPADEnableURCC(1);
     // enable Wiimote
     WPADEnableWiiRemote(1);
-
+    
 	ProcUIRegisterCallback(PROCUI_CALLBACK_HOME_BUTTON_DENIED, &homeButtonCallback, NULL, 100);
 	OSEnableHomeButtonMenu(false);
 
@@ -423,6 +404,30 @@ int main()
         OSSetThreadPriority(thread, 0);
     }
 
+    #ifdef LOG2FILE
+        
+        // if log file exists
+        if (access(logFilePath, F_OK) == 0) {
+            // file exists
+
+            // check if second log file exists
+            if (access(previousLogFilePath, F_OK) == 0) {
+                // remove previousLogFilePath
+                if (remove(previousLogFilePath) != 0) {
+                    WHBLogPrintf("! ERROR : Failed to remove old log file");
+                }
+            }
+
+            // backup : log -> previous
+            if (rename(logFilePath, previousLogFilePath) != 0) {
+                WHBLogPrintf("! ERROR : Failed to rename log file");
+                
+            }
+            WHBLogConsoleDraw();  
+        }
+        
+    #endif    
+    
     display(" -=============================-");
     display("|    %s     |", VERSION_STRING);
     display(" -=============================-");
@@ -472,17 +477,21 @@ int main()
         res = MCPHookOpen();
     if (res < 0) {
         display("! ERROR : IOSUHAX_Open failed.");
-        goto exit;
+        goto exitCFW;
     }
-
+    
     fsaFd = IOSUHAX_FSA_Open();
     if (fsaFd < 0) {
         display("! ERROR : IOSUHAX_FSA_Open failed.");
         if (mcp_hook_fd >= 0) MCPHookClose();
         else IOSUHAX_Close();
-        goto exit;
+        goto exitCFW;
     }
-
+        
+    // *PAD init
+    KPADInit();
+    WPADInit();
+    
 #ifdef CHECK_CONTROLLER
     // Check your controller
     display(" ");
@@ -491,6 +500,7 @@ int main()
     if (!checkController(&vpadStatus)) {
         display("This controller is not supported, exiting in 10 sec");
         OSSleepTicks(OSMillisecondsToTicks(10000));
+        
         goto exit;
     }
 #endif
@@ -560,35 +570,11 @@ int main()
     }
 
     display(" ");
-    int nbDrives=MountVirtualDevices(fsaFd, mountMlc);
+    int nbDrives=MountVirtualDevices(mountMlc);
     if (nbDrives == 0) {
         display("! ERROR : No virtual devices mounted !");
         goto exit;
     }
-    
-    #ifdef LOG2FILE
-        
-        // if log file exists
-        if (access(logFilePath, F_OK) == 0) {
-            // file exists
-
-            // check if second log file exists
-            if (access(previousLogFilePath, F_OK) == 0) {
-                // remove previousLogFilePath
-                if (remove(previousLogFilePath) != 0) {
-                    WHBLogPrintf("! ERROR : Failed to remove old log file");
-                }
-            }
-
-            // backup : log -> previous
-            if (rename(logFilePath, previousLogFilePath) != 0) {
-                WHBLogPrintf("! ERROR : Failed to rename log file");
-                
-            }
-            WHBLogConsoleDraw();  
-        }
-        
-    #endif    
 
     // if SFV file exists
     if (access(sfvFilePath, F_OK) == 0) {
@@ -607,25 +593,20 @@ int main()
             display("! ERROR : Failed to rename SFV file");
         }
     }
-
-    // update path of sfvFilePath before writing to it
-    if (mountMlc) {
-        strcpy(sfvFilePath, "storage_mlc:/usr/tmp/WiiUFtpServer_crc32_report.sfv");
-    } else {
-        strcpy(sfvFilePath, "storage_usb:/usr/tmp/WiiUFtpServer_crc32_report.sfv");
-    }
-    
-    // write Sfv header
-    writeSfvHeader();
-    
+        
     display(" ");
     display("Starting network and create server...");
     display(" ");
 
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
-    int backupExist = checkEntry(backupCheck);
+    bool backupExist = (access(backupCheck, F_OK) == 0);
     if (mountMlc) {
-        if (backupExist != 1) {
+        if (!backupExist) {
+            fatUnmount("sd");            
+            IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
+
+            mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard");
+            
             cls();
             display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");
             display(" ");
@@ -663,6 +644,11 @@ int main()
             display("");
             readUserAnswer(&vpadStatus);
             cls();
+            unmount_fs("storage_sdcard");
+            IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
+            
+            fatMountSimple("sd", &IOSUHAX_sdio_disc_interface);
+            VirtualMountDevice("sd:/");            
         }
         if (!calculateCrc32) displayCrcWarning();
     }
@@ -674,7 +660,7 @@ int main()
     if (initialize_network() < 0) {
         display("! ERROR : when initializing network");
         OSSleepTicks(OSMillisecondsToTicks(5000));
-        goto exitCFW;
+        goto exit;
     }
     bool networkDown = false;
 
@@ -697,14 +683,19 @@ int main()
         display(" ");
         display("! ERROR : network is OFF on the wii-U, FTP is impossible");
         display(" ");
-        if (backupExist != 1) {
-            display("Do you need to restore the partial NAND backup?");
+        if (backupExist) {
+            display("If you have already checked the Network connection to the WIi-U");
+            display("Do you want to restore the partial NAND backup?");
             display(" ");
             display("Press A for YES, B for NO ");
             display("");
             if (readUserAnswer(&vpadStatus)) {
                 display("NAND backup will be restored, please confirm");
                 display("");
+                fatUnmount("sd");            
+                IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
+
+                mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard");                
                 if (readUserAnswer(&vpadStatus)) restoreNandBackup();
                 display("");
                 // reboot
@@ -739,6 +730,13 @@ int main()
     if (autoShutDown) display(" (auto shutdown is ON , use DOWN button to toggle state)");
     else display(" (auto shutdown is OFF, use DOWN button to toggle state)");
 
+    bool sflHeaderWritten = false;
+    // write Sfv header
+    if (calculateCrc32) {
+        writeSfvHeader();
+        sflHeaderWritten = true;
+    }
+    
     bool userExitRequest = false;
     cpt=0;
     while (!networkDown && !userExitRequest)
@@ -778,6 +776,11 @@ int main()
             } else {
                 display("(enable CRC32 computation)");
                 calculateCrc32 = true;
+                // write Sfv header
+                if (!sflHeaderWritten) {
+                    writeSfvHeader();
+                    sflHeaderWritten = true;
+                }
             }
             OSSleepTicks(OSMillisecondsToTicks(500));
         }

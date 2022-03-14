@@ -176,14 +176,14 @@ int32_t initialize_network()
     #endif
         
     #ifdef LOG2FILE      
-        display("--------------- MAIN SETTINGS ----------------");
-        display("NB_SIMULTANEOUS_TRANSFERS     = %d", NB_SIMULTANEOUS_TRANSFERS);
-        display("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
-        display("network retries number        = %d", retriesNumber);
-        display("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
-        display("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
-        display("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
-        display("----------------------------------------------");
+        writeToLog("--------------- MAIN SETTINGS ----------------");
+        writeToLog("NB_SIMULTANEOUS_TRANSFERS     = %d", NB_SIMULTANEOUS_TRANSFERS);
+        writeToLog("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
+        writeToLog("network retries number        = %d", retriesNumber);
+        writeToLog("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
+        writeToLog("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
+        writeToLog("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
+        writeToLog("----------------------------------------------");
    #endif
    
    return 0;
@@ -485,7 +485,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE;
+    int32_t downloadBufferSize = TRANSFER_BUFFER_SIZE;
 
     // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();
@@ -510,9 +510,6 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                 prioLowered = true;
             }
         
-            // add buffer contribution to the the CRC32 computation
-            if (calculateCrc32) connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
-        
             uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
 
@@ -535,6 +532,9 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                     // result = error, connection will be closed
                     break;
                 } else {
+                    // add buffer contribution to the the CRC32 computation
+                    if (calculateCrc32) connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
+
                     // data block sent sucessfully, continue
                     connection->dataTransferOffset += result;
                     connection->bytesTransferred = result;
@@ -590,7 +590,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // network_readChunk() overflow cannot exceed 2*SOCKET_BUFFER_SIZE bytes after setsockopt(RCVBUF)
     // use a buffer with twice the size to handle the bytes overflow
     int32_t uploadBufferSize = TRANSFER_BUFFER_SIZE - (2*SOCKET_BUFFER_SIZE);
-        
+    
     // if less than 4 transfers are running, lower the priority to let other connections start (only 3 cores are available)
     bool prioLowered = false;
     int nbt = getActiveTransfersNumber();
@@ -627,13 +627,9 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         } else {
             // bytes_received > 0
 
-            // add buffer contribution to the the CRC32 computation
-            if (calculateCrc32) {
-                if (!prioLowered) {
-                    OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
-                    prioLowered = true;
-                }
-                connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_received);            
+            if (!prioLowered) {
+                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
+                prioLowered = true;
             }
             
             // write bytes_received to f
@@ -647,6 +643,10 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
                 result = -100;
                 break;
             } else {
+                // add buffer contribution to the the CRC32 computation
+                if (calculateCrc32) {
+                    connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_received);            
+                }
                 connection->dataTransferOffset += result;
                 connection->bytesTransferred = result;                
             }

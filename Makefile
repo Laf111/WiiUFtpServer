@@ -10,6 +10,7 @@ endif
 TOPDIR ?= $(CURDIR)
 WUT_ROOT := $(DEVKITPRO)/wut
 IOSUHAX_ROOT := $(DEVKITPRO)/iosuhax
+FAT_ROOT := $(DEVKITPRO)/fat
 
 include $(WUT_ROOT)/share/wut_rules
 
@@ -31,12 +32,12 @@ INCLUDES	:=	src
 # options for code generation
 #-------------------------------------------------------------------------------
 CFLAGS	:=	-mrvl -mcpu=750 -meabi -mhard-float -ffast-math \
-                -Ofast -Wall -Wextra -Wno-strict-aliasing \
-                -D__WIIU__ -D__WUT__ \
-                -DVERSION_STRING="\"WiiU Ftp Server v$(WiiUFtpServerVersion)\""
+            -Ofast -Wall -Wextra -Wno-strict-aliasing \
+            -D__WIIU__ -D__wiiu__ -D__WUT__ \
+            -DVERSION_STRING="\"WiiU Ftp Server v$(WiiUFtpServerVersion)\""
 
-# the log file is disabled by default (kill performance)
-# /vol/storage_sdcard/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log and .old (previous session)
+# enable WiiUFtpServer log file
+# /sd/wiiu/apps/WiiuFtpServer/WiiuFtpServer.log and .old (previous session)
 #CFLAGS	+=	-DLOG2FILE
 
 # enable controller check 
@@ -48,13 +49,13 @@ CXXFLAGS	:= $(CFLAGS)
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-g $(ARCH) $(RPXSPECS) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lwut -liosuhax
+LIBS	:= -lwut -lfat -liosuhax
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib
 #-------------------------------------------------------------------------------
-LIBDIRS	:= $(WUT_ROOT) $(IOSUHAX_ROOT)
+LIBDIRS	:= $(WUT_ROOT) $(IOSUHAX_ROOT) $(FAT_ROOT)
 
 #-------------------------------------------------------------------------------
 # no real need to edit anything past this point unless you need to add additional

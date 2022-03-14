@@ -4,7 +4,7 @@
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
 VERSION_MAJOR=9
-VERSION_MINOR=0
+VERSION_MINOR=1
 VERSION_PATCH=0
 export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -35,14 +35,15 @@ else
             # wutVersion=${line##*" * wut "}
             wutVersion="1.0.0-beta12"
             echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
-            echo "libIOSUHAX : [Wiiu-env]      in $DEVKITPRO/iosuhax"
+            echo "IOSUHAX    : [Wiiu-env]      in $DEVKITPRO/iosuhax"
+            echo "Fat        : [1.2.0]         in $DEVKITPRO/fat"
         fi
     else
         echo "$DEVKITPRO is invalid"
         exit 101
     fi
 fi
-more makefile | grep -v "#" | grep "CFLAGS" | grep "DLOG2FILE" > /dev/null 2>&1 && echo " " && echo "> logging to sd/wiiu/apps/WiiUFtpServer/WiiuFtpServer.log !"
+more makefile | grep -v "#" | grep "CFLAGS" | grep "DLOG2FILE" > /dev/null 2>&1 && echo " " && echo "> log to sd/wiiu/apps/WiiUFtpServer/WiiuFtpServer.log"
 
 check=$(env | grep "DEVKITPPC")
 if [ "$check" == "" ]; then

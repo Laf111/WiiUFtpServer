@@ -229,11 +229,6 @@ FILE *vrt_fopen(char *cwd, char *path, char *mode) {
     return f;
 }
 
-int vrt_fclose(FILE *f) {
-    int result = fclose(f);    
-    f = NULL;
-    return result;
-}
 
 int vrt_stat(char *cwd, char *path, struct stat *st) {
     char *real_path = to_real_path(cwd, path);
@@ -313,14 +308,20 @@ int vrt_mkdir(char *cwd, char *path, mode_t mode) {
 }
 
 int vrt_rename(char *cwd, char *from_path, char *to_path) {
-    char *real_to_path = to_real_path(cwd, to_path);
-    if (!real_to_path || !*real_to_path) return -1;
+    
+	char *real_to_path = to_real_path(cwd, to_path);
+	if (!real_to_path || !*real_to_path) return -1;
+    
+#ifdef LOG2FILE
+    display("DEBUG : vrt_rename, real_to_path=%s", real_to_path);
+#endif
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
     if (result < 0)
-        display("! ERROR : vrt_rename failed to rename %s to %s : err = %s", from_path, real_to_path, strerror(errno)); 
+        display("! ERROR : vrt_rename failed to rename %s to %s in %s : err = %d (%s)", from_path, real_to_path, cwd, errno, strerror(errno)); 
 
     free(real_to_path);
+
     return result;
 }
 

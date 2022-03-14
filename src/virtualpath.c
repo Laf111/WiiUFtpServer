@@ -31,21 +31,26 @@
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-0
  ***************************************************************************/
-
+// Wii U libraries will give us paths that use /vol/storage_mlc01/file.txt, but posix uses the mounted drive paths like storage_mlc01:/file.txt
+// this module handle posix path with virtual mounted drives (wrapping)
 #include <malloc.h>
 #include <string.h>
 #include <whb/log.h>
 #include <whb/log_console.h>
+
+#include <fat.h>
+
+#include <iosuhax_disc_interface.h>
 
 #include "virtualpath.h"
 
 extern void display(const char *fmt, ...);
 
 // iosuhax fd
-static int fsaFd = -1;
+extern int fsaFd;
 
 // mounting flags
-static int storage_sdcard=0;
+static int sd=0;
 static int storage_slccmpt=0;
 static int storage_mlc=0;
 static int storage_usb=0;
@@ -59,6 +64,7 @@ static int nbDevices=0;
 uint8_t MAX_VIRTUAL_PARTITIONS = 0;
 VIRTUAL_PARTITION * VIRTUAL_PARTITIONS = NULL;
 
+//--------------------------------------------------------------------------
 static void AddVirtualPath(const char *name, const char *alias, const char *prefix)
 {
     if (!VIRTUAL_PARTITIONS)
@@ -82,7 +88,8 @@ static void AddVirtualPath(const char *name, const char *alias, const char *pref
     MAX_VIRTUAL_PARTITIONS++;
 }
 
-static void VirtualMountDevice(const char * path)
+//--------------------------------------------------------------------------
+void VirtualMountDevice(const char * path)
 {
     if (!path)
         return;
@@ -116,6 +123,7 @@ static void VirtualMountDevice(const char * path)
     AddVirtualPath(name, alias, prefix);
 }
 
+//--------------------------------------------------------------------------
 void UnmountVirtualPaths()
 {
     uint32_t i = 0;
@@ -135,12 +143,13 @@ void UnmountVirtualPaths()
     MAX_VIRTUAL_PARTITIONS = 0;
 }
 
+//--------------------------------------------------------------------------
 void ResetVirtualPaths()
 {
     if (nbDevices > 0) {
         UnmountVirtualPaths();
 
-        if (storage_sdcard == 1)       VirtualMountDevice("storage_sdcard:/");
+        if (sd == 1)                   VirtualMountDevice("sd:/");
         if (storage_slccmpt == 1)      VirtualMountDevice("storage_slccmpt:/");
         if (storage_mlc == 1)          VirtualMountDevice("storage_mlc:/");
         if (storage_usb == 1)          VirtualMountDevice("storage_usb:/");
@@ -153,27 +162,28 @@ void ResetVirtualPaths()
 
     }
 }
+
 //--------------------------------------------------------------------------
-int    MountVirtualDevices(int hfd, bool mountMlc) {
+int MountVirtualDevices(bool mountMlc) {
 
-    fsaFd = hfd;
-    IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
-
-    if (mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard") >=0) {
-        display("Mounting storage_sdcard...");
-
-        storage_sdcard=1;
-        VirtualMountDevice("storage_sdcard:/");
+    // SDCard : use libFat or it will cripple performances on SDCard
+    if (fatMountSimple("sd", &IOSUHAX_sdio_disc_interface)) {
+        display("Mounting sd...");
+        sd=1;
+        VirtualMountDevice("sd:/");
         nbDevices++;
     }
+
+    // USB
     if (mount_fs("storage_usb", fsaFd, NULL, "/vol/storage_usb01") >=0) {
-    display("Mounting storage_usb...");
+        display("Mounting storage_usb...");
 
-    storage_usb=1;
-    VirtualMountDevice("storage_usb:/");
-    nbDevices++;
+        storage_usb=1;
+        VirtualMountDevice("storage_usb:/");
+        nbDevices++;
     }
-
+    
+    // MLC Paths
     if (mountMlc) {
         if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >=0) {
             display("Mounting storage_slccmpt...");
@@ -234,12 +244,10 @@ void UmountVirtualDevices() {
 
     UnmountVirtualPaths();
 
-    if (storage_sdcard == 1) {
-        unmount_fs("storage_sdcard");
-        display("Unmounting storage_sdcard...");
-
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
-        storage_sdcard = 0;
+    if (sd == 1) {
+        fatUnmount("sd");
+        display("Unmounting sd...");
+        sd = 0;
     }
     if (storage_slccmpt == 1) {
         unmount_fs("storage_slccmpt");

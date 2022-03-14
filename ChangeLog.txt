@@ -255,3 +255,11 @@ HISTORY :
     > CrcChecker V2 in python (Linux/window) 30 times faster than V1-2 bat file
     > update CrcChecker V1-3 (bat file) to the new CRC32 report format
 
+2022/03/14 V9-1 :
+    > add symlinks resolution for the ones found in updates and DLC folders (fix transfer errors on those files)
+    > move CRC32 calculation after the analysis of the return code of fwrite() in net::recv_to_file
+    > fix poor transfer speeds to SDCard with using libFat (it also fix app hang/cripple when activating the log file)
+    > fix issue#14 : Transfer large size file on SDcard, WIIUFTPSERVER disconnect? 
+    > fix poor transfer speeds to SDCard with using libFat (it also fix app hang/cripple when activating the log file)
+    
+    > fix : renaming failures
