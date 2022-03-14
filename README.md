@@ -77,6 +77,7 @@ To build from scratch :
 - install devkitPro (in DEVKITPRO_PATH)
 - get WUT >= beta12 from https://github.com/devkitPro/wut 
 - libIOSUHAX from https://github.com/wiiu-env/libiosuhax.
+- libFat from https://github.com/wiiu-env/libfat (because using only WUT+IOSUHAX cripple SDCard performance)
 
 
 Launch "msys2\msys2_shell.bat" 
@@ -85,7 +86,9 @@ Launch "msys2\msys2_shell.bat"
 
 - Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in
 
-- Build libIOSUHAX, create $DEVKITPRO_PATH/libiosuhax folder and put lib and include folders in
+- Build libIOSUHAX, create $DEVKITPRO_PATH/iosuhax folder and put lib and include folders in
+
+- Build libFat, create $DEVKITPRO_PATH/fat folder and put lib and include folders in
 
 - cd to WiiUFtpServer folder
 
