@@ -62,6 +62,9 @@ The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\
     - auto : IPV4 / V6
     - allow retry in active mode (full **active mode is not working**)
 
+- Under windows, enable long filenames support with setting to 1 the value of *HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled* because some files created by the Wii-U have a name with more than 128 characters (up to 170) and so the limit of 255 characters for the entire path can easily be reached.
+
+- I opened a ticket for FileZilla client that failed to transfer such files (https://trac.filezilla-project.org/ticket/12675#ticket)
 
 #
 # BUILD :
