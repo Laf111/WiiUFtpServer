@@ -46,7 +46,7 @@ The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\
 
 **NOTES :**
 
-- When transferring from/to SDcard, the number of simultaneous transfers is **hard limited to 4** to avoid I/O errors 
+- When transferring from/to **SDcard**, the number of simultaneous transfers is **hard limited to 4** to avoid I/O errors 
 
 - No user/password requiered and **only one client is allowed**
 
