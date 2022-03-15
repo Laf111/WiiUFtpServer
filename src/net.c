@@ -485,7 +485,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    int32_t downloadBufferSize = TRANSFER_BUFFER_SIZE;
+    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE*4;
 
     // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
     int nbt = getActiveTransfersNumber();

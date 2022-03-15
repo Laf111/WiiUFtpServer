@@ -61,7 +61,7 @@ static const uint32_t CRLF_LENGTH = 2;
 static volatile uint32_t activeConnectionsNumber = 0;
 static volatile uint32_t activeTransfersNumber = 0;
 static volatile uint32_t activeTransfersOnSD = 0;
-static const uint32_t maxTransfersOnSdCard = NB_SIMULTANEOUS_TRANSFERS;
+static const uint32_t maxTransfersOnSdCard = 4;
 
 // unique client IP address
 static char clientIp[15]="UNKNOWN_CLIENT";
@@ -277,12 +277,6 @@ int launchTransfer(int argc UNUSED, const char **argv)
     int32_t result = -101;
     connection_t* activeConnection = (connection_t*) argv;
 
-    // limit simultaneous transfert on SDCard
-    if (strstr(activeConnection->cwd, "/sd/") != NULL) {
-        while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
-        activeTransfersOnSD++;        
-    }
-    
     #ifdef LOG2FILE
         writeToLog("C[%d] launching transfer for %s", activeConnection->index+1, activeConnection->fileName);
     #endif
@@ -314,6 +308,13 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 //		    displayConnectionDetails(connection->index);
 		#endif
 
+        // limit simultaneous transfert on SDCard
+        if (strstr(connection->cwd, "/sd/") != NULL) {
+            while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
+            activeTransfersOnSD++;        
+        }
+          
+        
         // fix #10 : fix randomly file's corruption with removing the resizing of file's internal buffer
 
         // Launching transfer thread with a priority from 0 to NB_SIMULTANEOUS_TRANSFERS
@@ -638,35 +639,41 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                 }
             } else {
                 // path is not given, cwd gives the whole full path
+                if (strcmp(cwd, "/") != 0) {
 
-                // get path from cwd
-                path = getLastItemOfPath(cwdNoSlash);
-                *fileName = (char *)malloc (strlen(path)+1);
-                strcpy(*fileName, path);
+                    // get path from cwd
+                    path = getLastItemOfPath(cwdNoSlash);
+                    *fileName = (char *)malloc (strlen(path)+1);
+                    strcpy(*fileName, path);
 
-                pos = strrchr(cwdNoSlash, '/');
-                // folder is allocated by strndup
-                *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
+                    pos = strrchr(cwdNoSlash, '/');
+                    // folder is allocated by strndup
+                    *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
 
-                // update cwd
-                strcpy(cwd, *folder);
-                strcat(cwd, "/");
+                    // update cwd
+                    strcpy(cwd, *folder);
+                    strcat(cwd, "/");
+                }
             }
         }
     } else {
+        
         // path is not given, cwd gives the whole full path
-        // get path from cwd
-        path = getLastItemOfPath(cwdNoSlash);
-        *fileName = (char *)malloc (strlen(path)+1);
-        strcpy(*fileName, path);
+        if (strcmp(cwd, "/") != 0) {
+            // path is not given, cwd gives the whole full path
+            // get path from cwd
+            path = getLastItemOfPath(cwdNoSlash);
+            *fileName = (char *)malloc (strlen(path)+1);
+            strcpy(*fileName, path);
 
-        pos = strrchr(cwdNoSlash, '/');
-        // folder is allocated by strndup
-        *folder = strndup(cwdNoSlash, strlen(path)-strlen(pos));
+            pos = strrchr(cwdNoSlash, '/');
+            // folder is allocated by strndup
+            *folder = strndup(cwdNoSlash, strlen(path)-strlen(pos));
 
-        // update cwd
-        strcpy(cwd, *folder);
-        strcat(cwd, "/");
+            // update cwd
+            strcpy(cwd, *folder);
+            strcat(cwd, "/");
+        }
     }
 }
 
@@ -762,42 +769,36 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
     char *folder = NULL;
     char *fileName = NULL;
 
-    // check if folder exist, creates it if needed
-    if (path[0] == '/') {
-        sprintf(vPath, "%s", path);
-        // get the folder from path
-        folder = (char *)malloc (strlen(path)+1);
-        strcpy(folder, path);
-        char *pos = strrchr(folder, '/');
-        fileName = strdup (pos + 1);
-    } else {
-        // folder = connection_cwd
-        sprintf(vPath, "%s/%s", connection->cwd, path);
-        folder = (char *)malloc (strlen(connection->cwd)+1);
-        strcpy (folder, connection->cwd);
-        fileName = (char *)malloc (strlen(path)+1);
-        strcpy (fileName, path);
-    }
-
+    secureAndSplitPath(connection->cwd, path, &folder, &fileName);
+	strcpy(connection->cwd, folder);
+	if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
+    
+    sprintf(vPath, "%s/%s", folder, fileName);
+    if (folder != NULL) free(folder);
+    
     char *volPath = NULL;
     volPath = virtualToVolPath(vPath);
 
+display("DEBUG : ftp_DELE vPath=%s", vPath);    
+    
     // chmod
     IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
     free(volPath);
 
-    if (!vrt_unlink(folder, fileName)) {
+display("DEBUG : ftp_DELE cwd=%s f=%s", connection->cwd, fileName);    
+    
+    if (!vrt_unlink(connection->cwd, fileName)) {
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "C[%d] File or directory removed", connection->index+1);
         if (fileName != NULL) free(fileName);
-        if (folder != NULL) free(folder);
+
         return write_reply(connection, 250, msg);
     } else {
         display("~ WARNING : error from vrt_unlink in ftp_DELE : %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when DELE %s%s : err = %s", connection->cwd, path, strerror(errno));
         if (fileName != NULL) free(fileName);
-        if (folder != NULL) free(folder);
+        
         return write_reply(connection, 550, msg);
     }
 }
@@ -879,7 +880,7 @@ static int32_t ftp_RNTO(connection_t *connection, char *path) {
     writeToLog("folder=%s, fileName=%s", folder, fileName);
 #endif
 
-    if (!vrt_rename(folder, connection->pending_rename, fileName)) {
+    if (!vrt_rename(connection->cwd, connection->pending_rename, fileName)) {
         sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, path);
         result = write_reply(connection, 250, msg);
     } else {
@@ -1020,7 +1021,7 @@ static int32_t ftp_PORT(connection_t *connection, char *portspec) {
 typedef int32_t (*data_connection_handler)(connection_t *connection, data_connection_callback callback, void *arg);
 
 static int32_t prepare_data_connection_active(connection_t *connection, data_connection_callback callback UNUSED, void *arg UNUSED) {
-
+    
     static const int retriesNumber = 4;
     int nbTries=0;
     try_again:
@@ -1156,6 +1157,7 @@ static int32_t ftp_NLST(connection_t *connection, char *path) {
         sprintf(msg, "Error when NLIST %s%s : err = %s", connection->cwd, path, strerror(errno));
         return write_reply(connection, 550, msg);
     }
+    
     int32_t result = prepare_data_connection(connection, send_nlst, dir, vrt_closedir);
     if (result < 0) {
         display("! ERROR : prepare_data_connection failed in ftp_NLST for %s", path);
@@ -1183,12 +1185,9 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
         path = ".";
     }
 
-    if (path && connection->cwd) if (strcmp(path, ".") == 0 && strcmp(connection->cwd, "/") == 0) {
-#ifdef LOG2FILE
-        writeToLog("ResetVirtualPaths from ftp_LIST");
-#endif
-        ResetVirtualPaths();
-    }
+//     if (path && connection->cwd) if (strcmp(path, ".") == 0 && strcmp(connection->cwd, "/") == 0) ResetVirtualPaths();
+
+   
     DIR_P *dir = vrt_opendir(connection->cwd, path);
     if (dir == NULL) {
         display("! ERROR : C[%d] vrt_opendir failed in ftp_LIST() on %s", connection->index+1, path);
@@ -1271,7 +1270,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     // file or symlink
     if (access(filePath, F_OK) != 0) {
 #ifdef LOG2FILE
-            writeToLog("DEBUG : symlink detected = %s", filePath); 
+            writeToLog("C[%d] ftp_RETR : symlink detected = %s", connection->index+1, filePath); 
 #endif            
         // symlink
         char *resolved = NULL;
@@ -1280,7 +1279,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         if (resolved != NULL) {
             strcpy(folder, resolved);
 #ifdef LOG2FILE
-            writeToLog("DEBUG : resolved = %s", resolved); 
+            writeToLog("C[%d] ftp_RETR : resolved = %s", connection->index+1, resolved); 
 #endif
             free(resolved);
         }
@@ -1524,6 +1523,7 @@ static int32_t dispatch_to_handler(connection_t *connection, char *cmd_line, con
     char cmd[FTP_MSG_BUFFER_SIZE] = "", rest[FTP_MSG_BUFFER_SIZE] = "";
     char *args[] = { cmd, rest };
     split(cmd_line, ' ', 1, args);
+    
     int32_t i;
     for (i = 0; commands[i]; i++) {
         if (!strcasecmp(commands[i], cmd)) break;

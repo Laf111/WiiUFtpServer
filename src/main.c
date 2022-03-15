@@ -46,10 +46,6 @@
 // return code
 #define EXIT_SUCCESS        0
 
-// defined for 8 simultaneous transferts
-#define SD_CACHE_PAGES (512*NB_SIMULTANEOUS_TRANSFERS)
-#define SD_SECTORS_PAGE (128*NB_SIMULTANEOUS_TRANSFERS)
-
 typedef enum
 {
 	APP_STATE_STOPPING = 0,
@@ -370,10 +366,7 @@ static void writeSfvHeader() {
 int main()
 {
     setlocale(LC_ALL, "");
-    
-    // specific libfat init for WiiUFtpServer
-    fatInitEx(SD_CACHE_PAGES, true, SD_SECTORS_PAGE);
-    
+        
     // Console init
     WHBLogUdpInit();
     WHBProcInit();

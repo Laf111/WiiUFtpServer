@@ -294,9 +294,22 @@ int vrt_chdir(char *cwd, char *path) {
 }
 
 int vrt_unlink(char *cwd, char *path) {
+    int res = -1;
+    
+    if (vrt_checkdir(cwd, path) == 0) {
+		// it is a folder
+#ifdef LOG2FILE
+        writeToLog("vrt_unlink folder detected %s%s", cwd, path);
+#endif
         
-    int res = (int)with_virtual_path(cwd, unlink, path, -1, NULL);
+        res = (int)with_virtual_path(cwd, rmdir, path, -1, NULL);
+    } else { 
+#ifdef LOG2FILE
+        writeToLog("vrt_unlink file detected %s%s", cwd, path);
+#endif
         
+        res = (int)with_virtual_path(cwd, unlink, path, -1, NULL);
+    }    
     return res;
 }
 
@@ -313,7 +326,7 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
 	if (!real_to_path || !*real_to_path) return -1;
     
 #ifdef LOG2FILE
-    display("DEBUG : vrt_rename, real_to_path=%s", real_to_path);
+    writeToLog("DEBUG : vrt_rename, real_to_path=%s", real_to_path);
 #endif
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
