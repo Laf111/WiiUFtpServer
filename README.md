@@ -77,9 +77,9 @@ The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\
 To build from scratch :
 
 - install [devkitPro](https://github.com/devkitPro/installer/releases/latest) (in DEVKITPRO_PATH)
-- get [libWUT](https://github.com/devkitPro/wut/releases/latest) 
-- get [libIOSUHAX](https://github.com/wiiu-env/libiosuhax/releases/latest)
-- get [libFat](https://github.com/wiiu-env/libfat/releases/latest) (because using only WUT+IOSUHAX cripple SDCard performance)
+- get [libWUT](https://github.com/devkitPro/wut) 
+- get [libIOSUHAX](https://github.com/wiiu-env/libiosuhax)
+- get [libFat](https://github.com/wiiu-env/libfat) (because using only WUT+IOSUHAX cripple SDCard performance)
 
 
 Launch "msys2\msys2_shell.bat" 
