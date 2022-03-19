@@ -263,8 +263,22 @@ static void displayCrcWarning() {
     display("(available in WiiUFtpServer HBL app subfolder on the SDcard)");
     display("");
     display("");
-    display("Press A or B button to continue");
-    readUserAnswer(&vpadStatus);
+
+    display("Press A or B button to continue (timeout in 10 sec)");
+	
+    bool buttonPressed = false;
+    int cpt = 0;
+    while (!buttonPressed && (cpt < 300))
+    {
+        listenControlerEvent(&vpadStatus);
+        
+        // check A/B button pressed and/or hold
+        if ( ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_A) | \
+             ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_B) ) buttonPressed = true;
+			 
+        OSSleepTicks(OSMillisecondsToTicks(1));
+		cpt+=1;
+	}	
     cls();
 }
 

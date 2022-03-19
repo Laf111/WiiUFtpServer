@@ -326,7 +326,7 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
 	if (!real_to_path || !*real_to_path) return -1;
     
 #ifdef LOG2FILE
-    writeToLog("DEBUG : vrt_rename, real_to_path=%s", real_to_path);
+    writeToLog("vrt_rename, real_to_path=%s", real_to_path);
 #endif
     
     int result = (int)with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);

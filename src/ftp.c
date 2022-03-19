@@ -67,7 +67,7 @@ static const uint32_t maxTransfersOnSdCard = 4;
 static char clientIp[15]="UNKNOWN_CLIENT";
 
 // passive_port : 1024 - 65535
-static uint16_t passive_port = 1024;
+static volatile uint16_t passive_port = 1024;
 static char *password = NULL;
 
 // OS time computed in main
@@ -86,6 +86,8 @@ static float minTransferRate = 9999;
 
 // sum of average speeds
 static float sumAvgSpeed = 0;
+// last sum of average speeds
+static float lastSumAvgSpeed = 0;
 // number of measures used for average computation
 static uint32_t nbSpeedMeasures = 0;
 
@@ -779,13 +781,11 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
     char *volPath = NULL;
     volPath = virtualToVolPath(vPath);
 
-display("DEBUG : ftp_DELE vPath=%s", vPath);    
     
     // chmod
     IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
     free(volPath);
 
-display("DEBUG : ftp_DELE cwd=%s f=%s", connection->cwd, fileName);    
     
     if (!vrt_unlink(connection->cwd, fileName)) {
         char msg[MAXPATHLEN + 40] = "";
@@ -1185,9 +1185,6 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
         path = ".";
     }
 
-//     if (path && connection->cwd) if (strcmp(path, ".") == 0 && strcmp(connection->cwd, "/") == 0) ResetVirtualPaths();
-
-   
     DIR_P *dir = vrt_opendir(connection->cwd, path);
     if (dir == NULL) {
         display("! ERROR : C[%d] vrt_opendir failed in ftp_LIST() on %s", connection->index+1, path);
@@ -1636,6 +1633,14 @@ static void cleanup_data_resources(connection_t *connection) {
 
 }
 
+static void displayTransferSpeedStats() {
+    if (nbSpeedMeasures != 0) {
+        display(" ");
+        display("------------------------------------------------------------");
+        display("  Speed (MB/s) [min = %.2f, mean = %.2f, max = %.2f]", minTransferRate, sumAvgSpeed/(float)nbSpeedMeasures, maxTransferRate);
+    }
+}
+
 static void cleanup_connection(connection_t *connection) {
 
     network_close(connection->socket);
@@ -1660,6 +1665,17 @@ static void cleanup_connection(connection_t *connection) {
     free(connection);
     activeConnectionsNumber--;
     display("- %s connection C[%d] closed", clientIp, connection_index+1);
+
+    // if only a browse connection is active
+    if (activeConnectionsNumber == 1) {
+        if (activeTransfersNumber == 0) {
+            if (lastSumAvgSpeed != sumAvgSpeed) {
+                displayTransferSpeedStats();
+                lastSumAvgSpeed = sumAvgSpeed;
+            }
+        }
+    }
+
 }
 
 
@@ -1707,12 +1723,9 @@ void cleanup_ftp() {
             transferBuffers[connection_index] = NULL;
         }
         if (password != NULL) free(password);
-
-        if (nbSpeedMeasures != 0) {
-            display(" ");
-            display("------------------------------------------------------------");
-            display("  Speed (MB/s) [min = %.2f, mean = %.2f, max = %.2f]", minTransferRate, sumAvgSpeed/(float)nbSpeedMeasures, maxTransferRate);
-        }
+        
+        displayTransferSpeedStats();
+        
     }
 }
 

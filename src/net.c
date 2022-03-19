@@ -485,11 +485,12 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE*4;
+    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE*3;
 
-    // if less than 4 transfers are running, sleep just an instant to let other connections start (only 3 cores are available)
+    // if mutli-transfers, lower priority and sleep a little to let other connection start
+    // the more connections are opened the more it sleeps
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4 ) OSSleepTicks(OSMillisecondsToTicks(40));    
+    if ( nbt >=2 ) OSSleepTicks(OSMillisecondsToTicks(nbt*10));    
     
     bool prioLowered = false;
     int32_t bytes_read = downloadBufferSize;        
@@ -504,12 +505,6 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         }        
         if (bytes_read > 0) {
             
-            // after the first chunk received, lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
-            if (!prioLowered) {
-                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
-                prioLowered = true;
-            }
-        
             uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
 
@@ -532,6 +527,14 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                     // result = error, connection will be closed
                     break;
                 } else {
+                    
+                    // after the first chunk sent, lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
+                    if (!prioLowered) {
+                        // gives more priority in function of connection's index (last openned is index = 8)
+                        OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS-connection->index);
+                        prioLowered = true;
+                    }
+                    
                     // add buffer contribution to the the CRC32 computation
                     if (calculateCrc32) connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
 
@@ -591,15 +594,15 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // use a buffer with twice the size to handle the bytes overflow
     int32_t uploadBufferSize = TRANSFER_BUFFER_SIZE - (2*SOCKET_BUFFER_SIZE);
     
-    // if less than 4 transfers are running, lower the priority to let other connections start (only 3 cores are available)
-    bool prioLowered = false;
+    // if mutli-transfers, lower priority and sleep a little to let other connection start
+    // the more connections are opened the more it sleeps
     int nbt = getActiveTransfersNumber();
-    if ( nbt < 4 ) {
-        // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
+    if ( nbt >=3 ) {
+        OSSleepTicks(OSMillisecondsToTicks(nbt*10));    
         OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
-        prioLowered = true;
     }
     
+    bool prioLowered = false;
     uint32_t retryNumber = 0;
 
     int32_t bytes_received = uploadBufferSize;
@@ -628,7 +631,8 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
             // bytes_received > 0
 
             if (!prioLowered) {
-                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);
+                // lower the priority to 2*NB_SIMULTANEOUS_TRANSFERS
+                OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
                 prioLowered = true;
             }
             
