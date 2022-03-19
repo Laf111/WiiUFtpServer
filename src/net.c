@@ -485,12 +485,12 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    int32_t downloadBufferSize = TRANSFER_CHUNK_SIZE*3;
+    int32_t downloadBufferSize = 2*SOCKET_BUFFER_SIZE;
 
     // if mutli-transfers, lower priority and sleep a little to let other connection start
     // the more connections are opened the more it sleeps
     int nbt = getActiveTransfersNumber();
-    if ( nbt >=2 ) OSSleepTicks(OSMillisecondsToTicks(nbt*10));    
+    if ( nbt >=2 ) OSSleepTicks(OSMillisecondsToTicks(nbt*2));    
     
     bool prioLowered = false;
     int32_t bytes_read = downloadBufferSize;        

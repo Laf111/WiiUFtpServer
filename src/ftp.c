@@ -52,6 +52,7 @@ extern void writeCRC32(const char way, const char *cwd, const char *name, const 
     int nbDataSocketsOpened = 0;
 #endif
 
+static bool network_down = false;
 static const uint16_t SRC_PORT = 20;
 static const int32_t EQUIT = 696969;
 static const char *CRLF = "\r\n";
@@ -1664,16 +1665,17 @@ static void cleanup_connection(connection_t *connection) {
 
     free(connection);
     activeConnectionsNumber--;
-    display("- %s connection C[%d] closed", clientIp, connection_index+1);
 
     // if only a browse connection is active
     if (activeConnectionsNumber == 1) {
         if (activeTransfersNumber == 0) {
-            if (lastSumAvgSpeed != sumAvgSpeed) {
+            if ((!network_down) && (lastSumAvgSpeed != sumAvgSpeed)) {
                 displayTransferSpeedStats();
                 lastSumAvgSpeed = sumAvgSpeed;
             }
         }
+    } else {
+        display("- %s connection C[%d] closed", clientIp, connection_index+1);        
     }
 
 }
@@ -1694,6 +1696,7 @@ static connection_t* getFirstConnectionAvailable() {
 
 void cleanup_ftp() {
 
+    network_down = true;
     if (listener != -1) {
 
 #ifdef LOG2FILE
@@ -1722,9 +1725,9 @@ void cleanup_ftp() {
             if (transferBuffers[connection_index] != NULL) MEMFreeToDefaultHeap((void*)transferBuffers[connection_index]);
             transferBuffers[connection_index] = NULL;
         }
-        if (password != NULL) free(password);
-        
-        displayTransferSpeedStats();
+        if (password != NULL) free(password);  
+
+        if (lastSumAvgSpeed != sumAvgSpeed) displayTransferSpeedStats();
         
     }
 }
@@ -2033,7 +2036,7 @@ static void process_control_events(connection_t *connection) {
 
 bool process_ftp_events() {
 
-    bool network_down = !processConnections();
+    network_down = !processConnections();
 
     if (!network_down) {
         uint32_t connection_index;
