@@ -3,6 +3,31 @@
 ## WiiUFtpServer WUP package builder (java needed)
 ################################################################################
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# LOCAL FUNCTIONS
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function CheckNusP {
+    check=$(more $scriptFolderPath/Key.txt | grep "ENCRYPTING_KEY_32HEXACHARS")
+    if [ "$check" != "" ]; then
+    
+        echo " "
+        echo "No key found in Key.txt"
+        echo " "
+        echo "Replace the last line in Key.txt" 
+        echo "with the key you want to echo use for encrypting the data."
+        echo " "
+        echo "(use the Wii U common key for custom app)"
+        exit 101
+    fi
+    
+    KEY=$(more $scriptFolderPath/Key.txt | grep -E "^[A-Fa-F0-9]{32}$")
+    
+    if [ "$KEY" == "" ]; then
+        echo "ERROR : WiiU common key not found in Key.txt !"    
+        exit 50
+    fi
+
+}
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # MAIN PARAMETERS
@@ -32,6 +57,9 @@ read pause
 
 wiiUFtpServerRoot=$(dirname $scriptFolderPath)
 
+KEY=""
+CheckNusP
+
 INPUTDIRECTORY=$wiiUFtpServerRoot/_loadiine/$titleId
 OUTPUTDIRECTORY=$wiiUFtpServerRoot/_sdCard/install/WiiUFtpServer
 if [ ! -d $OUTPUTDIRECTORY ]; then
@@ -53,10 +81,7 @@ rm -rf $tmpFolder > /dev/null 2>&1
 rm -rf $outputFolder > /dev/null 2>&1
 
 echo "========================================================="
-echo "done, WUP package created in $OUTPUTDIRECTORY
-
-
-
+echo "done, WUP package created in $OUTPUTDIRECTORY"
 
 echo "#######################################################################" 
 
