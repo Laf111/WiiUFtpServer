@@ -2,8 +2,15 @@
 <app version="1">
   <name>WiiUFtpServer</name>
   <coder>Laf111</coder>
-  <version>7.0.0</version>
-  <release_date>20210425040807</release_date>
-  <short_description>A robust and optimized FTP server for the Wii-U</short_description>
-  <long_description>Based on FTPiiU server. Fix : file injection failures, file timestamps, transfers number and speeds.</long_description>
+  <version>9.3.0</version>
+  <release_date>20220329204046</release_date>
+  <short_description>A robust and optimized FTP server for the Wii-U!</short_description>
+  <long_description><![CDATA[Based on FTP-everywhere server, this version fix :
+  
+     - file injection failures (put rights on files), 
+     - display the right file timestamps when available, 
+     - transfers number (up to 8) and speeds, 
+     - add an optional CRC check of files transferred.
+     
+Get the crcChecker in the WiiUFtpServer app folder on the SDCard]]></long_description>
 </app>
