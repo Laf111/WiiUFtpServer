@@ -23,7 +23,7 @@ REM : main
     set "SCRIPT_FOLDER="%~dp0"" && set "NUSPFolder=!SCRIPT_FOLDER:\"="!"
 
     for %%a in (!NUSPFolder!) do set "parentFolder="%%~dpa""
-    set "WiiuFtpServerRoot=!parentFolder:~0,-2!""
+    set "WiiUFtpServerRoot=!parentFolder:~0,-2!""
 
     set "notePad="%windir%\System32\notepad.exe""
 
@@ -63,8 +63,8 @@ REM : main
     REM : cd to NUSPFolder
     pushd !NUSPFolder!
 
-    set "INPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_loadiine\0005000010050421""
-    set "OUTPUTDIRECTORY="!WiiuFtpServerRoot:"=!\_sdCard\install\WiiuFtpServer""
+    set "INPUTDIRECTORY="!WiiUFtpServerRoot:"=!\_loadiine\0005000010050421""
+    set "OUTPUTDIRECTORY="!WiiUFtpServerRoot:"=!\_sdCard\install\WiiUFtpServer""
     if exist !OUTPUTDIRECTORY! rmdir /Q /S !OUTPUTDIRECTORY! > NUL 2>&1
     mkdir !OUTPUTDIRECTORY! > NUL 2>&1
     
