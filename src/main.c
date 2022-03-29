@@ -608,7 +608,7 @@ int main()
     // if mountMlc, check that a NAND backup exists, ask to create one otherwise
     bool backupExist = (access(backupCheck, F_OK) == 0);
     if (mountMlc) {
-        if (!backupExist) {
+        if (!backupExist) {            
             fatUnmount("sd");            
             IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
 
@@ -653,9 +653,10 @@ int main()
             cls();
             unmount_fs("storage_sdcard");
             IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_sdcard");
-            
+                        
             fatMountSimple("sd", &IOSUHAX_sdio_disc_interface);
-            VirtualMountDevice("sd:/");            
+            ResetVirtualPaths();    
+            
         }
         if (!calculateCrc32) displayCrcWarning();
     }
@@ -699,12 +700,13 @@ int main()
             if (readUserAnswer(&vpadStatus)) {
                 display("NAND backup will be restored, please confirm");
                 display("");
-                fatUnmount("sd");            
+                fatUnmount("sd");                 
                 IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
-
-                mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard");                
+                mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard");
+                
                 if (readUserAnswer(&vpadStatus)) restoreNandBackup();
                 display("");
+                
                 // reboot
                 display("Shutdowning...");
                 OSSleepTicks(OSMillisecondsToTicks(2000));
