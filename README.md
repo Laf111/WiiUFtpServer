@@ -78,8 +78,8 @@ To build from scratch :
 
 - install [devkitPro](https://github.com/devkitPro/installer/releases/latest) (in DEVKITPRO_PATH)
 - get [libWUT](https://github.com/devkitPro/wut) 
-- get [libIOSUHAX](https://github.com/wiiu-env/libiosuhax)
-- get [libFat](https://github.com/wiiu-env/libfat) (because using only WUT+IOSUHAX cripple SDCard performance)
+- get [libIOSUHAX](https://github.com/Crementif/libiosuhax) (crementif version)
+- get [libFat](https://github.com/Crementif/libfat) (because using only WUT+IOSUHAX cripple SDCard performance, crementif version)
 
 
 Launch "msys2\msys2_shell.bat" 
