@@ -11,7 +11,7 @@ Based on ftpiiu but with the following issues fixed :
 - **connections failures and crashs**
 - file's dates (timestamps)
 - symlinks displayed in FTP client browser
-- symlinks resolution for the ones in update and DLC content)
+- symlinks resolution for the ones found in update and DLC content
 - **file injection (add rights on files uploaded)**
 - remove the one slot limitation on upload and unlock up to **8 simultaneous transfers (download/upload)**
 - **much more faster than the original**
