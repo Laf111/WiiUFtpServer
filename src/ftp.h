@@ -65,7 +65,7 @@ misrepresented as being the original software.
 
 #define FTP_STACK_SIZE (20*1024)
 
-#define FTP_TRANSFER_STACK_SIZE (32*1024)
+#define FTP_TRANSFER_STACK_SIZE (18*1024)
 
 
 #ifdef __cplusplus

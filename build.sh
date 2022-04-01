@@ -35,8 +35,8 @@ else
             # wutVersion=${line##*" * wut "}
             wutVersion="1.0.0-beta12"
             echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
-            echo "IOSUHAX    : [Wiiu-env]      in $DEVKITPRO/iosuhax"
-            echo "Fat        : [1.2.0]         in $DEVKITPRO/fat"
+            echo "IOSUHAX    : [crementif]     in $DEVKITPRO/iosuhax"
+            echo "Fat        : [crementif]     in $DEVKITPRO/fat"
         fi
     else
         echo "$DEVKITPRO is invalid"

@@ -73,8 +73,8 @@ static char *password = NULL;
 
 // OS time computed in main
 static struct tm *timeOs=NULL;
-// OS time computed in main
-static time_t tsOs=0;
+// OS time creation date = 31/12/2009
+static const time_t minTime = 1262214000;
 
 static connection_t *connections[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
 static volatile void *transferBuffers[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
@@ -129,40 +129,8 @@ int32_t create_server(uint16_t port) {
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
     display(ipText);
     display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-    if (timeOs != NULL && tsOs == 0) {
-        time_t ts1970=mktime(timeOs);
-        tsOs = ts1970*1000000 + 86400*((366*2) + (365*8) +1);
-    }
-
+    
     return listener;
-}
-
-// transform a date from J1980 with microseconds to J1970 (UNIX epoch)
-// GetStat can return 0 with faulty time stamp ! -> add check on time stamp value
-static struct tm getDateEpoch(time_t ts1980) {
-    // output
-    struct tm *time=NULL;
-    // initialized with timeOs
-    if (timeOs == NULL) return *(localtime(NULL));
-
-    if (ts1980 == 0) return (*timeOs);
-    time=timeOs;
-
-    // check ts1980 value (1980 epoch with micro seconds)
-    // 01/01/2010 00:00:00 -> 946771200,  with us = 946771200000000
-    // 01/01/2038 00:00:00 -> 1830384000, with us = 1830384000000000
-    time_t tsMax = tsOs + 86400*2;
-
-    if ( ts1980 <= 946771200000000 || ts1980 >= tsMax) return *time;
-
-    // compute the timestamp in J1970 Epoch (1972 and 1976 got 366 days)
-    time_t ts1970 = ts1980/1000000 + 86400*((366*2) + (365*8));
-
-    // get the corresponding tm
-    time=localtime(&ts1970);
-
-    return (*time);
-
 }
 
 // vPath : /storage_usb/path/saveinfo.xml -> vlPath : /vol/storage_usb01/path/saveinfo.xml
@@ -572,7 +540,12 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
     *folder = NULL;
     char *pos = NULL;
     
-    if ( (strcmp(cwd, "/") == 0) && ((strcmp(path, ".") == 0) || (strcmp(path, "/") == 0)) ) {
+    #ifdef LOG2FILE
+        writeToLog("secureAndSplitPath cwd=%s", cwd);
+        writeToLog("secureAndSplitPath path=%s", path);
+    #endif
+    
+    if ( (strcmp(cwd, "/") == 0) && (path &&((strcmp(path, ".") == 0) || (strcmp(path, "/") == 0))) ) {
         
         // allocate and copy folder with cwd
         *folder = (char *)malloc (strlen(cwd)+1);
@@ -609,7 +582,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
     #endif
 
             // if first char is a slash
-            if (path[0] == '/') {
+            if ((path[0] == '/') && (strlen(path) > 1)) {
                 // path gives the whole full path
 
                 // get the folder from path
@@ -679,31 +652,43 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                         }
                     }
                 } else {
-                                    
-                    // path is not given, cwd gives the whole full path
-                    if (strcmp(cwd, "/") != 0) {
-
-    #ifdef LOG2FILE
-                        writeToLog("secureAndSplitPath cwd=%s", cwd);
-    #endif
+                    if (strlen(path) == 1) {
+                        if (strcmp(path, "/") == 0) {
+                            
+                            *folder = (char *)malloc (2);
+                            strcpy(*folder, "/");
+                            *fileName = (char *)malloc (2);
+                            strcpy(*fileName, ".");
+                            
+                        }
+                        // else should be '.'
+                    } else {
                     
-                        // get path from cwd
-                        path = getLastItemOfPath(cwdNoSlash);
-                        *fileName = (char *)malloc (strlen(path)+1);
-                        strcpy(*fileName, path);
+                        // path is not given, cwd gives the whole full path
+                        if (strcmp(cwd, "/") != 0) {
 
-                        pos = strrchr(cwdNoSlash, '/');
-                        // folder is allocated by strndup
-                        *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
+        #ifdef LOG2FILE
+                            writeToLog("secureAndSplitPath cwd=%s", cwd);
+        #endif
+                        
+                            // get path from cwd
+                            path = getLastItemOfPath(cwdNoSlash);
+                            *fileName = (char *)malloc (strlen(path)+1);
+                            strcpy(*fileName, path);
 
-                        // update cwd
-                        strcpy(cwd, *folder);
-                        strcat(cwd, "/");
-                        
-    #ifdef LOG2FILE
-                        writeToLog("secureAndSplitPath fileName4=%s", *fileName);
-    #endif
-                        
+                            pos = strrchr(cwdNoSlash, '/');
+                            // folder is allocated by strndup
+                            *folder = strndup(cwdNoSlash, strlen(cwdNoSlash)-strlen(pos));
+
+                            // update cwd
+                            strcpy(cwd, *folder);
+                            strcat(cwd, "/");
+                            
+        #ifdef LOG2FILE
+                            writeToLog("secureAndSplitPath fileName4=%s", *fileName);
+        #endif
+                            
+                        }
                     }
                 }
             }
@@ -746,6 +731,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
             
         }
     }
+    
 }
 
 static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
@@ -782,7 +768,7 @@ static int32_t ftp_PWD(connection_t *connection, char *rest UNUSED) {
         }
     #ifdef LOG2FILE
         writeToLog("C[%d] ftp_PWD new dir = %s", connection->index+1, connection->cwd);
-        display("%s", msg);
+        writeToLog("%s", msg);
     #endif
         
         if (parentFolder != NULL) free(parentFolder);
@@ -802,7 +788,6 @@ static int32_t ftp_CWD(connection_t *connection, char *path) {
     char *baseName = NULL;
 
     secureAndSplitPath(connection->cwd, path, &folder, &baseName);
-    
 #ifdef LOG2FILE
     writeToLog("C[%d] ftp_CWD folder=%s, baseName=%s", connection->index+1, folder, baseName);
 #endif
@@ -1284,6 +1269,12 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
 
     int32_t result = 0;
 
+    // compute dates intervals for checks
+    // min t = J2012
+    time_t min = minTime;
+    // max t = timeOS(GMT)+24H
+    time_t max = mktime(timeOs) + 86400.0;
+        
     char filename[MAXPATHLEN] = "";
     char line[2*MAXPATHLEN + 56 + CRLF_LENGTH + 1];
     struct dirent *dirent = NULL;
@@ -1293,15 +1284,40 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
         snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
         
         struct stat st;
-        stat(filename, &st);
+         
+        // initialize to session date
+        struct tm *timeInfo = timeOs;
+        uint64_t size = 0;
         
-        // compute date to display : transform a date from J1980 with microseconds to J1970 (UNIX epoch)
-        struct tm timeinfo = getDateEpoch((time_t)st.st_mtime);
+        // dim+1 needed
+        char permissions[10] = "rwxr-xr-x";
 
+        // check the code returned for setting the modified date
+        if (stat(filename, &st) == 0) {
+            // modified time
+            time_t mtime = st.st_mtime;
+            
+            // check modified date returned
+            if (mtime > min && mtime < max) { 
+                timeInfo = localtime(&mtime);
+            }
+            
+            // size
+            size = st.st_size;
+            
+            // permissions
+            if S_ISLNK(st.st_mode) strcpy(permissions, "[symlink]");
+
+        }
+        
         // dim = 13
         char timestamp[13]="";
-        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", &timeinfo);
-        snprintf(line, sizeof(line), "%crwxr-xr-x    1 0        0     %10llu %s %s\r\n", (dirent->d_type & DT_DIR) ? 'd' : '-', st.st_size, timestamp, dirent->d_name);
+        strftime(timestamp, sizeof(timestamp), "%b %d  %Y", timeInfo);
+        
+        char fileType = 'd';
+        if (dirent->d_type == DT_REG) fileType = '-';
+        
+        snprintf(line, sizeof(line), "%c%s    1 USER     WII-U %10llu %s %s\r\n", fileType, permissions, size, timestamp, dirent->d_name);
         if ((result = send_exact(data_socket, line, strlen(line))) < 0) {
             break;
         }
@@ -1350,7 +1366,7 @@ static int32_t ftp_LIST(connection_t *connection, char *path) {
     if (!*path) {
         path = ".";
     }
-
+    
 #ifdef LOG2FILE
     writeToLog("C[%d] ftp_LIST : listing cwd=%s path=%s", connection->index+1, connection->cwd, path); 
 #endif            
@@ -1434,10 +1450,15 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     secureAndSplitPath(connection->cwd, path, &folder, &fileName);
     strcat(folder, "/");
     char *filePath = to_real_path(folder, fileName);
-    // file or symlink
-    if (access(filePath, F_OK) != 0) {
+    
+    // file or symlink ?
+    struct stat st;
+    stat(filePath, &st);
+    
+    if S_ISLNK(st.st_mode) {
+        
 #ifdef LOG2FILE
-            writeToLog("C[%d] ftp_RETR : symlink detected = %s", connection->index+1, filePath); 
+        writeToLog("C[%d] ftp_RETR : symlink detected = %s", connection->index+1, filePath); 
 #endif            
         // symlink
         char *resolved = NULL;

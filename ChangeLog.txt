@@ -324,11 +324,15 @@ HISTORY :
     > add ./toWUP/createChannel.sh (Linux shell version) 
     > add a custom bootSound.btsnd to channel version (sample created from "ZOMBIE" by Fela Kuti)
 
-2022/03/30 V9-3 :    
+2022/04/01 V9-3 :    
+    > use libFat and libIOSUHAX versions from Crementif (thanks!!!) : better timestamps and symplinks support 
+    > now symlinks are identified in FTP client browser
     > fix regression Cyberduck connection failure #15
-    > fix sd drive mount twice after the NAND files backup
-    > fix release date patch in meta.xml in build.sh 
-    > add the ftp_RMD command (equivalent to ftp_DELE)
-    > fix case for folders names in ./toWUP/createChannel.bat 
     > fix FileZilla client fail to delete a folder #16 
+    > fix WinScp fail to list root #17 
+    > fix sd drive mount twice after the NAND files backup
+    > add the ftp_RMD command (equivalent to ftp_DELE)
     > update meta.xml template
+    > fix case for folders names in ./toWUP/createChannel.bat 
+    > fix release date patching in meta.xml in build.sh 
+    

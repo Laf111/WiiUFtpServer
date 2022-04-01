@@ -598,7 +598,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     // the more connections are opened the more it sleeps
     int nbt = getActiveTransfersNumber();
     if ( nbt >=3 ) {
-        OSSleepTicks(OSMillisecondsToTicks(nbt*10));    
+        OSSleepTicks(OSMillisecondsToTicks(nbt*nbt));    
         OSSetThreadPriority(&connection->transferThread, 2*NB_SIMULTANEOUS_TRANSFERS);  
     }
     

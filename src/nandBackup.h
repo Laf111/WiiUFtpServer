@@ -21,8 +21,6 @@
 #define FSA_STATUS_NOT_FOUND                -23
 #define FSA_STATUS_NOT_EMPTY                -24
 
-#define DIR_ENTRY_IS_DIRECTORY              0x80000000
-
 uint32_t folderEmpty(const char * fPath);
 uint32_t checkEntry(const char * fPath);
 
