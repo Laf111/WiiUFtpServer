@@ -81,7 +81,7 @@ def downloadCrc32Report():
   
     ftp = ftplib.FTP(wiiuIp)
     ftp.login("USER", "PASSWD")
-    ftp.retrbinary("RETR /storage_sdcard/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv", open(crcReport, 'wb').write)
+    ftp.retrbinary("RETR /sd/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv", open(crcReport, 'wb').write)
     ftp.quit()                    
 
 def checkFile(f, relativePath, root):

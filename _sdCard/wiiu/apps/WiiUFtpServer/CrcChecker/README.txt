@@ -1,10 +1,15 @@
  ----------------------------------
-| CRC checker V2-1 (WiiuFtpServer) |
+| CRC checker V2-2 (WiiuFtpServer) |
  ----------------------------------
 
   
 HISTORY :
 --------
+
+2022/04/19 : V2-2
+    fix answer "no" not taken into account when choosing to not use an existing report
+    add a try catch for permissions errors
+    fix failure when root = folder to check
 
 2022/03/11 : V2-1
     fix "TypeError: string operation on non-string array" that could occurs when
@@ -15,7 +20,7 @@ REQUIEREMENTS :
 --------------
 
 Python 3 + numpy + tk
-For example miniconda + pip install tk + pip install numpy 
+For example miniconda + pip install numpy 
 
 https://docs.conda.io/en/latest/miniconda.html
 
