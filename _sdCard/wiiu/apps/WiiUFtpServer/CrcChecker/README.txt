@@ -19,7 +19,8 @@ HISTORY :
 REQUIEREMENTS :
 --------------
 
-Python 3 + numpy + tk
+Python 3 + numpy + tk + pywin32
+
 For example miniconda + pip install numpy 
 
 https://docs.conda.io/en/latest/miniconda.html
