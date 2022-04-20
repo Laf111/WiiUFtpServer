@@ -77,7 +77,6 @@ static struct tm *timeOs=NULL;
 static const time_t minTime = 1262214000;
 
 static connection_t *connections[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
-static volatile void *transferBuffers[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
 
 static int listener = -1;     // listening socket descriptor
 
@@ -256,8 +255,18 @@ int launchTransfer(int argc UNUSED, const char **argv)
         result = send_from_file(activeConnection->data_socket, activeConnection);
     } else {
         result = recv_to_file(activeConnection->data_socket, activeConnection);
-    }
 
+        // if cwd does not contain /sd/
+        if (strstr(activeConnection->cwd, "/sd/") == NULL) {        
+            // change rights on file
+            int rc = IOSUHAX_FSA_ChangeMode(fsaFd, activeConnection->volPath, 0x664);
+            if (rc < 0 ) {
+                display("~ WARNING : when settings file's rights, rc = %d !", rc);
+                display("~ WARNING : err = %d (%s)", errno, strerror(errno));
+                display("~ WARNING : file = %s", activeConnection->fileName);
+            }
+        }
+    }	
     return result;
 }
 
@@ -278,19 +287,18 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    writeToLog("Using data_socket (%d) of C[%d] to transfer %s", data_socket, connection->index+1, connection->fileName);
 //		    displayConnectionDetails(connection->index);
 		#endif
-
-        // limit simultaneous transfert on SDCard
+        
+        // hard limit simultaneous transfers on SDCard
         if (strstr(connection->cwd, "/sd/") != NULL) {
             while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
             activeTransfersOnSD++;        
-        }
-          
-        
+        }      
+
         // fix #10 : fix randomly file's corruption with removing the resizing of file's internal buffer
 
         // Launching transfer thread with a priority from 0 to NB_SIMULTANEOUS_TRANSFERS
         // Give the highest priority to the last openned connections to optimize multi transfer (connections dispatch over the 3 cores)
-        if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, NB_SIMULTANEOUS_TRANSFERS - activeTransfersNumber, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
+        if (!OSCreateThread(&connection->transferThread, launchTransfer, 1, (char *)connection, connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, 2*NB_SIMULTANEOUS_TRANSFERS - activeTransfersNumber, OS_THREAD_ATTRIB_AFFINITY_ANY)) {
             display("! ERROR : when creating transferThread!");
             return -105;
         }
@@ -325,24 +333,10 @@ static int32_t closeTransferredFile(connection_t *connection) {
     #endif
 
     if (connection->volPath != NULL) {
-        
-        // if cwd does not contain /sd/
-        if (strstr(connection->cwd, "/sd/") == NULL) {        
-            // change rights on file
-            int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
-            if (rc < 0 ) {
-                display("~ WARNING : when settings file's rights, rc = %d !", rc);
-                display("~ WARNING : err = %d (%s)", errno, strerror(errno));
-                display("~ WARNING : file = %s", connection->fileName);
-            }
-        }
-        free(connection->volPath);
-
         // for all files except WiiUFtpServer_crc32_report.sfv
         if ( calculateCrc32 && (strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0) )
             // add the CRC32 value to the SFV file
             writeCRC32('<', connection->cwd, connection->fileName, connection->crc32);
-
     }
     else {
         // for all files except WiiUFtpServer_crc32_report.sfv
@@ -350,10 +344,15 @@ static int32_t closeTransferredFile(connection_t *connection) {
             // add the CRC32 value to the SFV file
             writeCRC32('>', connection->cwd, connection->fileName, connection->crc32);
     }
+	
+	if (connection->volPath == NULL) free(connection->volPath);
     connection->volPath = NULL;
 
-    if (strstr(connection->cwd, "/sd/") != NULL) activeTransfersOnSD--;        
-    
+    // free transfer buffer
+    if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
+    connection->transferBuffer = NULL;
+
+    if (strstr(connection->cwd, "/sd/") != NULL) activeTransfersOnSD--;            
     activeTransfersNumber--;
 
     if (connection->f != NULL) {
@@ -947,6 +946,7 @@ static int32_t ftp_RMD(connection_t *connection, char *path) {
         
         return write_reply(connection, 550, msg);
     }
+    
 }
 
 static int32_t ftp_MKD(connection_t *connection, char *path) {
@@ -1065,7 +1065,7 @@ static int32_t ftp_SIZE(connection_t *connection, char *path) {
         if ((ret = vrt_stat(connection->cwd, fileName, &st)) == 0) {
             char size_buf[12] = "";
             sprintf(size_buf, "%llu", st.st_size);
-		    if (fileName != NULL) free(fileName);
+            if (fileName != NULL) free(fileName);
 		    if (folder != NULL) free(folder);    
             return write_reply(connection, 213, size_buf);
         } else {
@@ -1500,15 +1500,34 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
 
     display("> C[%d] sending %s...", connection->index+1, connection->fileName);
 
+    // allocate the buffer for transfering with connection[connection_index]
+    connection->transferBuffer = MEMAllocFromDefaultHeapEx(DL_BUFFER_SIZE, 64);
+    if (connection->transferBuffer == NULL) {
+        char msg[2*MAXPATHLEN + 100] = "";
+        sprintf(msg, "C[%d] ftp_RETR error when allocating buffer for cwd=%s path=%s : err=%s", connection->index+1, connection->cwd, path, strerror(errno));
+        display("! ERROR : %s", msg);
+        return write_reply(connection, 550, msg);
+    }
+
     connection->f = vrt_fopen(connection->cwd, path, "rb");
     if (!connection->f) {
         display("! ERROR : C[%d] ftp_RETR failed to open %s", connection->index+1, path);
         display("! ERROR : err = %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when RETR cwd=%s path=%s : err=%s", connection->cwd, path, strerror(errno));
-
+        MEMFreeToDefaultHeap(connection->transferBuffer);
         return write_reply(connection, 550, msg);
     }     
+
+    if (setvbuf(connection->f, connection->transferBuffer, _IOFBF, DL_BUFFER_SIZE) != 0) {
+        fclose(connection->f);
+        MEMFreeToDefaultHeap(connection->transferBuffer);
+        char msg[2*MAXPATHLEN + 60] = "";
+        sprintf(msg, "C[%d] ftp_RETR error when setvbuf cwd=%s path=%s : err=%s", connection->index+1, connection->cwd, path, strerror(errno));
+        display("! ERROR : %s", msg);
+        return write_reply(connection, 550, msg);
+    }
+    
 
     int fd = fileno(connection->f);
     if (connection->restart_marker && lseek(fd, connection->restart_marker, SEEK_SET) != connection->restart_marker) {
@@ -1580,16 +1599,34 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
     if (parentFolder != NULL) free(parentFolder);
     if (folderName != NULL) free(folderName);
 
+    // allocate the buffer for transfering with connection[connection_index]
+    connection->transferBuffer = MEMAllocFromDefaultHeapEx(TRANSFER_BUFFER_SIZE, 64);
+    if (connection->transferBuffer == NULL) {
+        char msg[2*MAXPATHLEN + 100] = "";
+        sprintf(msg, "C[%d] stor_or_append error when allocating buffer for cwd=%s path=%s : err=%s", connection->index+1, connection->cwd, path, strerror(errno));
+        display("! ERROR : %s", msg);
+        return write_reply(connection, 550, msg);
+    }
+
 	connection->f = vrt_fopen(connection->cwd, path, mode);
     if (!connection->f) {
         display("! ERROR : ftp_STOR failed to open %s", path);
         display("! ERROR : err = %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error storing cwd=%s path=%s : err=%s", connection->cwd, path, strerror(errno));
-
+        MEMFreeToDefaultHeap(connection->transferBuffer);        
         return write_reply(connection, 550, msg);
     }
 
+    if (setvbuf(connection->f, connection->transferBuffer, _IOFBF, TRANSFER_BUFFER_SIZE) != 0) {
+        fclose(connection->f);
+        MEMFreeToDefaultHeap(connection->transferBuffer);
+        char msg[2*MAXPATHLEN + 60] = "";
+        sprintf(msg, "C[%d] stor_or_append error when setvbuf cwd=%s path=%s : err=%s", connection->index+1, connection->cwd, path, strerror(errno));
+        display("! ERROR : %s", msg);
+        return write_reply(connection, 550, msg);
+    }
+    
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
 
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
@@ -1807,13 +1844,14 @@ static void cleanup_data_resources(connection_t *connection) {
         writeToLog("C[%d] closing socket %d", connection->index+1, connection->data_socket);
 #endif
     }
-    connection->data_socket = -1;
-    connection->data_connection_connected = false;
-
 
     if (connection->data_connection_cleanup) {
         connection->data_connection_cleanup(connection->data_connection_callback_arg);
     }
+    
+    connection->data_socket = -1;
+    connection->data_connection_connected = false;
+    
     connection->data_callback = NULL;
     connection->data_connection_callback_arg = NULL;
     connection->data_connection_cleanup = NULL;
@@ -1825,7 +1863,11 @@ static void cleanup_data_resources(connection_t *connection) {
     connection->dataTransferOffset = -1;
     connection->volPath = NULL;
     connection->f = NULL;
-
+    
+    // free transfer buffer
+    if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
+    connection->transferBuffer = NULL;
+ 
 }
 
 static void displayTransferSpeedStats() {
@@ -1838,6 +1880,10 @@ static void displayTransferSpeedStats() {
 
 static void cleanup_connection(connection_t *connection) {
 
+#ifdef LOG2FILE
+    display("cleanup C[%d]", connection->index);
+#endif
+
     network_close(connection->socket);
     cleanup_data_resources(connection);
     // volontary set to -EAGAIN here and not in cleanup_data_resources for msg 226 to connection
@@ -1848,16 +1894,13 @@ static void cleanup_connection(connection_t *connection) {
     for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
         if (connections[connection_index]) {
             if (connections[connection_index] == connection) {
+                free(connection);
                 connections[connection_index] = NULL;
                 break;
             }
         }
     }
 
-    // set pointer to transferBuffer to null (connection->transferBuffer is not deallocated here but only in cleanup_ftp when stopping the server)
-    connection->transferBuffer = NULL;
-
-    free(connection);
     activeConnectionsNumber--;
 
     // if only a browse connection is active
@@ -1880,32 +1923,41 @@ static connection_t* getFirstConnectionAvailable() {
     uint32_t connection_index;
 
     for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
-
-        connection_t *connection = connections[connection_index];
-        if (connection) return connection;
+        if (connections[connection_index] != NULL) return connections[connection_index];
     }
-
     return NULL;
 }
 
 void cleanup_ftp() {
 
-    network_down = true;
     if (listener != -1) {
 
 #ifdef LOG2FILE
+        display("Entering in cleanup_ftp()");
         writeToLog("total data sockets opened = %d", nbDataSocketsOpened);
+        
+        display("Try to warn client from closing connections");
 #endif
         connection_t *firstAvailable = getFirstConnectionAvailable();
-        if (firstAvailable) write_reply(firstAvailable, 421, "Closing remaining active connections connection");
+        if (firstAvailable != NULL) write_reply(firstAvailable, 421, "Closing remaining active connections connection");
+
+#ifdef LOG2FILE
+        display("Loop on opened connections");
+#endif
 
         uint32_t connection_index;
         for (connection_index = 0; connection_index < FTP_NB_SIMULTANEOUS_TRANSFERS; connection_index++) {
-            connection_t *connection = connections[connection_index];
+            if (connections[connection_index] != NULL) {
 
-            if (connection) {
-
+                connection_t *connection = connections[connection_index];
+#ifdef LOG2FILE
+                display("C[%d] in use, check transfer thread", connection_index);
+#endif
+                
                 if (!OSIsThreadTerminated(&connection->transferThread)) {
+#ifdef LOG2FILE
+                    display("C[%d] in transfer, try to cancel the thread", connection_index);
+#endif
                     OSCancelThread(&connection->transferThread);
                     OSTestThreadCancel();
                     #ifdef LOG2FILE
@@ -1914,16 +1966,12 @@ void cleanup_ftp() {
                 }
                 cleanup_connection(connection);
             }
-
-            // free transfer buffer
-            if (transferBuffers[connection_index] != NULL) MEMFreeToDefaultHeap((void*)transferBuffers[connection_index]);
-            transferBuffers[connection_index] = NULL;
         }
         if (password != NULL) free(password);  
 
         if (lastSumAvgSpeed != sumAvgSpeed) displayTransferSpeedStats();
-        
     }
+    
 }
 
 static bool processConnections() {
@@ -2000,22 +2048,6 @@ static bool processConnections() {
                         if (!connections[connection_index]) {
                             connection->index = connection_index;
                             connections[connection_index] = connection;
-
-                            if (transferBuffers[connection_index] != NULL)
-                                // already allocated, use it
-                                connection->transferBuffer = (void *)transferBuffers[connection_index];
-                            else {
-                                // pre-allocate user buffer for transfering with connection[connection_index]
-                                transferBuffers[connection_index] = MEMAllocFromDefaultHeapEx(TRANSFER_BUFFER_SIZE, 64);
-                                if (!transferBuffers[connection_index]) {
-                                    display("! ERROR : failed to allocate user buffer for the c[%d]", connection_index+1);
-                                    network_close(peer);
-                                    free(connection);
-                                    return false;
-                                }
-
-                                connection->transferBuffer = (void *)transferBuffers[connection_index];
-                            }
 
                             activeConnectionsNumber++;
 

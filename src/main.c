@@ -288,17 +288,29 @@ static void cleanUp() {
     cleanup_ftp();
     if (serverSocket >= 0) network_close(serverSocket);
 
+#ifdef LOG2FILE
+        display("cleanUp : finalize_network()");
+#endif    
     finalize_network();
 
     display(" ");
+#ifdef LOG2FILE
+        display("cleanUp : UmountVirtualDevices()");
+#endif    
     UmountVirtualDevices();
 
 	OSSleepTicks(OSMillisecondsToTicks(1000));
     
+#ifdef LOG2FILE
+        display("cleanUp : IOSUHAX_FSA_Close()");
+#endif    
     IOSUHAX_FSA_Close(fsaFd);
     if (mcp_hook_fd >= 0) MCPHookClose();
     else IOSUHAX_Close();
 
+#ifdef LOG2FILE
+        display("cleanUp : PADShutdown()");
+#endif    
     WPADShutdown();
     VPADShutdown();
 }
@@ -436,7 +448,7 @@ int main()
     #endif    
     
     display(" -=============================-");
-    display("|    %s     |", VERSION_STRING);
+    display("|    %s    |", VERSION_STRING);
     display(" -=============================-");
     display("[Laf111/2022-01]");
     display(" ");
@@ -816,6 +828,7 @@ exit:
 	cleanUp();
     
 #ifdef LOG2FILE
+
     if (logFile != NULL) fclose(logFile);
 #endif
     if (sfvFile != NULL) fclose(sfvFile);

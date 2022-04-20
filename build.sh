@@ -3,8 +3,8 @@
 #/****************************************************************************
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
-VERSION_MAJOR=9
-VERSION_MINOR=3
+VERSION_MAJOR=10
+VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -14,9 +14,9 @@ clear
 uname -a
 date  +"%Y-%m-%dT%H:%M:%S"
 echo " "
-echo =======================
+echo ========================
 echo - WiiUFtpServer $WiiUFtpServerVersion                           -
-echo =======================
+echo ========================
 echo " "
 echo checking env ...
 echo -----------------------------------------------------

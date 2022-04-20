@@ -302,6 +302,10 @@ int vrt_unlink(char *cwd, char *path) {
         
     res = (int)with_virtual_path(cwd, unlink, path, -1, NULL);
 
+    if (vrt_checkdir(cwd, path) == 0) {
+        res = (int)with_virtual_path(cwd, rmdir, path, -1, NULL);
+    }
+    
     return res;
 }
 

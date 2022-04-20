@@ -84,11 +84,20 @@ extern "C"{
 // 4*SOCKET_BUFFER_SIZE =>  4*128*1024 = 524288 bytes
 #define TRANSFER_CHUNK_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// 24*(4*128*1024) = 4194304 bytes (~12.8MB per connections)
-#define TRANSFER_BUFFER_SIZE TRANSFER_CHUNK_SIZE*24
-
+// 48*(4*128*1024) = 25165824 bytes (~25MB per connections)
 // when using 9 connections (1 browse + 8 simultaneous uploads)
-// 9*24*(4*128*1024) => ~104MB of RAM used for transfers (mainly used for recv = upload way)
+// 9*48*(4*128*1024) => ~226MB of RAM used for transfers (mainly used for recv = upload way)
+#define TRANSFER_BUFFER_SIZE 48*TRANSFER_CHUNK_SIZE
+
+// network_readChunk() overflow cannot exceed 2*SOCKET_BUFFER_SIZE bytes after setsockopt(RCVBUF)
+// use a buffer with twice the size to handle the bytes overflow
+#define UL_BUFFER_SIZE TRANSFER_BUFFER_SIZE - (2*SOCKET_BUFFER_SIZE)
+
+#define DL_BUFFER_SIZE (2*SOCKET_BUFFER_SIZE)
+
+
+
+
 // --------------------------------------------------------------------------------------------------
 
 int32_t initialize_network();

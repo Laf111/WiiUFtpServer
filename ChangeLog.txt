@@ -335,4 +335,16 @@ HISTORY :
     > update meta.xml template
     > fix case for folders names in ./toWUP/createChannel.bat 
     > fix release date patching in meta.xml in build.sh 
-    
+
+2022/04/20 V10 :    
+    > fix issue "Still rare CRC errors on upload (about 1 file on 9000 randomly) #19 ": 
+      replace the preallocate buffer by an ontime allocation + use the transfer buffer as internal's file buffer (setvbuf)
+    > multi transfers enhancement : double TRANSFER_BUFFER_SIZE for upload and lower the buffer used for download to the min
+      +final tweaks on threads priorities to maximize the number of connections opened simultaneously on the 3 cores
+    > update crcChecker.py to V2-2 :
+        - fix answer "no" not taken into account when choosing to not use an report that already exists in the script's folder
+        - add a try catch for permissions errors
+        - fix failure when root = folder to check
+    > move IOSUHAX_FSA_ChangeMode() call in the transfer thread (for uploads)
+    > fix issue "Folder left after deletetion #18" 
+    > fix "Crash when exiting if no connections were opened #20"
