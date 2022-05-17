@@ -74,7 +74,6 @@ static const int retriesNumber = (int) ((float)(FTP_CONNECTION_TIMEOUT) / ((floa
 
 static OSThread socketOptThread;
 static uint8_t *socketOptThreadStack=NULL;
-
 static bool initDone = false;
 
 static const unsigned long crcTable[256] = {
@@ -163,8 +162,8 @@ int32_t initialize_network()
     ACGetAssignedAddress(&hostIpAddress);
 
     socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
-    
-    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, NB_SIMULTANEOUS_TRANSFERS, OS_THREAD_ATTRIB_AFFINITY_CPU0)) {
+    // CPU0, priority = 0
+    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU0)) {
         display("! ERROR : failed to create socket memory optimization thread!");
         return -1;
     }
@@ -181,7 +180,8 @@ int32_t initialize_network()
         writeToLog("NET_RETRY_TIME_STEP_MILLISECS = %d", NET_RETRY_TIME_STEP_MILLISECS);
         writeToLog("network retries number        = %d", retriesNumber);
         writeToLog("SOCKET_BUFFER_SIZE            = %d", SOCKET_BUFFER_SIZE);
-        writeToLog("TRANSFER_BUFFER_SIZE          = %d", TRANSFER_BUFFER_SIZE);
+        writeToLog("DL_BUFFER_SIZE                = %d", DL_BUFFER_SIZE);
+        writeToLog("UL_BUFFER_SIZE                = %d", UL_BUFFER_SIZE);
         writeToLog("FTP_CONNECTION_TIMEOUT        = %d", FTP_CONNECTION_TIMEOUT);
         writeToLog("----------------------------------------------");
    #endif
@@ -480,19 +480,11 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     #endif
 
     // max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
-    int sndBuffSize = SOCKET_BUFFER_SIZE;
+    int sndBuffSize = SOCKET_BUFFER_SIZE/2;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sndBuffSize, sizeof(sndBuffSize))!=0)
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
 
-    // if mutli-transfers, lower priority and sleep a little to let other connection start
-    // the more connections are opened the more it sleeps
-    int nbt = getActiveTransfersNumber();
-    if ( nbt >=2 ) {
-        OSSetThreadPriority(&connection->transferThread, NB_SIMULTANEOUS_TRANSFERS-nbt);  
-    }
-    
-    bool prioLowered = false;
     int32_t bytes_read = DL_BUFFER_SIZE;        
 	while (bytes_read) {
 
@@ -504,13 +496,13 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             break;
         }        
         if (bytes_read > 0) {
-            
+        
             uint32_t retryNumber = 0;
             int32_t remaining = bytes_read;            
 
             // Let buffer on file be larger than socket one for checking performances scenarii 
             while (remaining) {
-                
+            
                 send_again:
                 result = network_write(s, connection->transferBuffer, MIN(remaining, DL_BUFFER_SIZE));
 
@@ -527,20 +519,15 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
                     // result = error, connection will be closed
                     break;
                 } else {
-                    
-                    // after the first chunk sent, lower the priority to 2.5*NB_SIMULTANEOUS_TRANSFERS
-                    if (!prioLowered) {
-                        OSSetThreadPriority(&connection->transferThread, 2.5*NB_SIMULTANEOUS_TRANSFERS);
-                        prioLowered = true;
-                    }
-                    
+                
                     // add buffer contribution to the the CRC32 computation
                     if (calculateCrc32) connection->crc32 = getCrc32(connection->crc32, connection->transferBuffer, bytes_read);            
 
                     // data block sent sucessfully, continue
                     connection->dataTransferOffset += result;
                     connection->bytesTransferred = result;
-                    remaining -= result;
+                    remaining -= result;                    
+                                        
                 }
             }        
 		}
@@ -567,9 +554,8 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             }
         }
     }
-
     connection->bytesTransferred = result;
-    
+
     return result;
 }
 
@@ -588,22 +574,17 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     #ifdef LOG2FILE    
         writeToLog("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     #endif
-    
-    // if mutli-transfers, lower priority and sleep a little to let other connection start
-    // the more connections are opened the more it sleeps
-    int nbt = getActiveTransfersNumber();
-    if ( nbt >=2 ) {
-        OSSetThreadPriority(&connection->transferThread, NB_SIMULTANEOUS_TRANSFERS-nbt);  
-    }
-    
-    bool prioLowered = false;
-    uint32_t retryNumber = 0;
 
-    int32_t bytes_received = UL_BUFFER_SIZE;
+    uint32_t retryNumber = 0;
+	// network_readChunk can overflow but less than (rcvBuffSize*2) bytes
+	// considering a buffer size of UL_BUFFER_SIZE - (rcvBuffSize*2) with UL_BUFFER_SIZE >= 2*(rcvBuffSize*2) will handle the overflow
+	uint32_t chunckSize = UL_BUFFER_SIZE - (SOCKET_BUFFER_SIZE*2);
+    int32_t bytes_received = chunckSize;
     while (bytes_received) {
                         
-        read_again:
-        bytes_received = network_readChunk(s, connection->transferBuffer, UL_BUFFER_SIZE);
+        read_again:        
+        bytes_received = network_readChunk(s, connection->transferBuffer, chunckSize);
+        
         if (bytes_received == 0) {
             // SUCCESS, no more to write to file
             nbFilesUL++;
@@ -623,13 +604,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
             break;
         } else {
             // bytes_received > 0
-
-            if (!prioLowered) {
-                // lower the priority to 2.5*NB_SIMULTANEOUS_TRANSFERS
-                OSSetThreadPriority(&connection->transferThread, 2.5*NB_SIMULTANEOUS_TRANSFERS);  
-                prioLowered = true;
-            }
-            
+ 
             // write bytes_received to f
             result = fwrite(connection->transferBuffer, 1, bytes_received, connection->f);
             
@@ -647,12 +622,12 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
                 }
                 connection->dataTransferOffset += result;
                 connection->bytesTransferred = result;
+                
             }
         }
     }
+    connection->bytesTransferred = result;
     
-	connection->bytesTransferred = result;
-      
     return result;
 }
 

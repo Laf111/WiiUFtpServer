@@ -67,7 +67,6 @@ misrepresented as being the original software.
 
 #define FTP_TRANSFER_STACK_SIZE (18*1024)
 
-
 #ifdef __cplusplus
 extern "C"{
 #endif
@@ -99,7 +98,7 @@ struct connection_struct {
     // volume path to the file
     char *volPath;
     // thread for transfering
-    OSThread transferThread;
+    OSThread *transferThread;
     // preallocated transfer thread stack
     uint8_t transferThreadStack[FTP_TRANSFER_STACK_SIZE];
 	// buffer for transferring files
@@ -117,16 +116,16 @@ struct connection_struct {
 
 typedef struct connection_struct connection_t;
 
-char*   virtualToVolPath(char *vPath);
+char*    virtualToVolPath(char *vPath);
 
-int32_t create_server(uint16_t port);
-bool    process_ftp_events();
-void    cleanup_ftp();
+int32_t  create_server(uint16_t port);
+bool     process_ftp_events();
+void     cleanup_ftp();
 
-void    setOsTime(struct tm *tmTime);
-void    setFsaFdInFtp(int hfd);
+void     setOsTime(struct tm *tmTime);
+void     setFsaFdInFtp(int hfd);
 
-int     getActiveTransfersNumber();
+uint32_t getActiveTransfersNumber();
 
 #ifdef __cplusplus
 }

@@ -97,9 +97,6 @@ static spinlock displayLock = false;
 static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
 static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
 static FILE * sfvFile = NULL;
-
-// lock to limit to one access at a time for the CRC32 SFV file
-static spinlock sfvLock = false;
     
     
 /****************************************************************************/
@@ -178,9 +175,7 @@ void display(const char *fmt, ...)
 
 //--------------------------------------------------------------------------
 void writeCRC32(const char way, const char *cwd, const char *name, const int crc32)
-{
-    spinLock(sfvLock);
-    
+{    
     if (sfvFile == NULL) sfvFile = fopen(sfvFilePath, "a");
     if (sfvFile == NULL) {
         display("! ERROR : Unable to reopen crc report file?");
@@ -192,7 +187,6 @@ void writeCRC32(const char way, const char *cwd, const char *name, const int crc
         sfvFile = NULL;
 
     }    
-    spinReleaseLock(sfvLock);
 }
 
 
@@ -419,8 +413,8 @@ int main()
         // set the name
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 0
-        OSSetThreadPriority(thread, 0);
+        // set a priority to 2*NB_SIMULTANEOUS_TRANSFERS+1)
+        OSSetThreadPriority(thread, 2*NB_SIMULTANEOUS_TRANSFERS+1);
     }
 
     #ifdef LOG2FILE
@@ -779,11 +773,11 @@ int main()
         // add the possibility to switch auto-shutdown during the session
         if ((vpadStatus.trigger | vpadStatus.hold) & VPAD_BUTTON_DOWN) {
             if (autoShutDown) {
-                display("- auto-shutdown OFF");
+                display("(auto-shutdown OFF)");
                 IMDisableAPD(); // Disable auto-shutdown feature
 				autoShutDown = 0;
             } else {
-                display("- auto-shutdown ON");
+                display("(auto-shutdown ON)");
                 IMEnableAPD(); // Disable auto-shutdown feature
 				autoShutDown = 1;
             }
