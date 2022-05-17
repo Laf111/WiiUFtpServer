@@ -348,3 +348,17 @@ HISTORY :
     > move IOSUHAX_FSA_ChangeMode() call in the transfer thread (for uploads)
     > fix issue "Folder left after deletetion #18" 
     > fix "Crash when exiting if no connections were opened #20"
+
+2022/05/17 V11 :    
+    > fix issue " Still some CRC errors occur when uploading on SDCard #21 ": remove sevbuf use to fix the last CRC errors and limit 
+      to only 1 transfer for sdCard operations (simultaneous transfers leads in CRC errors)  
+    > multi transfer enhancement : reduce open/close connection time with 
+        - using a static preallocated array of threads (before it was allocated statically when creating the connection) 
+        - manually set cpu and priority of transfer threads
+    > now use also a small buffer for UL operations (before setting manually CPU and priority, a large buffer was used to let other 
+      connections start)
+    > tweak the buffers sizes used for DL / UL
+      Use 25% DL vs 75% UL of the reserved memory for buffer socket operations (instead of 50/50)
+    > This last setting increase DL speeds obtain when multi-transferring. Using a small buffer for upload reduced the "speed displayed" 
+      on UL operation (now take the fwrite time into account). 
+      This version gives max speeds about 4M/s on both ways but treat a large number of files more quickly. 
