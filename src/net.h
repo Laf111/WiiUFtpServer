@@ -77,7 +77,7 @@ extern "C"{
 #define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
 
 #define UL_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
-#define DL_BUFFER_SIZE 2*SOCKET_BUFFER_SIZE
+#define DL_BUFFER_SIZE (2*SOCKET_BUFFER_SIZE)
 
 // socket memory buffer size = (2*sndBuffSize+2*rcvBuffSize)
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)

@@ -61,8 +61,8 @@ static const uint32_t CRLF_LENGTH = 2;
 // number of active connections
 static uint32_t activeConnectionsNumber = 0;
 static uint32_t activeTransfersNumber = 0;
-static uint32_t activeTransfersOnSD = 0;
-static const uint32_t maxTransfersOnSdCard = 1;
+static uint32_t activeUploadsToSdCard = 0;
+static const uint32_t maxUploadsOnSdCard = 1;
 
 // unique client IP address
 static char clientIp[15]="UNKNOWN_CLIENT";
@@ -259,10 +259,12 @@ int launchTransfer(int argc UNUSED, const char **argv)
         writeToLog("C[%d] launching transfer for %s", activeConnection->index+1, activeConnection->fileName);
     #endif
 
+    
     if (activeConnection->volPath == NULL) {
         result = send_from_file(activeConnection->data_socket, activeConnection);
         
     } else {
+        
         result = recv_to_file(activeConnection->data_socket, activeConnection);
 
         // if cwd does not contain /sd/
@@ -285,17 +287,18 @@ int launchTransfer(int argc UNUSED, const char **argv)
     return result;
 }
 
+// launch and monitor the transfer
 static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
     int32_t result = -EAGAIN;
 
+    // on the very first call
     if (connection->dataTransferOffset == -1) {
-
-        // hard limit simultaneous transfers on SDCard
-        if (strstr(connection->cwd, "/sd/") != NULL) {
-            while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
-            activeTransfersOnSD++;        
-        }      
-    
+        
+        // hard limit simultaneous uploads on SDCard
+        if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") != NULL)) {
+            if (activeUploadsToSdCard >= maxUploadsOnSdCard) return -EAGAIN;
+            activeUploadsToSdCard++;
+        }        
         activeTransfersNumber++;
 
         // init bytes counter
@@ -308,7 +311,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 		    writeToLog("Using data_socket (%d) of C[%d] to transfer %s", data_socket, connection->index+1, connection->fileName);
 //		    displayConnectionDetails(connection->index);
 		#endif
-
+        
     
         // Dispatching connections over CPUs :
         
@@ -359,52 +362,57 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
     return result;
 }
 
+// this method is called on transfer success but also on transfer failure
 static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
+    activeTransfersNumber--;    
     
     // hard limit simultaneous transfers on SDCard
-    if (strstr(connection->cwd, "/sd/") != NULL) activeTransfersOnSD++;        
-    activeTransfersNumber--;    
+    if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") != NULL)) activeUploadsToSdCard--;            
     
     #ifdef LOG2FILE
         writeToLog("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
     #endif
 
-    // free transfer buffer
+    // free transfer buffer if needed
     if (connection->transferBuffer != NULL) MEMFreeToDefaultHeap(connection->transferBuffer);
     connection->transferBuffer = NULL;    
-	    
+
+    // close file if needed
     if (connection->f != NULL) {
         fclose(connection->f);
     }	
 
-    if (connection->volPath != NULL && connection->bytesTransferred == 0) {
-         // for all files except WiiUFtpServer_crc32_report.sfv
-        if ( calculateCrc32 && (strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0) ) {
-            
-            #ifdef LOG2FILE
-                display("C[%d] writing CRC32 after uploading %s", connection->index+1, connection->fileName);
-            #endif
-            
-            // add the CRC32 value to the SFV file
-            writeCRC32('<', connection->cwd, connection->fileName, connection->crc32);
-        }
-        free(connection->volPath);
-    } else {
-        // for all files except WiiUFtpServer_crc32_report.sfv
-        if ( calculateCrc32 && (strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0 ) ) {
-            
-            #ifdef LOG2FILE
-                display("C[%d] writing CRC32 after downloading %s", connection->index+1, connection->fileName);
-            #endif
-            
-            // add the CRC32 value to the SFV file
-            writeCRC32('>', connection->cwd, connection->fileName, connection->crc32);
+    // on success, if crc32 calc is enabled
+    if (connection->bytesTransferred == 0 && calculateCrc32) {
+        
+        if (connection->volPath != NULL) {
+             // for all files except WiiUFtpServer_crc32_report.sfv
+            if ( strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0 ) {
+                
+                #ifdef LOG2FILE
+                    display("C[%d] writing CRC32 after uploading %s", connection->index+1, connection->fileName);
+                #endif
+                
+                // add the CRC32 value to the SFV file
+                writeCRC32('<', connection->cwd, connection->fileName, connection->crc32);
+            }
+        } else {
+            // for all files except WiiUFtpServer_crc32_report.sfv
+            if ( strcmp(connection->fileName, "WiiUFtpServer_crc32_report.sfv") != 0 ) {
+                
+                #ifdef LOG2FILE
+                    display("C[%d] writing CRC32 after downloading %s", connection->index+1, connection->fileName);
+                #endif
+                
+                // add the CRC32 value to the SFV file
+                writeCRC32('>', connection->cwd, connection->fileName, connection->crc32);
+            }
         }
     }
-
-    if (strstr(connection->cwd, "/sd/") != NULL) activeTransfersOnSD--;            
+    // if needed, free connection->volPath
+    if (connection->volPath != NULL) free(connection->volPath);
     
     return result;
 }
@@ -1565,7 +1573,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         return write_reply(connection, 550, strerror(lseek_error));
     }
     connection->volPath = NULL;
-
+    
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
 
     if (result < 0) {
@@ -1625,7 +1633,7 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
     if (folder != NULL) free(folder);
     if (parentFolder != NULL) free(parentFolder);
     if (folderName != NULL) free(folderName);    
-
+    
     // allocate the buffer for transfering
     connection->transferBuffer = MEMAllocFromDefaultHeapEx(UL_BUFFER_SIZE, 64);
     if (connection->transferBuffer == NULL) {
@@ -1644,9 +1652,9 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
         MEMFreeToDefaultHeap(connection->transferBuffer);
         return write_reply(connection, 550, msg);
     }
-
+    
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
-
+    
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
     if (result < 0) {
         display("! ERROR : C[%d] prepare_data_connection failed in stor_or_append for %s", connection->index+1, path);
