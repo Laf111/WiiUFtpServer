@@ -290,6 +290,12 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 
     if (connection->dataTransferOffset == -1) {
 
+        // hard limit simultaneous transfers on SDCard
+        if (strstr(connection->cwd, "/sd/") != NULL) {
+            while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
+            activeTransfersOnSD++;        
+        }      
+    
         activeTransfersNumber++;
 
         // init bytes counter
@@ -303,11 +309,6 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 //		    displayConnectionDetails(connection->index);
 		#endif
 
-        // hard limit simultaneous transfers on SDCard
-        if (strstr(connection->cwd, "/sd/") != NULL) {
-            while (activeTransfersOnSD >= maxTransfersOnSdCard) OSSleepTicks(OSMillisecondsToTicks(100));        
-            activeTransfersOnSD++;        
-        }      
     
         // Dispatching connections over CPUs :
         
@@ -361,6 +362,11 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
+    
+    // hard limit simultaneous transfers on SDCard
+    if (strstr(connection->cwd, "/sd/") != NULL) activeTransfersOnSD++;        
+    activeTransfersNumber--;    
+    
     #ifdef LOG2FILE
         writeToLog("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
     #endif
@@ -371,9 +377,7 @@ static int32_t closeTransferredFile(connection_t *connection) {
 	    
     if (connection->f != NULL) {
         fclose(connection->f);
-    }
-	
-    activeTransfersNumber--;
+    }	
 
     if (connection->volPath != NULL && connection->bytesTransferred == 0) {
          // for all files except WiiUFtpServer_crc32_report.sfv
