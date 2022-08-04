@@ -362,3 +362,20 @@ HISTORY :
     > This last setting increase DL speeds obtain when multi-transferring. Using a small buffer for upload reduced the "speed displayed" 
       on UL operation (now take the fwrite time into account). 
       This version gives max speeds over 4M/s on both ways and treat a large number of files more quickly. 
+      
+2022/08/05 V12 :    
+    > WUT developpement is interrupted (too many buggs with no way to debug), so no more channel version for V12 and up
+    > much more stable version using dynamic libs (like the original software), fix : 
+        - transfers number limitation on the SDCard, now 8 is allowed
+        - CRC errors on SDCard
+      and i suppose : 
+        - Disconnects to ftp server while copying a injected game #22 
+        - Crash when trying to access a folder on SD #23 
+        - unstable on tiramisu #24
+        - It seems that using FileZilla client to delete files on sdcard caused it died. #26 
+    > multi transfers enhancement : 
+        - now connections are re-used (no more alloc/free when transferring files)
+        - transfer buffer and thread are preallocated
+    > fix : /storage_usb sometimes inaccessible if two USB devices are plugged in #25 
+    > fix : renaming file is broken #27 
+        
