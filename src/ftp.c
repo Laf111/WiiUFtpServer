@@ -1757,8 +1757,8 @@ static const char *authenticated_commands[] = {
     "USER", "PASS", "LIST", "PWD", "CWD", "CDUP",
     "SIZE", "PASV", "PORT", "TYPE", "SYST", "MODE",
     "RETR", "STOR", "APPE", "REST", "DELE", "RMD", "MKD",
-    "RMD", "RNFR", "RNTO", "NLST", "QUIT", "REIN",
-    "SITE", "NOOP", "ALLO", "XCRC", NULL
+    "RNFR", "RNTO", "NLST", "QUIT", "REIN", "XCRC",
+    "SITE", "NOOP", "SUPERFLUOUS", "UNKNOWN", "MDTM"
 };
 static const ftp_command_handler authenticated_handlers[] = {
     ftp_USER, ftp_PASS, ftp_LIST, ftp_PWD, ftp_CWD, ftp_CDUP,

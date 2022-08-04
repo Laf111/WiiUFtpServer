@@ -223,7 +223,7 @@ int __entry_menu(int argc, char **argv)
     display(" -=============================-\n");
     display("|    %s   |\n", VERSION_STRING);
     display(" -=============================-\n");
-    display("[Laf111/2022-06/dynamic_libs]");
+    display("[Laf111/2022-08/dynamic_libs]");
     display(" ");
     
     // Get OS time and save it in ftp static variable 
@@ -297,7 +297,7 @@ int __entry_menu(int argc, char **argv)
     }
     
     bool buttonPressed = false;
-    int cpt=0;
+    int cpt = 0;
     while (!buttonPressed && (cpt < 400))
     {
 		bool downPressed = false;
@@ -427,8 +427,6 @@ int __entry_menu(int argc, char **argv)
     display("Stopping server...");   
     display(" "); 
     
-    sleep(5);
-    
     cleanup_ftp();
     if (serverSocket >= 0) network_close(serverSocket);
     FreeSocketFunctionPointers();
@@ -444,6 +442,7 @@ int __entry_menu(int argc, char **argv)
     else IOSUHAX_Close();
     
 exit:
+
     display(" "); 
     display("Returning to HBL Menu...");
     display(" ");

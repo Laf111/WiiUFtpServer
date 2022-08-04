@@ -365,6 +365,7 @@ HISTORY :
       
 2022/08/05 V12 :    
     > WUT developpement is interrupted (too many buggs with no way to debug), so no more channel version for V12 and up
+      If you continue to use the previous channel version, avoid transfer/operation on the SDCard (CRC errors, crashes)
     > much more stable version using dynamic libs (like the original software), fix : 
         - transfers number limitation on the SDCard, now 8 is allowed
         - CRC errors on SDCard
