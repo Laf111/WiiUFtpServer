@@ -11,6 +11,7 @@
 
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
+- extend supported clients list 
 - file's dates (timestamps)
 - symlinks displayed in FTP client browser
 - symlinks resolution for the ones found in update and DLC content
