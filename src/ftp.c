@@ -998,13 +998,8 @@ static int32_t ftp_MKD(connection_t *connection, char *path) {
 
 static int32_t ftp_RNFR(connection_t *connection, char *path) {
 
-	display("ftp_RNFR cwd = %s, path = %s", connection->cwd, path);
-
     char *folder = NULL;
     char *fileName = NULL;
-
-	display("ftp_RNFR pending_rename = %s", connection->pending_rename);
-	display("len pending_rename = %d", strlen(connection->pending_rename));
 
     secureAndSplitPath(connection->cwd, path, &folder, &fileName);
     strcpy(connection->fileName, fileName);
@@ -1015,8 +1010,6 @@ static int32_t ftp_RNFR(connection_t *connection, char *path) {
     char msg[MAXPATHLEN + 24] = "";
     sprintf(msg, "C[%d] Ready for RNTO for %s", connection->index+1, fileName);
 
-	display("Now pending_rename = %s", connection->pending_rename);
-
     if (fileName != NULL) free(fileName);
     if (folder != NULL) free(folder);
 	
@@ -1026,11 +1019,6 @@ static int32_t ftp_RNFR(connection_t *connection, char *path) {
 static int32_t ftp_RNTO(connection_t *connection, char *path) {
     char msg[MAXPATHLEN + 60] = "";
 
-	display("ftp_RNTO cwd = %s, path = %s", connection->cwd, path);
-	
-	display("ftp_RNTO pending_rename = %s", connection->pending_rename);
-	display("len pending_rename = %d", strlen(connection->pending_rename));
-	
     if (!*connection->pending_rename) {
         sprintf(msg, "C[%d] RNFR required first", connection->index+1);
         return write_reply(connection, 503, msg);
@@ -1044,11 +1032,6 @@ static int32_t ftp_RNTO(connection_t *connection, char *path) {
     secureAndSplitPath(connection->cwd, path, &folder, &baseName);
 	strcpy(connection->cwd, folder);
     if (strcmp(connection->cwd, "/") != 0) strcat(connection->cwd, "/");
-
-#ifdef LOG2FILE
-    writeToLog("cwd=%s, path=%s, pending_rename=%s", connection->cwd, path, connection->pending_rename);
-    writeToLog("folder=%s, baseName=%s", folder, baseName);
-#endif
 
     if (!vrt_rename(connection->cwd, connection->pending_rename, baseName)) {
         sprintf(msg, "C[%d] Rename %s to %s successfully", connection->index+1, connection->pending_rename, path);
