@@ -233,18 +233,16 @@ int MountVirtualDevices(bool mountMlc) {
     }
     
     if (strlen(storage_usb_found) != 0 ) {
+        
         // mount the right path
         display("Mounting storage_usb...");
+        
         char usbVolPath[19] = "/vol/";
         strcat(usbVolPath, storage_usb_found);
 
         mount_fs("storage_usb", fsaFd, NULL, usbVolPath);
         
-        char usbVirtPath[16] = "";
-        strcat(usbVirtPath, storage_usb_found);
-        strcat(usbVirtPath, ":/");
-            
-        VirtualMountDevice(usbVirtPath);
+        VirtualMountDevice("storage_usb:/");
         nbDevices++;
     }
     
