@@ -61,7 +61,7 @@ static int storage_slc = 0;
 static int nbDevices = 0;
 
 // storage_usb+port_number
-char storage_usb_found[14];    
+char storage_usb_found[14] = "";    
 
 uint8_t MAX_VIRTUAL_PARTITIONS = 0;
 VIRTUAL_PARTITION * VIRTUAL_PARTITIONS = NULL;
@@ -129,7 +129,7 @@ static void UnmountVirtualPath(char * name)
     uint32_t i = 0;
     for(i = 0; i < MAX_VIRTUAL_PARTITIONS; i++)
     {
-        if (strstr(VIRTUAL_PARTITIONS[i].name, name) != NULL) {
+        if (strcmp(VIRTUAL_PARTITIONS[i].name, name) == 0) {
             free(VIRTUAL_PARTITIONS[i].name);
                 
             if (VIRTUAL_PARTITIONS[i].alias)
@@ -209,33 +209,43 @@ int MountVirtualDevices(bool mountMlc) {
         
         char usbVolPath[19] = "/vol/";
         strcat(usbVolPath, usbLabel[i]);
-                        
-        if (mount_fs("storage_usb", fsaFd, NULL, usbVolPath) == 0) {
-
-            char usbVirtPath[16] = "";
-            strcat(usbVirtPath, usbLabel[i]);
-            strcat(usbVirtPath, ":/");
-            
-            VirtualMountDevice(usbVirtPath);
-
-            char path[15] = "";
-            strcat(path, "/");
-            strcat(path, usbLabel[i]);
-            strcat(path, "/");
-            
-            if (vrt_checkdir(path, "usr") >= 0) {
-                display("Mounting storage_usb...");
-                
-                storage_usb[i] = 1;
-                strcpy(storage_usb_found, usbLabel[i]);
-                
-                nbDevices++;
-            } else {
-                UnmountVirtualPath(usbLabel[i]);
-                unmount_fs("storage_usb");
-            }
-        }
         
+        // return no error...        
+        mount_fs(usbLabel[i], fsaFd, NULL, usbVolPath);
+
+        char usbVirtPath[16] = "";
+        strcat(usbVirtPath, usbLabel[i]);
+        strcat(usbVirtPath, ":/");
+        
+        VirtualMountDevice(usbVirtPath);
+
+        char path[15] = "";
+        strcat(path, "/");
+        strcat(path, usbLabel[i]);
+        strcat(path, "/");
+                
+        if (vrt_checkdir(path, "usr") >= 0) {
+            storage_usb[i] = 1;
+            strcpy(storage_usb_found, usbLabel[i]);
+        } 
+        UnmountVirtualPath(usbLabel[i]);
+        unmount_fs(usbLabel[i]);
+    }
+    
+    if (strlen(storage_usb_found) != 0 ) {
+        // mount the right path
+        display("Mounting storage_usb...");
+        char usbVolPath[19] = "/vol/";
+        strcat(usbVolPath, storage_usb_found);
+
+        mount_fs("storage_usb", fsaFd, NULL, usbVolPath);
+        
+        char usbVirtPath[16] = "";
+        strcat(usbVirtPath, storage_usb_found);
+        strcat(usbVirtPath, ":/");
+            
+        VirtualMountDevice(usbVirtPath);
+        nbDevices++;
     }
     
     // MLC Paths
