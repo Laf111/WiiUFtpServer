@@ -3,7 +3,7 @@
 #/****************************************************************************
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
-VERSION_MAJOR=11
+VERSION_MAJOR=12
 VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
@@ -32,26 +32,19 @@ else
         if [ -f $DEVKITPRO/installed.ini ]; then
             echo "DEVKITPRO  : ["$(more $DEVKITPRO/installed.ini | grep -i "Version=" | sed "s|Version=||g")"]        in $DEVKITPRO"
             line=$(more $DEVKITPRO/wut/include/wut.h | grep "* wut")
-            # wutVersion=${line##*" * wut "}
-            wutVersion="1.0.0-beta12"
-            echo "WUT        : [$wutVersion]  in $DEVKITPRO/wut"
-            echo "IOSUHAX    : [crementif]     in $DEVKITPRO/iosuhax"
-            echo "Fat        : [crementif]     in $DEVKITPRO/fat"
         fi
     else
         echo "$DEVKITPRO is invalid"
         exit 101
     fi
 fi
-more makefile | grep -v "#" | grep "CFLAGS" | grep "DLOG2FILE" > /dev/null 2>&1 && echo " " && echo "> log to sd/wiiu/apps/WiiUFtpServer/WiiuFtpServer.log"
 
 check=$(env | grep "DEVKITPPC")
 if [ "$check" == "" ]; then
     export DEVKITPPC=$DEVKITPRO/devkitPPC
 fi
 
-rm -f ./_sdCard/wiiu/apps/WiiUFtpServer/WiiUFtpServer.rpx > /dev/null 2>&1
-rm -f ./_loadiine/0005000010050421/code/WiiUFtpServer.rpx > /dev/null 2>&1
+rm -f ./_sdCard/wiiu/apps/WiiUFtpServer/WiiUFtpServer.elf > /dev/null 2>&1
 
 echo =====================================================
 
@@ -67,19 +60,10 @@ if [ $? -eq 0 ]; then
 
     echo -----------------------------------------------------
     echo ""
-    # set version in ./_loadiine/0005000010050421/meta/meta.xml
-    withNoDot=$(echo $WiiUFtpServerVersion | sed "s|\.||g")
-    sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/meta/meta.xml
-    # set version in ./_loadiine/0005000010050421/code/app.xml
-    sed -i "s|>.*</title_version|>$withNoDot</title_version|g" ./_loadiine/0005000010050421/code/app.xml
     
-    cp -rf ./WiiUFtpServer.rpx ./_sdCard/wiiu/apps/WiiUFtpServer > /dev/null 2>&1
+    cp -rf ./WiiUFtpServer.elf ./_sdCard/wiiu/apps/WiiUFtpServer > /dev/null 2>&1
     echo "HBL package in ./_sdCard/wiiu/apps/WiiUFtpServer : "$(ls ./_sdCard/wiiu/apps/WiiUFtpServer)
     
-    mv -f ./WiiUFtpServer.rpx ./_loadiine/0005000010050421/code > /dev/null 2>&1
-    echo "RPX package in ./_loadiine/0005000010050421      : "$(ls ./_loadiine/0005000010050421)
-    echo ""
-    echo "Use ./toWUP/createChannel.bat in a windows cmd to create the WUP package"
 else
     echo ERRORS happened when building RPX file, exit 2
     exit 2
