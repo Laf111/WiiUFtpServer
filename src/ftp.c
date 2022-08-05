@@ -327,8 +327,6 @@ int launchTransfer(s32 argc UNUSED, void *argv)
                 display("~ WARNING : file = %s", activeConnection->fileName);
             }            
         }            
-        
-
     }
     
     return result;
