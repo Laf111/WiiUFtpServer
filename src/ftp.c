@@ -315,18 +315,6 @@ int launchTransfer(s32 argc UNUSED, void *argv)
     } else {
         
         result = recv_to_file(activeConnection->data_socket, activeConnection);
-
-        // if cwd does not contain /sd/
-        if (result == 0 && strstr(activeConnection->cwd, "/sd/") == NULL) {        
-
-            // change rights on file
-            int rc = IOSUHAX_FSA_ChangeMode(fsaFd, activeConnection->volPath, 0x664);
-            if (rc < 0 && rc != -EAGAIN) {
-                display("~ WARNING : when settings file's rights, rc = %d !", rc);
-                display("~ WARNING : err = %d (%s)", errno, strerror(errno));
-                display("~ WARNING : file = %s", activeConnection->fileName);
-            }            
-        }
     }
     
     return result;
@@ -371,7 +359,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
         // set thread priority : 
     
         // activeTransfersNumber = 1,2,3 => prio = 2*NB_SIMULTANEOUS_TRANSFERS
-        u32 priority = 3*NB_SIMULTANEOUS_TRANSFERS;        
+        u32 priority = 2*NB_SIMULTANEOUS_TRANSFERS;        
         // activeTransfersNumber = 4,5,6 => prio = NB_SIMULTANEOUS_TRANSFERS
         if (activeTransfersNumber > 3 || activeTransfersNumber <= 6) priority = NB_SIMULTANEOUS_TRANSFERS;
         // activeTransfersNumber = 6,7,8 => prio = 0
@@ -408,6 +396,18 @@ static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
     activeTransfersNumber--;    
+    
+    // if cwd does not contain /sd/
+    if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") == NULL)) {        
+
+        // change rights on file
+        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
+        if (rc < 0 && rc != -EAGAIN) {
+            display("~ WARNING : when settings file's rights, rc = %d !", rc);
+            display("~ WARNING : err = %d (%s)", errno, strerror(errno));
+            display("~ WARNING : file = %s", connection->fileName);
+        }            
+    }
     
     // hard limit simultaneous transfers on SDCard
     if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") != NULL)) activeUploadsToSdCard--;            
@@ -1306,8 +1306,6 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
             // size
             size = st.st_size;
             
-            // set permissions for symlinks
-            if (!S_ISREG(st.st_mode)) strcpy(permissions, "lwxr-xr-x");
         }
         
         // dim = 13
@@ -1450,23 +1448,6 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     secureAndSplitPath(connection->cwd, path, &folder, &fileName);
     strcat(folder, "/");
     char *filePath = to_real_path(folder, fileName);
-    
-    // file or symlink ? TODO : check that this is work
-    struct stat st;
-    stat(filePath, &st);
-    
-    if (!S_ISREG(st.st_mode)) {
-        
-        // symlink
-        char *resolved = NULL;
-        resolved = str_replace(folder, "0005000e", "00050000");
-        if (resolved == NULL) resolved = str_replace(folder, "0005000c", "00050000"); 
-        if (resolved != NULL) {
-            strcpy(folder, resolved);
-            free(resolved);
-        }        
-    }    
-    free(filePath);
 
     strcpy(connection->fileName, fileName);
 	strcpy(connection->cwd, folder);
