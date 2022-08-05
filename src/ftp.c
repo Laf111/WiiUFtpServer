@@ -211,7 +211,9 @@ char* virtualToVolPath(char *vPath) {
 
             char volume[30]="";
             if (strstr(vPath, "/storage_usb") != NULL) {
-                strcpy(volume, storage_usb_found);
+                char usbVolPath[19] = "/vol/";
+                strcat(usbVolPath, storage_usb_found);        
+                strcpy(volume, usbVolPath);
             } else if (strstr(vPath, "/storage_mlc") != NULL) {
                 strcpy(volume,"/vol/storage_mlc01");
             } else if (strstr(vPath, "/storage_slccmpt") != NULL) {
@@ -313,6 +315,20 @@ int launchTransfer(s32 argc UNUSED, void *argv)
     } else {
         
         result = recv_to_file(activeConnection->data_socket, activeConnection);
+        
+        // if cwd does not contain /sd/
+        if ((result == 0) && (strstr(activeConnection->cwd, "/sd/") == NULL)) {        
+
+            // change rights on file
+            int rc = IOSUHAX_FSA_ChangeMode(fsaFd, activeConnection->volPath, 0x664);
+            if (rc < 0 && rc != -EAGAIN) {
+                display("~ WARNING : when settings file's rights, rc = %d !", rc);
+                display("~ WARNING : err = %d (%s)", errno, strerror(errno));
+                display("~ WARNING : file = %s", activeConnection->fileName);
+            }            
+        }            
+        
+
     }
     
     return result;
@@ -389,18 +405,6 @@ static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
     activeTransfersNumber--;    
-    
-    // if cwd does not contain /sd/
-    if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") == NULL)) {        
-
-        // change rights on file
-        int rc = IOSUHAX_FSA_ChangeMode(fsaFd, connection->volPath, 0x664);
-        if (rc < 0 && rc != -EAGAIN) {
-            display("~ WARNING : when settings file's rights, rc = %d !", rc);
-            display("~ WARNING : err = %d (%s)", errno, strerror(errno));
-            display("~ WARNING : file = %s", connection->fileName);
-        }            
-    }            
     
     if (verboseMode) {
         display("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
