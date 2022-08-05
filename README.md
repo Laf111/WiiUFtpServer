@@ -77,4 +77,4 @@ Then just copy the \_sdCard folder content to your SD card.
 # KNOWN ISSUES :
 
 - symlinks are not displayed in FTP client browser and trying to transfer them will fail (links not resolved)
-- libFat is used because of very poor performance for SDCard transfer using only libIOSUHAX 
+- libFat is used because of very poor performance on SDCard transfers using only libIOSUHAX 
