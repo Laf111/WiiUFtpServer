@@ -1276,13 +1276,13 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
     // max t = timeOS(GMT)+24H
     time_t max = mktime(timeOs) + 86400.0;
         
-    char filename[MAXPATHLEN] = "";
+    char fullPath[MAXPATHLEN] = "";
     char line[2*MAXPATHLEN + 56 + CRLF_LENGTH + 1];
     struct dirent *dirent = NULL;
 
     while ((dirent = vrt_readdir(iter)) != 0) {
 
-        snprintf(filename, sizeof(filename), "%s/%s", iter->path, dirent->d_name);
+        snprintf(fullPath, sizeof(fullPath), "%s/%s", iter->path, dirent->d_name);
         
         struct stat st;
          
@@ -1294,7 +1294,7 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
         char permissions[10] = "rwxr-xr-x";
 
         // check the code returned for setting the modified date
-        if (stat(filename, &st) == 0) {
+        if (stat(fullPath, &st) == 0) {
             // modified time
             time_t mtime = st.st_mtime;
             
@@ -1307,7 +1307,7 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
             size = st.st_size;
             
             // set permissions for symlinks
-            if S_ISLNK(st.st_mode) strcpy(permissions, "lwxr-xr-x");
+            if (!S_ISREG(st.st_mode)) strcpy(permissions, "lwxr-xr-x");
         }
         
         // dim = 13
@@ -1455,7 +1455,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     struct stat st;
     stat(filePath, &st);
     
-    if S_ISLNK(st.st_mode) {
+    if (!S_ISREG(st.st_mode)) {
         
         // symlink
         char *resolved = NULL;
@@ -1464,8 +1464,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         if (resolved != NULL) {
             strcpy(folder, resolved);
             free(resolved);
-        }
-        
+        }        
     }    
     free(filePath);
 
@@ -1483,7 +1482,6 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         display("! ERROR : err = %s", strerror(errno));
         char msg[MAXPATHLEN + 40] = "";
         sprintf(msg, "Error when RETR cwd=%s path=%s : err=%s", connection->cwd, path, strerror(errno));
-        connection->transferBuffer = NULL;
         return write_reply(connection, 550, msg);
     }     
 
