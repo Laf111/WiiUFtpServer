@@ -1451,7 +1451,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     strcat(folder, "/");
     char *filePath = to_real_path(folder, fileName);
     
-    // file or symlink ?
+    // file or symlink ? TODO : check that this is work
     struct stat st;
     stat(filePath, &st);
     
