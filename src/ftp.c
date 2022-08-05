@@ -64,8 +64,6 @@ static const uint32_t CRLF_LENGTH = 2;
 // number of active connections
 static uint32_t activeConnectionsNumber = 0;
 static uint32_t activeTransfersNumber = 0;
-static uint32_t activeUploadsToSdCard = 0;
-static const uint32_t maxUploadsOnSdCard = NB_SIMULTANEOUS_TRANSFERS;
 
 // unique client IP address
 static char clientIp[15]="UNKNOWN_CLIENT";
@@ -326,12 +324,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 
     // on the very first call
     if (connection->dataTransferOffset == -1) {
-        
-        // hard limit simultaneous uploads on SDCard
-        if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") != NULL)) {
-            if (activeUploadsToSdCard >= maxUploadsOnSdCard) return -EAGAIN;
-            activeUploadsToSdCard++;
-        }        
+                
         activeTransfersNumber++;
 
         // init bytes counter
@@ -407,10 +400,7 @@ static int32_t closeTransferredFile(connection_t *connection) {
             display("~ WARNING : err = %d (%s)", errno, strerror(errno));
             display("~ WARNING : file = %s", connection->fileName);
         }            
-    }
-    
-    // hard limit simultaneous transfers on SDCard
-    if ((connection->volPath != NULL) && (strstr(connection->cwd, "/sd/") != NULL)) activeUploadsToSdCard--;            
+    }            
     
     if (verboseMode) {
         display("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
