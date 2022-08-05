@@ -13,8 +13,6 @@ Based on ftpiiu but with the following issues fixed :
 - **connections failures and crashs**
 - extend supported clients list 
 - file's dates (timestamps)
-- symlinks displayed in FTP client browser
-- symlinks resolution for the ones found in update and DLC content
 - **file injection (add rights on files uploaded)**
 - remove the one slot limitation on upload and unlock up to **8 simultaneous transfers (download/upload)**
 - **much more faster than the original**
@@ -74,3 +72,9 @@ Launch "msys2\msys2_shell.bat"
 It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer.
 
 Then just copy the \_sdCard folder content to your SD card.
+
+#
+# KNOWN ISSUES :
+
+- symlinks are not displayed in FTP client browser and trying to transfer them will fail (links not resolved)
+- libFat is used because of very poor performance for SDCard transfer using only libIOSUHAX 
