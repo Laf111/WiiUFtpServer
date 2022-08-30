@@ -450,7 +450,6 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
 
     int result = IOSUHAX_FSA_GetStat(dev->fsaFd, real_path, &stats);
 
-    free(real_path);
 
     if(result < 0) {
         r->_errno = result;
@@ -494,6 +493,7 @@ static int fs_dev_stat_r (struct _reent *r, const char *path, struct stat *st)
     #error "Can't tell what FS headers are in use! Check iosuhax.h"
 #endif
 
+    free(real_path);
     OSUnlockMutex(dev->pMutex);
 
     return 0;

@@ -217,8 +217,8 @@ int __entry_menu(int argc, char **argv)
         // set the name 
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 3*NB_SIMULTANEOUS_TRANSFERS+1)
-        OSSetThreadPriority(thread, 3*NB_SIMULTANEOUS_TRANSFERS+1);
+        // set a priority to 0)
+        OSSetThreadPriority(thread, 0);
     }
     display(" -=============================-\n");
     display("|    %s   |\n", VERSION_STRING);
@@ -374,8 +374,6 @@ int __entry_menu(int argc, char **argv)
         network_down = process_ftp_events();
         if(network_down)
             break;
-
-        usleep(100);
         
         // check controller entry
         updateButtons();

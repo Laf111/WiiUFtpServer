@@ -114,7 +114,6 @@ static void resetConnection(connection_t *connection) {
     connection->dataTransferOffset = -1;
     connection->speed = 0;
     connection->bytesTransferred = -EAGAIN;
-    connection->crc32 = 0;
 
     
 }
@@ -369,8 +368,8 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
         u32 priority = 2*NB_SIMULTANEOUS_TRANSFERS;        
         // activeTransfersNumber = 4,5,6 => prio = NB_SIMULTANEOUS_TRANSFERS
         if (activeTransfersNumber > 3 || activeTransfersNumber <= 6) priority = NB_SIMULTANEOUS_TRANSFERS;
-        // activeTransfersNumber = 6,7,8 => prio = 0
-        if (activeTransfersNumber >= 6 ) priority = 0;
+        // activeTransfersNumber = 7,8 => prio = 1
+        if (activeTransfersNumber > 6 ) priority = 1;
    
         // launching transfer thread
         if (!OSCreateThread(connection->transferThread, launchTransfer, 1, (char *)connection, (u32)connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, priority, cpu)) {
@@ -442,7 +441,6 @@ static int32_t write_reply(connection_t *connection, uint16_t code, char *msg) {
     uint32_t msglen = 4 + strlen(msg) + CRLF_LENGTH;
 
     char msgbuf[msglen + 1];
-	if (msgbuf == NULL) return -ENOMEM;
     sprintf(msgbuf, "%u %s\r\n", code, msg);
     if (verboseMode) display("> %s", msgbuf);
 
@@ -866,10 +864,10 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
     
     char *volPath = NULL;
     volPath = virtualToVolPath(vPath);
-    free(volPath);
 
     // chmod
     IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
+    free(volPath);
     
     if (!vrt_unlink(connection->cwd, baseName)) {
         char msg[MAXPATHLEN + 40] = "";
@@ -913,10 +911,10 @@ static int32_t ftp_RMD(connection_t *connection, char *path) {
     
     char *volPath = NULL;
     volPath = virtualToVolPath(vPath);
-    free(volPath);
 
     // chmod
     IOSUHAX_FSA_ChangeMode(fsaFd, volPath, 0x664);
+    free(volPath);
     
     if (!vrt_unlink(connection->cwd, baseName)) {
         char msg[MAXPATHLEN + 40] = "";
@@ -1090,20 +1088,26 @@ static int32_t ftp_SIZE(connection_t *connection, char *path) {
 
 static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
 
-    static const int retriesNumber = 4;
+    static const int retriesNumber = NB_SIMULTANEOUS_TRANSFERS;
     close_passive_socket(connection);
-    // leave this sleep to avoid error on client console
-    usleep(NB_SIMULTANEOUS_TRANSFERS*15000);
-
-    int nbTries=0;
+    
+    int nbTries = 0;
     while (1)
     {
+	
         connection->passive_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
         if (connection->passive_socket >= 0)
             break;
 
-        if (++nbTries > retriesNumber)
-            return write_reply(connection, 520, "Unable to create listening socket");
+        if (++nbTries > retriesNumber) {
+            char msg[FTP_MSG_BUFFER_SIZE];
+            sprintf(msg, "C[%d] failed to create passive socket (%d), err = %d (%s)", connection->index+1, connection->passive_socket, errno, strerror(errno));
+            display("~ WARNING : %s", msg);
+            return write_reply(connection, 421, msg);
+		}
+			
+	    // leave this sleep to avoid error on client console
+//	    usleep((connection->index+1)*NB_SIMULTANEOUS_TRANSFERS*2*1000);
     }
     if (verboseMode) {
         display("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);
@@ -1121,15 +1125,38 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
     }
     bindAddress.sin_port = htons(passive_port++);
     bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    int32_t result;
-    if ((result = network_bind(connection->passive_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
-	    display("! ERROR : failed to bind passive socket %s", connection->passive_socket);
-        close_passive_socket(connection);
-        return write_reply(connection, 520, "Unable to bind listening socket");
+    
+    nbTries = 0;
+    while (1) {
+        int32_t result;
+        result = network_bind(connection->passive_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress));
+        if (result >= 0)
+            break;
+            
+        if (++nbTries > retriesNumber) {
+            char msg[FTP_MSG_BUFFER_SIZE];
+            sprintf(msg, "C[%d] failed to bind passive socket (%d), err = %d (%s)", connection->index+1, connection->passive_socket, errno, strerror(errno));
+            display("~ WARNING : %s", msg);
+            close_passive_socket(connection);
+            return write_reply(connection, 421, msg);
+        }
     }
-    if ((result = network_listen(connection->passive_socket, 1)) < 0) {
-        close_passive_socket(connection);
-        return write_reply(connection, 520, "Unable to listen on socket");
+    
+    nbTries = 0;
+    while (1) {
+        int32_t result;
+        result = network_listen(connection->passive_socket, 1);
+        
+        if (result >= 0)
+            break;
+            
+        if (++nbTries > retriesNumber) {
+            char msg[FTP_MSG_BUFFER_SIZE];
+            sprintf(msg, "C[%d] failed to listen on passive socket (%d), err = %d (%s)", connection->index+1, connection->passive_socket, errno, strerror(errno));
+            display("~ WARNING : %s", msg);
+            close_passive_socket(connection);
+            return write_reply(connection, 421, msg);
+        }
     }
     char reply[49+2+16] = "";
     uint16_t port = bindAddress.sin_port;
@@ -1170,17 +1197,27 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
     
     static const int retriesNumber = 4;
     int nbTries=0;
-    try_again:
+	
+    while (1)
+    {
+        connection->data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+        if (connection->data_socket >= 0)
+            break;
 
-    int32_t data_socket = network_socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (data_socket < 0) {
-        nbTries++;
-        if (nbTries <= retriesNumber) goto try_again;
-        return data_socket;
+        if (++nbTries > retriesNumber) {
+            char msg[FTP_MSG_BUFFER_SIZE];
+            sprintf(msg, "C[%d] failed to create data socket (%d), err = %d (%s)", connection->index+1, connection->data_socket, errno, strerror(errno));
+            display("~ WARNING : %s", msg);
+            return write_reply(connection, 421, msg);
+		}
+		
+	    // leave this sleep to avoid error on client console
+//	    usleep((connection->index+1)*NB_SIMULTANEOUS_TRANSFERS*2*1000);
     }
+	
 
     if (verboseMode) {
-        display("opening data socket = %d", data_socket);
+        display("opening data socket = %d", connection->data_socket);
     }
 
     struct sockaddr_in bindAddress;
@@ -1188,19 +1225,23 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
     bindAddress.sin_family = AF_INET;
     bindAddress.sin_port = htons(SRC_PORT);
     bindAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    int32_t result;
-    if ((result = network_bind(data_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress))) < 0) {
-        network_close(data_socket);
-
-        char msg[FTP_MSG_BUFFER_SIZE];
-        sprintf(msg, "failed to bind active socket %d of C[%d] %d (%s)", connection->data_socket, connection->index+1, errno, strerror(errno));
-        display("~ WARNING : %s", msg);
-        write_reply(connection, 421, msg);
-
-        return result;
+    
+    nbTries = 0;
+    while (1) {
+        int32_t result;
+        result = network_bind(connection->data_socket, (struct sockaddr *)&bindAddress, sizeof(bindAddress));
+        if (result >= 0)
+            break;
+            
+        if (++nbTries > retriesNumber) {
+            char msg[FTP_MSG_BUFFER_SIZE];
+            sprintf(msg, "C[%d] failed to bind data socket (%d), err = %d (%s)", connection->index+1, connection->data_socket, errno, strerror(errno));
+            display("~ WARNING : %s", msg);
+            network_close(connection->data_socket);
+            return write_reply(connection, 421, msg);
+        }
     }
 
-    connection->data_socket = data_socket;
     if (verboseMode) display("- Attempting to connect to connection through %s : %u", inet_ntoa(connection->address.sin_addr), connection->address.sin_port);
     return 0;
 }
@@ -1662,15 +1703,15 @@ static const char *authenticated_commands[] = {
     "USER", "PASS", "LIST", "PWD", "CWD", "CDUP",
     "SIZE", "PASV", "PORT", "TYPE", "SYST", "MODE",
     "RETR", "STOR", "APPE", "REST", "DELE", "RMD", "MKD",
-    "RNFR", "RNTO", "NLST", "QUIT", "REIN", "XCRC",
-    "SITE", "NOOP", "SUPERFLUOUS", "UNKNOWN", "MDTM"
+    "RNFR", "RNTO", "NLST", "QUIT", "REIN", "XCRC", "MDTM",
+    "SITE", "NOOP", "ALLO", NULL
 };
 static const ftp_command_handler authenticated_handlers[] = {
     ftp_USER, ftp_PASS, ftp_LIST, ftp_PWD, ftp_CWD, ftp_CDUP,
     ftp_SIZE, ftp_PASV, ftp_PORT, ftp_TYPE, ftp_SYST, ftp_MODE,
     ftp_RETR, ftp_STOR, ftp_APPE, ftp_REST, ftp_DELE, ftp_RMD, ftp_MKD,
-    ftp_RNFR, ftp_RNTO, ftp_NLST, ftp_QUIT, ftp_REIN, ftp_XCRC,
-    ftp_SITE, ftp_NOOP, ftp_SUPERFLUOUS, ftp_UNKNOWN, ftp_MDTM
+    ftp_RNFR, ftp_RNTO, ftp_NLST, ftp_QUIT, ftp_REIN, ftp_XCRC, ftp_MDTM,
+    ftp_SITE, ftp_NOOP, ftp_SUPERFLUOUS, ftp_UNKNOWN
 };
 
 /*

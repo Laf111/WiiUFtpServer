@@ -128,8 +128,8 @@ void InitSocketFunctionPointers(void) {
         socketThreadStack = OSAllocFromSystem(NET_STACK_SIZE, 8);
         if (socketThreadStack != NULL) {
     
-            // on CPU0, prio = 3*NB_SIMULTANEOUS_TRANSFERS+1
-            OSCreateThread(socketThread, (void*)socketThreadMain, 0, NULL, (u32)socketThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 3*NB_SIMULTANEOUS_TRANSFERS+1, OS_THREAD_ATTR_AFFINITY_CORE0);
+            // on CPU0, prio = 0
+            OSCreateThread(socketThread, (void*)socketThreadMain, 0, NULL, (u32)socketThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTR_AFFINITY_CORE0);
             // set name    
             OSSetThreadName(socketThread, "Socket lib thread on CPU0");
             

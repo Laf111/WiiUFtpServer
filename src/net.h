@@ -88,8 +88,6 @@ struct connection_struct {
     u32 transferThreadStack[FTP_TRANSFER_STACK_SIZE];
 	// buffer for transferring files
     char *transferBuffer;
-    // CRC-32 decimal value of file transferred
-    unsigned long crc32;
     // for data transfer tracking
     int32_t dataTransferOffset;
     // last speed computed in MB/s
