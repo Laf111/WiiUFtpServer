@@ -56,7 +56,8 @@ extern "C"{
 // socket memory buffer size = (2*sndBuffSize+2*rcvBuffSize)
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
-#define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*10)
+// perallocated transfer buffer per connections (FTP_NB_SIMULTANEOUS_TRANSFERS
+#define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*12)
 
 typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
 struct connection_struct {

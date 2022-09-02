@@ -363,20 +363,25 @@ HISTORY :
       on UL operation (now take the fwrite time into account). 
       This version gives max speeds over 4M/s on both ways and treat a large number of files more quickly. 
       
-2022/08/05 V12 :    
-    > WUT developpement is interrupted (too many buggs with no way to debug), so no more channel version for V12 and up
-      If you continue to use the previous channel version, avoid transfer/operation on the SDCard (CRC errors, crashes)
-    > much more stable version using dynamic libs (like the original software), fix : 
+2022/09/02 V12 :    
+    > WUT developpement is interrupted (awaiting for a more stable version, tried 1.1.1 with no success), so no more channel version for 
+      V12 and up.
+    > it is a much more stable version that use dynamic libs (like the original software) and it fix : 
         - transfers number limitation on the SDCard, now 8 is allowed
-        - CRC errors on SDCard
+        - CRC errors when transferring to the SDCard
       and i suppose : 
         - Disconnects to ftp server while copying a injected game #22 
         - Crash when trying to access a folder on SD #23 
         - unstable on tiramisu #24
         - It seems that using FileZilla client to delete files on sdcard caused it died. #26 
-    > multi transfers enhancement : 
-        - now connections are re-used (no more alloc/free when transferring files)
+    > noticeable multi-transfers enhancement : 
+        - now connections are re-used (no more alloc/free when client connects)
         - transfer buffer and thread are preallocated
+        - extend the priority values used for transfer threads
     > fix : /storage_usb sometimes inaccessible if two USB devices are plugged in #25 
     > fix : renaming file is broken #27 
+    > fix : rights on files uploaded not set properly
+    > remove nand backup, log file and CRC calculation features
+    
+    Special thanks to Masana for testing.
         

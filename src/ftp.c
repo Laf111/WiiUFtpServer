@@ -63,6 +63,8 @@ static const uint32_t CRLF_LENGTH = 2;
 
 // number of active connections
 static uint32_t activeConnectionsNumber = 0;
+
+// number of active transfers
 static uint32_t activeTransfersNumber = 0;
 
 // unique client IP address
@@ -115,7 +117,6 @@ static void resetConnection(connection_t *connection) {
     connection->speed = 0;
     connection->bytesTransferred = -EAGAIN;
 
-    
 }
 
 // initialize the connection without setting the index data member
@@ -168,7 +169,9 @@ int32_t create_server(uint16_t port) {
     
     uint32_t ip = hostIpAddress;;     
     display(" ");
-    display("Listening on %u.%u.%u.%u:%i", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
+    display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+    display("              Listening on %u.%u.%u.%u:%i", (ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF, port);
+    display("    @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 
     uint32_t connection_index;
     
@@ -337,8 +340,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 
     // on the very first call
     if (connection->dataTransferOffset == -1) {
-                
-        activeTransfersNumber++;
+        
 
         // init bytes counter
         connection->dataTransferOffset = 0;
@@ -354,23 +356,22 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
     
         // Dispatching connections over CPUs :
         
-        // activeTransfersNumber = 1,4,7 => CPU2
+        // connection->index+1 = 1,4,7 => CPU2
         s32 cpu = OS_THREAD_ATTR_AFFINITY_CORE2;                
-        // activeTransfersNumber = 2,5,8 => CPU0
-        if (activeTransfersNumber == 2 || activeTransfersNumber == 5 || activeTransfersNumber == 8) cpu = OS_THREAD_ATTR_AFFINITY_CORE0;
-        // activeTransfersNumber = 3,6   => CPU1
-        if (activeTransfersNumber == 3 || activeTransfersNumber == 6) cpu = OS_THREAD_ATTR_AFFINITY_CORE1;
-    
+        // index+1 = 2,5,8 => CPU0
+        if (connection->index == 1 || connection->index == 4 || connection->index == 7) cpu = OS_THREAD_ATTR_AFFINITY_CORE0;
+        // index+1 = 3,6   => CPU1
+        if (connection->index == 2 || connection->index == 5) cpu = OS_THREAD_ATTR_AFFINITY_CORE1;
 
         // set thread priority : 
     
-        // activeTransfersNumber = 1,2,3 => prio = 2*NB_SIMULTANEOUS_TRANSFERS
-        u32 priority = 2*NB_SIMULTANEOUS_TRANSFERS;        
-        // activeTransfersNumber = 4,5,6 => prio = NB_SIMULTANEOUS_TRANSFERS
-        if (activeTransfersNumber > 3 || activeTransfersNumber <= 6) priority = NB_SIMULTANEOUS_TRANSFERS;
-        // activeTransfersNumber = 7,8 => prio = 1
-        if (activeTransfersNumber > 6 ) priority = 1;
-   
+        // index+1 = 1,2,3 => prio = 8
+        u32 priority = 8;
+        // index+1 = 4,5,6 => prio = 6
+        if (connection->index > 2 || connection->index <= 5) priority = 6;
+        // index+1 = 7,8 => prio = 1
+        if (connection->index >= 5 ) priority = 1;
+
         // launching transfer thread
         if (!OSCreateThread(connection->transferThread, launchTransfer, 1, (char *)connection, (u32)connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, priority, cpu)) {
             display("! ERROR : when creating transferThread!");
@@ -401,7 +402,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
-    activeTransfersNumber--;    
+
     
     if (verboseMode) {
         display("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
@@ -871,7 +872,7 @@ static int32_t ftp_DELE(connection_t *connection, char *path) {
     
     if (!vrt_unlink(connection->cwd, baseName)) {
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "C[%d] File or directory removed", connection->index+1);
+        sprintf(msg, "C[%d] %s removed", connection->index+1, baseName);
         if (baseName != NULL) free(baseName);
         if (folder != NULL) free(folder);
         display("%s", msg);
@@ -893,7 +894,7 @@ static int32_t ftp_RMD(connection_t *connection, char *path) {
     char vPath[2*MAXPATHLEN+1] = "";
 
     if (verboseMode) {
-        display("C[%d] ftp_DELE cwd=%s, path=%s", connection->index+1, connection->cwd, path);
+        display("C[%d] ftp_RMD cwd=%s, path=%s", connection->index+1, connection->cwd, path);
     }
         
     char *folder = NULL;
@@ -918,7 +919,7 @@ static int32_t ftp_RMD(connection_t *connection, char *path) {
     
     if (!vrt_unlink(connection->cwd, baseName)) {
         char msg[MAXPATHLEN + 40] = "";
-        sprintf(msg, "C[%d] File or directory removed", connection->index+1);
+        sprintf(msg, "C[%d] %s removed", connection->index+1, baseName);
         if (baseName != NULL) free(baseName);
         if (folder != NULL) free(folder);
 
@@ -1088,7 +1089,7 @@ static int32_t ftp_SIZE(connection_t *connection, char *path) {
 
 static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
 
-    static const int retriesNumber = NB_SIMULTANEOUS_TRANSFERS;
+    static const int retriesNumber = 4;
     close_passive_socket(connection);
     
     int nbTries = 0;
@@ -1105,10 +1106,8 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
             display("~ WARNING : %s", msg);
             return write_reply(connection, 421, msg);
 		}
-			
-	    // leave this sleep to avoid error on client console
-//	    usleep((connection->index+1)*NB_SIMULTANEOUS_TRANSFERS*2*1000);
     }
+	
     if (verboseMode) {
         display("C[%d] opening passive socket %d", connection->index+1, connection->passive_socket);
     }
@@ -1211,8 +1210,6 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
             return write_reply(connection, 421, msg);
 		}
 		
-	    // leave this sleep to avoid error on client console
-//	    usleep((connection->index+1)*NB_SIMULTANEOUS_TRANSFERS*2*1000);
     }
 	
 
@@ -1440,7 +1437,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
     if (folder != NULL) free(folder);
 
     display("> C[%d] sending %s...", connection->index+1, connection->fileName);
-    
+    	
     connection->f = vrt_fopen(connection->cwd, path, "rb");
     if (!connection->f) {
         display("! ERROR : C[%d] ftp_RETR failed to open %s", connection->index+1, path);
@@ -1450,6 +1447,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         return write_reply(connection, 550, msg);
     }     
 
+	
     int fd = fileno(connection->f);
     if (connection->restart_marker && lseek(fd, connection->restart_marker, SEEK_SET) != connection->restart_marker) {
         int32_t lseek_error = errno;
@@ -1467,8 +1465,8 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
             display("! ERROR : C[%d] prepare_data_connection failed in ftp_RETR for %s", connection->index+1, path);
             display("! ERROR : out of memory in ftp_RETR");
         }
-        closeTransferredFile(connection);
     }
+    if (result == 0) activeTransfersNumber++;
 
     return result;
 }
@@ -1527,6 +1525,7 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
 
         return write_reply(connection, 550, msg);
     }
+
     
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
     
@@ -1536,8 +1535,8 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
         if (result == -ENOMEM) {
             display("! ERROR : out of memory in stor_or_append");
         }
-        closeTransferredFile(connection);
     }
+    if (result == 0) activeTransfersNumber++;
 
     return result;
 }
@@ -1753,6 +1752,7 @@ static void cleanup_data_resources(connection_t *connection) {
     if (connection->data_connection_cleanup) {
         connection->data_connection_cleanup(connection->data_connection_callback_arg);
     }
+    activeTransfersNumber--;
     
     connection->data_callback = NULL;
     connection->data_connection_callback_arg = NULL;
@@ -1765,6 +1765,7 @@ static void displayTransferSpeedStats() {
         display(" ");
         display("------------------------------------------------------------");
         display("  Speed (MB/s) [min = %.2f, mean = %.2f, max = %.2f]", minTransferRate, sumAvgSpeed/(float)nbSpeedMeasures, maxTransferRate);
+        display("------------------------------------------------------------");
     }
 }
 
@@ -1848,7 +1849,7 @@ static bool processConnections() {
     
 	
     // if the max connections number is not reached, treat incomming connections
-    if (activeConnectionsNumber < FTP_NB_SIMULTANEOUS_TRANSFERS) {
+    if (activeConnectionsNumber <= NB_SIMULTANEOUS_TRANSFERS) {
 
         int32_t peer;
         struct sockaddr_in client_address;
@@ -1918,13 +1919,12 @@ static void process_data_events(connection_t *connection) {
             if (result >= 0) {
                 connection->data_socket = result;
                 connection->data_connection_connected = true;
-                if (result > 0) return;
             } else {
 				if (result != -EAGAIN) {
 	                char msg[FTP_MSG_BUFFER_SIZE];
 	                sprintf(msg, "Error accepting C[%d] %d (%s)",  connection->index+1, errno, strerror(errno));
 	                display("~ WARNING : %s", msg);
-	                write_reply(connection, 550, msg);
+	                write_reply(connection, 425, msg);
 				}
             }
 
@@ -1933,13 +1933,13 @@ static void process_data_events(connection_t *connection) {
 			if (verboseMode) {
 			    display("C[%d] using data_socket (%d) for transferring %s", connection->index+1, connection->data_socket, connection->fileName);
 			}
-            // retry 2 times if can't connect before exiting
+
             int nbTries=0;
             try_again:
             if ((result = network_connect(connection->data_socket, (struct sockaddr *)&connection->address, sizeof(connection->address))) < 0) {
                 if (result == -EINPROGRESS || result == -EALREADY) {
                     nbTries++;
-                    if (nbTries <= 2) goto try_again;
+                    if (nbTries <= NB_SIMULTANEOUS_TRANSFERS) goto try_again;
                     // no need to set to -EAGAIN, exit
                     return;
                 }
@@ -1958,16 +1958,16 @@ static void process_data_events(connection_t *connection) {
             }
         }
 
-        if (connection->data_connection_connected) {
-            return;
-        } else if (OSGetTime() > connection->data_connection_timer && connection->dataTransferOffset == 0) {
-            // do not timeout anymore once the connection was estblished a first time
-            result = -99;
-            char msg[MAXPATHLEN] = "";
-            sprintf(msg, "C[%d] timed out when connecting", connection->index+1);
-            display("~ WARNING : %s", msg);
-            write_reply(connection, 520, msg);
-        }
+        if (!connection->data_connection_connected) {
+            if (OSGetTime() > connection->data_connection_timer) {
+	            // timeout only for connections who try to connect
+	            result = -99;
+	            char msg[MAXPATHLEN] = "";
+	            sprintf(msg, "C[%d] timed out when connecting", connection->index+1);
+	            display("~ WARNING : %s", msg);
+	            write_reply(connection, 520, msg);
+	        }
+		}
         // here result = 1 or -99
 
     } else {
@@ -1998,7 +1998,7 @@ static void process_data_events(connection_t *connection) {
         if (verboseMode) {
             if (result != -EAGAIN) display("C[%d] data_callback using socket %d returned %d", connection->index+1, connection->data_socket, result);
         }
-
+		
         // check errors
         if (result < 0 && result != -EAGAIN) {
             display("! ERROR : C[%d] data transfer callback using socket %d failed , socket error = %d", connection->index+1, connection->data_socket, result);
@@ -2133,7 +2133,4 @@ bool process_ftp_events() {
 void setOsTime(struct tm *tmTime) {
     if (!timeOs) timeOs=tmTime;
 }
-
-uint32_t getActiveTransfersNumber() {
-    return activeTransfersNumber;
-}    
+   

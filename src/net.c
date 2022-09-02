@@ -84,29 +84,12 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
 
 		// Reuse socket
 	    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
-	        {if (!initDone) display("! ERROR : setsockopt / SO_REUSEADDR failed !");}        
-/*
-        // SO_NOSLOWSTART
-        if (setsockopt(s, SOL_SOCKET, SO_NOSLOWSTART, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / Disable slow start feature failed !");}    
+	        {if (!initDone) display("! ERROR : setsockopt / SO_REUSEADDR failed !");}
+			     
         
-        // Activate TCP SAck
-        if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / TCP SAck activation failed !");}
-        
-        // Disabling Nagle's algorithm
-        if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / Disabling Nagle's algorithm failed !");}
-
-        int disable = 0;
-        
-        // Enable delayed ACKs
-        if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &disable, sizeof(disable))!=0)
-            {if (!initDone) display("! ERROR : setsockopt / Enabling delayed ACKs failed !");}
-*/        
         // Activate WinScale
         if (setsockopt(s, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
-            {display("! ERROR : setsockopt / winScale activation failed !");}
+            {if (!initDone) display("! ERROR : setsockopt / winScale activation failed !");}
         
         // Set to non-blocking I/O
         set_blocking(s, false); 
@@ -298,15 +281,16 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     int32_t result = 0;
     
 
-    if (verboseMode) {    
-        display("C[%d] sending %d bytes of %s on socket %d", connection->index+1, 2*SOCKET_BUFFER_SIZE, connection->fileName,s);
-    }
-
     // max value for SNDBUF = SOCKET_BUFFER_SIZE (the system double the value set)
     int sndBuffSize = SOCKET_BUFFER_SIZE/2;
     if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, &sndBuffSize, sizeof(sndBuffSize))!=0)
         {display("! ERROR : setsockopt / SNDBUF failed !");
     }
+	
+    if (verboseMode) {    
+        display("C[%d] sending %d bytes of %s on socket %d", connection->index+1, 2*SOCKET_BUFFER_SIZE, connection->fileName,s);
+    }
+
 
     int32_t bytes_read = TRANSFER_BUFFER_SIZE;        
 	while (bytes_read) {
@@ -387,7 +371,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     int rcvBuffSize = SOCKET_BUFFER_SIZE;
     if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &rcvBuffSize, sizeof(rcvBuffSize))!=0)
         {display("! ERROR : setsockopt / RCVBUF failed !");}
-    
+	
     if (verboseMode) {    
         display("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     }
@@ -395,7 +379,7 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
 
     uint32_t retryNumber = 0;
 	// network_readChunk can overflow but less than (rcvBuffSize*2) bytes
-	// considering a buffer size of UL_BUFFER_SIZE - (rcvBuffSize*2) with UL_BUFFER_SIZE >= 2*(rcvBuffSize*2) will handle the overflow
+	// considering a buffer size of TRANSFER_BUFFER_SIZE - (rcvBuffSize*2) to handle the overflow
 	uint32_t chunckSize = TRANSFER_BUFFER_SIZE - (SOCKET_BUFFER_SIZE*2);
     int32_t bytes_received = chunckSize;
     while (bytes_received) {

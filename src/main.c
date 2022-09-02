@@ -217,7 +217,7 @@ int __entry_menu(int argc, char **argv)
         // set the name 
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 0)
+        // set a priority to 0 (CPU1)
         OSSetThreadPriority(thread, 0);
     }
     display(" -=============================-\n");
@@ -325,13 +325,12 @@ int __entry_menu(int argc, char **argv)
                 display("(auto-shutdown OFF)");
                 IMDisableAPD(); // Disable auto-shutdown feature
                 autoShutDown = 0;
-                sleep(1);
             } else {
                 display("(auto-shutdown ON)");
                 IMEnableAPD(); // Disable auto-shutdown feature
                 autoShutDown = 1;
-                sleep(1);
             }			
+            sleep(1);
         }
         
         if (upPressed) {
@@ -342,11 +341,18 @@ int __entry_menu(int argc, char **argv)
                 display("(verbose mode ON)");
                 verboseMode = true;
             }
+            sleep(1);
         }
         
         usleep(1000);
     }
 
+    if (!mountMlc) {
+        display(" ");
+        display(" ");
+        display(" ");    
+    }
+    
     display(" ");
     int nbDrives = MountVirtualDevices(mountMlc);    
     if (nbDrives == 0) {
@@ -354,6 +360,7 @@ int __entry_menu(int argc, char **argv)
         returnCode = -20;
         goto exit;
     }
+    display(" ");
     display(" ");
 
     /*--------------------------------------------------------------------------*/
@@ -366,6 +373,11 @@ int __entry_menu(int argc, char **argv)
     /*--------------------------------------------------------------------------*/
     /* FTP loop                                                                 */
     /*--------------------------------------------------------------------------*/ 
+    if (autoShutDown) display(" (auto shutdown is ON , use DOWN button to toggle state)");
+    else display(" (auto shutdown is OFF, use DOWN button to toggle state)");
+    display(" ");
+    display(" ");
+    display(" ");
 
     bool exitApplication = false, network_down = false;
     while(serverSocket >= 0 && !network_down && !exitApplication)
@@ -397,13 +409,12 @@ int __entry_menu(int argc, char **argv)
                 display("(auto-shutdown OFF)");
                 IMDisableAPD(); // Disable auto-shutdown feature
                 autoShutDown = 0;
-                sleep(1);
             } else {
                 display("(auto-shutdown ON)");
                 IMEnableAPD(); // Disable auto-shutdown feature
                 autoShutDown = 1;
-                sleep(1);
             }			
+            sleep(1);
         }
         
         if (upPressed) {
@@ -414,6 +425,7 @@ int __entry_menu(int argc, char **argv)
                 display("(verbose mode ON)");
                 verboseMode = true;
             }
+        	sleep(1);
         }
     }
         

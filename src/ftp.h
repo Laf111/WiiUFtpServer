@@ -55,8 +55,6 @@ void     cleanup_ftp();
 void     setOsTime(struct tm *tmTime);
 
 
-uint32_t getActiveTransfersNumber();
-
 #ifdef __cplusplus
 }
 #endif
