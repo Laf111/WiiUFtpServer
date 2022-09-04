@@ -60,11 +60,16 @@ EXPORT_DECL(const char *, inet_ntop, s32 af, const void *src, char *dst, s32 siz
 EXPORT_DECL(s32, inet_pton, s32 af, const char *src, void *dst);
 EXPORT_DECL(s32, socketlasterr, void);
         
-static OSThread *socketThread=NULL;
-static u32 *socketThreadStack=NULL;
 
-void socketThreadMain(s32 argc, void *argv)
-{
+void InitAcquireSocket(void) {
+    if(coreinit_handle == 0) {
+        InitAcquireOS();
+    };
+    OSDynLoad_Acquire("nsysnet.rpl", &nsysnet_handle);
+}
+
+void InitSocketFunctionPointers(void) {
+
     u32 *funcPointer = 0;
 
     InitAcquireSocket();
@@ -109,45 +114,9 @@ void socketThreadMain(s32 argc, void *argv)
     ACGetAssignedAddress(&hostIpAddress);
    
     socket_lib_init();
-    ((void (*)())0x01041D6C)(); // OSExitThread()
-}
-
-void InitAcquireSocket(void) {
-    if(coreinit_handle == 0) {
-        InitAcquireOS();
-    };
-    OSDynLoad_Acquire("nsysnet.rpl", &nsysnet_handle);
-}
-
-void InitSocketFunctionPointers(void) {
-
-    // create a thread on CPU0
-    socketThread = OSAllocFromSystem(sizeof(OSThread), 8); 
-    if (socketThread != NULL) {
-     
-        socketThreadStack = OSAllocFromSystem(NET_STACK_SIZE, 8);
-        if (socketThreadStack != NULL) {
-    
-            // on CPU0, prio = 0
-            OSCreateThread(socketThread, (void*)socketThreadMain, 0, NULL, (u32)socketThreadStack+NET_STACK_SIZE, NET_STACK_SIZE, 0, OS_THREAD_ATTR_AFFINITY_CORE0);
-            // set name    
-            OSSetThreadName(socketThread, "Socket lib thread on CPU0");
-            
-            // launch the thread
-            OSResumeThread(socketThread);
-        }
-    }
 }    
 
 void FreeSocketFunctionPointers(void) {
 
-    socket_lib_finish();
-
-    s32 ret;
-
-    OSJoinThread(socketThread, &ret);
-    
-    if (socketThreadStack != NULL) OSFreeToSystem(socketThreadStack);
-    if (socketThread != NULL) OSFreeToSystem(socketThread); 
-    
+    socket_lib_finish();    
 }

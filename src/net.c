@@ -79,7 +79,6 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
     }
     if (type == SOCK_STREAM)
     {
-        if (!initDone) display("-------------- socket optimizations --------------");
         s32 enable = 1;
 
 		// Reuse socket
@@ -292,7 +291,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     }
 
 
-    int32_t bytes_read = TRANSFER_BUFFER_SIZE;        
+    int32_t bytes_read = TRANSFER_BUFFER_SIZE/8;        
 	while (bytes_read) {
 
         bytes_read = fread(connection->transferBuffer, 1, TRANSFER_BUFFER_SIZE, connection->f);

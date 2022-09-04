@@ -223,7 +223,7 @@ int __entry_menu(int argc, char **argv)
     display(" -=============================-\n");
     display("|    %s   |\n", VERSION_STRING);
     display(" -=============================-\n");
-    display("[Laf111/2022-08/dynamic_libs]");
+    display("[Laf111/2022-09/dynamic_libs]");
     display(" ");
     
     // Get OS time and save it in ftp static variable 
@@ -393,7 +393,10 @@ int __entry_menu(int argc, char **argv)
         if (checkButton(PAD_BUTTON_HOME, PRESS) || checkButton(PAD_BUTTON_HOME, HOLD))
             exitApplication = true;
        
-        if (exitApplication) break;                    
+        if (exitApplication) {
+			sleep(2);
+			break;			
+		}                    
 
 		bool upPressed = false;
 		bool downPressed = false;
@@ -467,7 +470,7 @@ exit:
         if(consoleArrayDrc[i])
             free(consoleArrayDrc[i]);
     }
-    sleep(2);
+    sleep(1);
     memoryRelease();
     
     return returnCode;

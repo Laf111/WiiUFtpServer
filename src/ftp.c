@@ -341,6 +341,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
     // on the very first call
     if (connection->dataTransferOffset == -1) {
         
+		activeTransfersNumber++;
 
         // init bytes counter
         connection->dataTransferOffset = 0;
@@ -365,16 +366,17 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 
         // set thread priority : 
     
-        // index+1 = 1,2,3 => prio = 8
-        u32 priority = 8;
-        // index+1 = 4,5,6 => prio = 6
-        if (connection->index > 2 || connection->index <= 5) priority = 6;
-        // index+1 = 7,8 => prio = 1
-        if (connection->index >= 5 ) priority = 1;
-
+        // activeTransfersNumber <= 3 : prio = 6
+        u32 priority = 6;
+        // activeTransfersNumber > 3 & activeTransfersNumber < 7 : prio = 3
+        if (activeTransfersNumber > 3 && activeTransfersNumber < 7) priority = 3;
+        // activeTransfersNumber > 6 : prio = 1
+        if (activeTransfersNumber > 6 ) priority = 1;
+		
+   
         // launching transfer thread
         if (!OSCreateThread(connection->transferThread, launchTransfer, 1, (char *)connection, (u32)connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, priority, cpu)) {
-            display("! ERROR : when creating transferThread!");
+            display("! ERROR : when launching transferThread with priority = %u", priority);
             return -105;
         }
 
@@ -403,7 +405,8 @@ static int32_t closeTransferredFile(connection_t *connection) {
     int32_t result = 0;
 
 
-    
+    activeTransfersNumber--;
+	
     if (verboseMode) {
         display("CloseTransferredFile for C[%d] (file=%s)", connection->index+1, connection->fileName);
     }
@@ -1466,7 +1469,7 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
             display("! ERROR : out of memory in ftp_RETR");
         }
     }
-    if (result == 0) activeTransfersNumber++;
+
 
     return result;
 }
@@ -1536,7 +1539,7 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
             display("! ERROR : out of memory in stor_or_append");
         }
     }
-    if (result == 0) activeTransfersNumber++;
+
 
     return result;
 }
@@ -1752,7 +1755,6 @@ static void cleanup_data_resources(connection_t *connection) {
     if (connection->data_connection_cleanup) {
         connection->data_connection_cleanup(connection->data_connection_callback_arg);
     }
-    activeTransfersNumber--;
     
     connection->data_callback = NULL;
     connection->data_connection_callback_arg = NULL;
@@ -2118,8 +2120,10 @@ bool process_ftp_events() {
             // increment nbAvgFiles and take speed into account for mean calculation
             nbSpeedMeasures += 1;
             
-            // fix double rate errors
-            if (totalSpeedMBs > 8.0) totalSpeedMBs = totalSpeedMBs / 2.0; 
+            // fix mutli rate errors
+			int maxSpeedPerTransfer = 7;
+			int nbt = (int)(totalSpeedMBs / maxSpeedPerTransfer);
+			if (nbt > 1) totalSpeedMBs = totalSpeedMBs / nbt;
             
             if (totalSpeedMBs > maxTransferRate) maxTransferRate = totalSpeedMBs;
             if (totalSpeedMBs < minTransferRate) minTransferRate = totalSpeedMBs;

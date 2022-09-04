@@ -57,7 +57,7 @@ extern "C"{
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
 // perallocated transfer buffer per connections (FTP_NB_SIMULTANEOUS_TRANSFERS
-#define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*12)
+#define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*16)
 
 typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
 struct connection_struct {
