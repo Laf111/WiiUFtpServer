@@ -377,8 +377,10 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
     }
 
     uint32_t retryNumber = 0;
-	// network_readChunk can overflow but less than (rcvBuffSize*2) bytes
     
+    // use a large buffer for UL  (ease multi-connections) 
+    
+	// network_readChunk can overflow but less than (rcvBuffSize*2) bytes
 	// considering a buffer size of TRANSFER_BUFFER_SIZE - (rcvBuffSize*2) to handle the overflow
 	uint32_t chunckSize = TRANSFER_BUFFER_SIZE - (rcvBuffSize*2);
     int32_t bytes_received = chunckSize;
