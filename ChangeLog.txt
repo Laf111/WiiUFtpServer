@@ -358,3 +358,6 @@ HISTORY :
     
     Special thanks to Masana for testing.
         
+2022/09/08 V12-1 :    
+    > fix :  creating single letter folders Freezes the console #28 
+    > optimize transfer buffer for DL (to ease connections start)

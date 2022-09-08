@@ -594,7 +594,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
     *fileName = NULL;
     *folder = NULL;
     char *pos = NULL;
-        
+    
     if ( (strcmp(cwd, "/") == 0) && (path &&((strcmp(path, ".") == 0) || (strcmp(path, "/") == 0))) ) {
         
         // allocate and copy folder with cwd
@@ -611,7 +611,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
         // allocate and copy fileName with path
         cwdNoSlash = (char *)malloc (strlen(cwd)+1);
         strcpy(cwdNoSlash, cwd);
-
+        
         // remove any trailing slash when cwd != "/"
         removeTrailingSlash(&cwdNoSlash);
 
@@ -650,7 +650,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                         strcat(cwd, "/");
                         
                     } else {
-
+                        
                         if ( strcmp(cwdNoSlash,"") != 0 ) {
 
                             // allocate and copy fileName with path
@@ -677,6 +677,7 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                     }
                 } else {
                     if (strlen(path) == 1) {
+                        
                         if (strcmp(path, "/") == 0) {
                             
                             *folder = (char *)malloc (2);
@@ -684,8 +685,16 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
                             *fileName = (char *)malloc (2);
                             strcpy(*fileName, ".");
                             
-                        }
-                        // else should be '.'
+                        } else {
+                            
+                            if (strcmp(path, ".") != 0) {
+                                *folder = (char *)malloc (2);
+                                strcpy(*folder, cwd);
+                                *fileName = (char *)malloc (2);
+                                strcpy(*fileName, path);    
+                            }                            
+                        }    
+                        
                     } else {
                     
                         // path is not given, cwd gives the whole full path
@@ -712,7 +721,6 @@ static void secureAndSplitPath(char *cwd, char* path, char **folder, char **file
         
             // path is not given, cwd gives the whole full path
             if (strcmp(cwd, "/") != 0) {
-                
                 
                 // path is not given, cwd gives the whole full path
                 // get path from cwd

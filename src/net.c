@@ -287,14 +287,15 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
     }
 	
     if (verboseMode) {    
-        display("C[%d] sending %d bytes of %s on socket %d", connection->index+1, 2*SOCKET_BUFFER_SIZE, connection->fileName,s);
+        display("C[%d] sending %s on socket %d", connection->index+1, connection->fileName,s);
     }
 
-
-    int32_t bytes_read = TRANSFER_BUFFER_SIZE/8;        
+    // use a "small" buffer for download (ease multi-connections)
+    int32_t dlBufferSize = sndBuffSize*2;        
+    int32_t bytes_read = dlBufferSize;        
 	while (bytes_read) {
 
-        bytes_read = fread(connection->transferBuffer, 1, TRANSFER_BUFFER_SIZE, connection->f);
+        bytes_read = fread(connection->transferBuffer, 1, dlBufferSize, connection->f);
         if (bytes_read == 0) {
             // SUCCESS, no more to write                  
             result = 0;
@@ -309,7 +310,7 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
             while (remaining) {
             
                 send_again:
-                result = network_write(s, connection->transferBuffer, MIN(remaining, TRANSFER_BUFFER_SIZE));
+                result = network_write(s, connection->transferBuffer, MIN(remaining, dlBufferSize));
 
                 if (verboseMode) {    
                     display("C[%d] sent %d bytes of %s", connection->index+1, result, connection->fileName);
@@ -337,12 +338,12 @@ int32_t send_from_file(int32_t s, connection_t* connection) {
         if (result >=0) {
                 
             // check bytes read (now because on the last sending, data is already sent here = result)
-            if (bytes_read < TRANSFER_BUFFER_SIZE) {
+            if (bytes_read < dlBufferSize) {
                     
             	if (bytes_read < 0 || feof(connection->f) == 0 || ferror(connection->f) != 0) {
                     // ERROR : not on eof file or read error, or error on stream => ERROR
                     display("! ERROR : failed to read file!");
-                    display("! ERROR : fread = %d and bytes = %d", bytes_read, TRANSFER_BUFFER_SIZE);
+                    display("! ERROR : fread = %d and bytes = %d", bytes_read, dlBufferSize);
                     display("! ERROR : errno = %d (%s)", getsocketerrno(), strerror(getsocketerrno())); 
                     result = -103;
                     break;
@@ -375,11 +376,11 @@ int32_t recv_to_file(int32_t s, connection_t* connection) {
         display("C[%d] receiving %s on socket %d", connection->index+1, connection->fileName, s);
     }
 
-
     uint32_t retryNumber = 0;
 	// network_readChunk can overflow but less than (rcvBuffSize*2) bytes
+    
 	// considering a buffer size of TRANSFER_BUFFER_SIZE - (rcvBuffSize*2) to handle the overflow
-	uint32_t chunckSize = TRANSFER_BUFFER_SIZE - (SOCKET_BUFFER_SIZE*2);
+	uint32_t chunckSize = TRANSFER_BUFFER_SIZE - (rcvBuffSize*2);
     int32_t bytes_received = chunckSize;
     while (bytes_received) {
                         
