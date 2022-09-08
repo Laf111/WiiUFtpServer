@@ -56,9 +56,7 @@ extern "C"{
 // socket memory buffer size = (2*sndBuffSize+2*rcvBuffSize)
 #define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
 
-// preallocated transfer buffer per connections
-// (using a small transfer buffer for UL reduce the number of simultaneuous transfers)
-// (using a large buffer for DL has the same effect)
+// perallocated transfer buffer per connections (FTP_NB_SIMULTANEOUS_TRANSFERS
 #define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*16)
 
 typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
