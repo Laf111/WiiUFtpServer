@@ -2,8 +2,6 @@
 
 **A robust and optimized FTP server for the WiiU !**
 
-**NOTE :** WUT developpement is interrupted (awaiting for a stable version, i tried WUT 1.1.1 without success), so no more channel version for V12 and up for now.
-
 
 <p align="center">
   <img src="WiiUFtpServer.png">
@@ -11,8 +9,9 @@
 
 Based on ftpiiu but with the following issues fixed : 
 - **connections failures and crashs**
-- extend supported clients list 
 - file's dates (timestamps)
+- symlinks displayed in FTP client browser
+- symlinks resolution for the ones found in update and DLC content
 - **file injection (add rights on files uploaded)**
 - remove the one slot limitation on upload and unlock up to **8 simultaneous transfers (download/upload)**
 - **much more faster than the original**
@@ -28,8 +27,28 @@ WiiuFtpServer comes also with some **extra features** :
 - **you can choose to disable or enable the power saving feature**
 - **enable / disable VERBOSE mode on server side**
 - **mount NAND paths only if you ask for it**
+- **a network unbrick feature** 
  
+By default, NAND paths are not mounted. 
+
+The very first time you mount them, you'll be asked to create a NAND system files backup (to \_sdCard\wiiu\apps\WiiUFtpServer\NandBackup). 
+
+You can choose to create a partial one (< 3MB) or a full (system files only) NAND backup (500MB are requiered on the SD card)
+
+In any case, **only files contained in the partial backup** will be used and **only** to recover the network in case it doesn't work anymore (leading in a white screen on reboot).
+
+After the restoration process (boot on HBL menu, launch WiiuFtpServer and restore backup process), you will be able to start WiiuFtpServer and unbrick as usual (you can use the full backup files if you don't have a more recent one elsewhere than on the SDcard)
+
+- **a CRC checker tool, to be sure that files were transferred sucessfully (on a CRC error, the file size could be OK)** 
+
+
+https://user-images.githubusercontent.com/47532310/155005764-72990fa4-b271-4ab4-bb66-08c4c4b301bb.mp4
+
+The CRC checker tool is in the HBL App folder (\_sdCard\wiiu\apps\WiiuFtpServer\CrcChecker). Prefer the python version (latest) which is 30 times faster than paralellized windows shell.
+
 **NOTES :**
+
+- When transferring from/to **SDcard**, the number of simultaneous transfers is **hard limited to 4** to avoid I/O errors 
 
 - No user/password requiered and **only one client is allowed**
 
@@ -60,23 +79,29 @@ WiiuFtpServer comes also with some **extra features** :
 To build from scratch :
 
 - install [devkitPro](https://github.com/devkitPro/installer/releases/latest) (in DEVKITPRO_PATH)
+- get [libWUT](https://github.com/devkitPro/wut) 
+- get [libIOSUHAX](https://github.com/Crementif/libiosuhax) (crementif version)
+- get [libFat](https://github.com/Crementif/libfat) (because using only WUT+IOSUHAX cripple SDCard performance, crementif version)
 
 
 Launch "msys2\msys2_shell.bat" 
 
 - export DEVKITPRO=$DEVKITPRO_PATH
+
+- Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in
+
+- Build libIOSUHAX, create $DEVKITPRO_PATH/iosuhax folder and put lib and include folders in
+
+- Build libFat, create $DEVKITPRO_PATH/fat folder and put lib and include folders in
+
 - cd to WiiUFtpServer folder
+
 - ./build.sh
 
 
-It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer.
+It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
+
+To create the channel version (HBC), use "toWUP\createChannel.bat"
+
 
 Then just copy the \_sdCard folder content to your SD card.
-
-#
-# KNOWN ISSUES :
-
-- symlinks are displayed as regular files in FTP client browser and trying to transfer them will fail (links not resolved)
-  
-  When dumping games for CEMU, just ignore those errors (CEMU does not use them).
-- libFat is used because of very poor performance on SDCard transfers using only libIOSUHAX 
