@@ -43,8 +43,9 @@ extern "C"{
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "iosuhax.h"
-#include "iosuhax_devoptab.h"
+#include <iosuhax.h>
+#include <iosuhax_devoptab.h>
+
 typedef struct {
     char *name;
     char *alias;

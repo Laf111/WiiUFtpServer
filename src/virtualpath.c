@@ -35,13 +35,18 @@
 // this module handle posix path with virtual mounted drives (wrapping)
 #include <malloc.h>
 #include <string.h>
-#include "fat.h"
-#include "iosuhax_disc_interface.h"
+#include <whb/log.h>
+#include <whb/log_console.h>
+#include <coreinit/filesystem.h>
+
+#include <fat.h>
+
+#include <iosuhax_disc_interface.h>
 
 #include "vrt.h"
 #include "virtualpath.h"
 
-extern void display(const char *format, ...);
+extern void display(const char *fmt, ...);
 
 // iosuhax fd
 extern int fsaFd;
@@ -66,13 +71,14 @@ char storage_usb_found[14] = "";
 uint8_t MAX_VIRTUAL_PARTITIONS = 0;
 VIRTUAL_PARTITION * VIRTUAL_PARTITIONS = NULL;
 
+//--------------------------------------------------------------------------
 static void AddVirtualPath(const char *name, const char *alias, const char *prefix)
 {
-    if(!VIRTUAL_PARTITIONS)
+    if (!VIRTUAL_PARTITIONS)
         VIRTUAL_PARTITIONS = (VIRTUAL_PARTITION *) malloc(sizeof(VIRTUAL_PARTITION));
 
     VIRTUAL_PARTITION * tmp = realloc(VIRTUAL_PARTITIONS, sizeof(VIRTUAL_PARTITION)*(MAX_VIRTUAL_PARTITIONS+1));
-    if(!tmp)
+    if (!tmp)
     {
         free(VIRTUAL_PARTITIONS);
         MAX_VIRTUAL_PARTITIONS = 0;
@@ -92,7 +98,7 @@ static void AddVirtualPath(const char *name, const char *alias, const char *pref
 //--------------------------------------------------------------------------
 void VirtualMountDevice(const char * path)
 {
-    if(!path)
+    if (!path)
         return;
 
     int i = 0;
@@ -105,10 +111,10 @@ void VirtualMountDevice(const char * path)
 
     do
     {
-        if(path[i] == ':')
+        if (path[i] == ':')
             namestop = true;
 
-        if(!namestop)
+        if (!namestop)
         {
             name[i] = path[i];
             name[i+1] = '\0';
@@ -120,7 +126,7 @@ void VirtualMountDevice(const char * path)
         prefix[i+1] = '\0';
         i++;
     }
-    while(path[i-1] != '/');
+    while (path[i-1] != '/');
     AddVirtualPath(name, alias, prefix);
 }
 
@@ -146,25 +152,26 @@ void UnmountVirtualPaths()
     uint32_t i = 0;
     for(i = 0; i < MAX_VIRTUAL_PARTITIONS; i++)
     {
-        if(VIRTUAL_PARTITIONS[i].name)
+        if (VIRTUAL_PARTITIONS[i].name)
             free(VIRTUAL_PARTITIONS[i].name);
-        if(VIRTUAL_PARTITIONS[i].alias)
+        if (VIRTUAL_PARTITIONS[i].alias)
             free(VIRTUAL_PARTITIONS[i].alias);
-        if(VIRTUAL_PARTITIONS[i].prefix)
+        if (VIRTUAL_PARTITIONS[i].prefix)
             free(VIRTUAL_PARTITIONS[i].prefix);
     }
 
-    if(VIRTUAL_PARTITIONS)
+    if (VIRTUAL_PARTITIONS)
         free(VIRTUAL_PARTITIONS);
     VIRTUAL_PARTITIONS = NULL;
     MAX_VIRTUAL_PARTITIONS = 0;
 }
 
+//--------------------------------------------------------------------------
 void ResetVirtualPaths()
 {
     if (nbDevices > 0) {
         UnmountVirtualPaths();
-        
+
         if (sd == 1)                   VirtualMountDevice("sd:/");
         if (storage_slccmpt == 1)      VirtualMountDevice("storage_slccmpt:/");
         if (storage_mlc == 1)          VirtualMountDevice("storage_mlc:/");
@@ -178,24 +185,27 @@ void ResetVirtualPaths()
         }
         
         if (storage_slc == 1)          VirtualMountDevice("storage_slc:/");
-        
+
         if (storage_odd_tickets == 1)  VirtualMountDevice("storage_odd_tickets:/");
         if (storage_odd_updates == 1)  VirtualMountDevice("storage_odd_updates:/");
         if (storage_odd_content == 1)  VirtualMountDevice("storage_odd_content:/");
         if (storage_odd_content2 == 1) VirtualMountDevice("storage_odd_content2:/");
-        
+
     }
-}       
+}
+
 //--------------------------------------------------------------------------
 int MountVirtualDevices(bool mountMlc) {
+    // free wut devoptab (unmount SD card)
+//    FSShutdown();
 
-    if (fatMountSimple("sd", &IOSUHAX_sdio_disc_interface)) {
+    // SDCard : use libFat or it will cripple performances on SDCard
+//    if (fatMountSimple("sd", &IOSUHAX_sdio_disc_interface)) {
         display("Mounting sd...");
-        
         sd=1;
         VirtualMountDevice("sd:/");
         nbDevices++;
-    }
+//    }
 
     // USB
     strcat(usbLabel[0], "storage_usb01"); 
@@ -209,7 +219,6 @@ int MountVirtualDevices(bool mountMlc) {
         
         char usbVolPath[19] = "/vol/";
         strcat(usbVolPath, usbLabel[i]);
-        
         // return no error...        
         mount_fs(usbLabel[i], fsaFd, NULL, usbVolPath);
 
@@ -248,7 +257,7 @@ int MountVirtualDevices(bool mountMlc) {
     
     // MLC Paths
     if (mountMlc) {
-        if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >= 0) {
+        if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >=0) {
             display("Mounting storage_slccmpt...");
 
             storage_slccmpt=1;
@@ -277,7 +286,7 @@ int MountVirtualDevices(bool mountMlc) {
         VirtualMountDevice("storage_odd_tickets:/");
         nbDevices++;
     }
-    if (mount_fs("storage_odd_updates", fsaFd, "/dev/odd02", "/vol/storage_odd_updates") >= 0) {
+    if (mount_fs("storage_odd_updates", fsaFd, "/dev/odd02", "/vol/storage_odd_updates") >=0) {
         display("Mounting storage_odd_updates...");
 
         storage_odd_updates=1;
@@ -304,26 +313,25 @@ int MountVirtualDevices(bool mountMlc) {
 
 //--------------------------------------------------------------------------
 void UmountVirtualDevices() {
-    
+
     UnmountVirtualPaths();
 
     if (sd == 1) {
-        fatUnmount("sd");
+  //      fatUnmount("sd");
         display("Unmounting sd...");
-                
         sd = 0;
     }
     if (storage_slccmpt == 1) {
         unmount_fs("storage_slccmpt");
         display("Unmounting storage_slccmpt...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slccmpt01");
         storage_slccmpt = 0;
     }
     if (storage_mlc == 1) {
         unmount_fs("storage_mlc");
         display("Unmounting storage_mlc...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_mlc01");
         storage_mlc = 0;
     }
@@ -345,40 +353,40 @@ void UmountVirtualDevices() {
             storage_usb[i] = 0;
         }
     }
-    
     if (storage_odd_tickets == 1) {
         unmount_fs("storage_odd_tickets");
         display("Unmounting storage_odd_tickets...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_tickets");
         storage_odd_tickets = 0;
     }
     if (storage_odd_updates == 1) {
         unmount_fs("storage_odd_updates");
         display("Unmounting storage_odd_updates...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_updates");
         storage_odd_updates = 0;
     }
     if (storage_odd_content == 1) {
         unmount_fs("storage_odd_content");
         display("Unmounting storage_odd_content...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content");
         storage_odd_content = 0;
     }
     if (storage_odd_content2 == 1) {
         unmount_fs("storage_odd_content2");
         display("Unmounting storage_odd_content2...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content2");
         storage_odd_content2 = 0;
     }
     if (storage_slc == 1) {
         unmount_fs("storage_slc");
         display("Unmounting storage_slc...");
-        
+
         IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slc");
         storage_slc = 0;
     }
 }
+

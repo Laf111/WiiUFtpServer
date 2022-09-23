@@ -15,11 +15,27 @@ WiiuFtpServer comes also with some extra features :
     you can choose to disable or enable the power saving feature
     enable / disable VERBOSE mode on server side
     mount NAND paths only if you ask for it
+    a network unbrick feature
+    a CRC checker tool, to be sure that files were transferred sucessfully (on a CRC error, the file size could be OK)    
 
 By default, NAND paths are not mounted.
 
+The very first time you mount them, you'll be asked to create a NAND system files backup (to _sdCard\wiiu\apps\WiiUFtpServer\NandBackup).
+
+You can choose to create a partial one (< 3MB) or a full (system files only) NAND backup (500MB are requiered on the SD card)
+
+In any case, only files contained in the partial backup will be used and only to recover the network in case it doesn't work anymore (leading 
+in a white screen on reboot).
+
+After the restoration process (boot on HBL menu, launch WiiuFtpServer and restore backup process), you will be able to start WiiuFtpServer 
+and unbrick as usual (you can use the full backup files if you don't have a more recent one elsewhere than on the SDcard)
+
+
+The CRC checker tool is in the HBL App folder (_sdCard\wiiu\apps\WiiuFtpServer\CrcChecker). Prefer the python version (latest) which is 30 times faster than paralellized windows shell.
+
 NOTES :
 
+    When transferring from/to SDcard, the number of simultaneous transfers is hard limited to 4 to avoid I/O errors
 
     No user/password requiered and only one client is allowed
 
@@ -43,16 +59,27 @@ BUILD : (i used Windows)
 To build from scratch :
 
     install devkitPro (in DEVKITPRO_PATH)
-    
+    get libWUT
+    get libIOSUHAX
+    get libFat (because using only WUT+IOSUHAX cripple SDCard performance)
+
 Launch "msys2\msys2_shell.bat"
 
     export DEVKITPRO=$DEVKITPRO_PATH
+
+    Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in
+
+    Build libIOSUHAX, create $DEVKITPRO_PATH/iosuhax folder and put lib and include folders in
+
+    Build libFat, create $DEVKITPRO_PATH/fat folder and put lib and include folders in
 
     cd to WiiUFtpServer folder
 
     ./build.sh
 
 It creates a HBL App under _sdCard\wiiu\apps\WiiUFtpServer
+
+To create the channel version (HBC), use "toWUP\createChannel.bat"
 
 Then just copy the _sdCard folder content to your SD card.
 
@@ -334,30 +361,8 @@ HISTORY :
       Use 25% DL vs 75% UL of the reserved memory for buffer socket operations (instead of 50/50)
     > This last setting increase DL speeds obtain when multi-transferring. Using a small buffer for upload reduced the "speed displayed" 
       on UL operation (now take the fwrite time into account). 
+
       This version gives max speeds over 4M/s on both ways and treat a large number of files more quickly. 
-      
-2022/09/02 V12 :    
-    > WUT developpement is interrupted (awaiting for a more stable version, tried 1.1.1 with no success), so no more channel version for 
-      V12 and up.
-    > it is a much more stable version that use dynamic libs (like the original software) and it fix : 
-        - transfers number limitation on the SDCard, now 8 is allowed
-        - CRC errors when transferring to the SDCard
-      and i suppose : 
-        - Disconnects to ftp server while copying a injected game #22 
-        - Crash when trying to access a folder on SD #23 
-        - unstable on tiramisu #24
-        - It seems that using FileZilla client to delete files on sdcard caused it died. #26 
-    > noticeable multi-transfers enhancement : 
-        - now connections are re-used (no more alloc/free when client connects)
-        - transfer buffer and thread are preallocated
-        - extend the priority values used for transfer threads
-    > fix : /storage_usb sometimes inaccessible if two USB devices are plugged in #25 
-    > fix : renaming file is broken #27 
-    > fix : rights on files uploaded not set properly
-    > remove nand backup, log file and CRC calculation features
-    
-    Special thanks to Masana for testing.
-        
-2022/09/08 V12-1 :    
-    > fix :  creating single letter folders Freezes the console #28 
-    > optimize transfer buffer for DL (to ease connections start)
+
+
+"D:\WiiuSdk\devkitPro\tools\bin\wuhbtool.exe" "D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\code\WiiUFtpServer.rpx" "D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\WiiUFtpServer.wuhb" --name=WiiUFtpServer  --short-name=WiiUFtpServer --author=Laf111 --icon="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\iconTex.tga"  --tv-image="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\bootTvTex.tga"  --drc-image="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\bootDrcTex.tga"

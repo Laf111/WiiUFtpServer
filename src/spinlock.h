@@ -1,7 +1,8 @@
 /*
 
+ftpii -- an FTP server for the Wii
+
 Copyright (C) 2008 Joseph Jordan <joe.ftpii@psychlaw.com.au>
-This work is derived from Daniel Ehlers' <danielehlers@mindeye.net> srg_vrt branch.
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from
@@ -24,45 +25,33 @@ misrepresented as being the original software.
 */
 /****************************************************************************
   * WiiUFtpServer
-  * 2021-12-05:Laf111:V7-0
+  * 2021-12-05:Laf111:V7-0:
  ***************************************************************************/
 
-#ifndef _VRT_H_
-#define _VRT_H_
+#ifndef _SPINLOCK_H_
+#define _SPINLOCK_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <coreinit/atomic.h>
 
 #ifdef __cplusplus
 extern "C"{
 #endif
 
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/param.h>
-#include <sys/dirent.h>
+#define spinlock volatile uint32_t
 
-typedef struct
-{
-    DIR *dir;
-    char *path;
-    uint8_t virt_root;
-} DIR_P;
+#define SPINLOCK_FREE   false
+#define SPINLOCK_LOCKED true
 
-char *to_real_path(char *virtual_cwd, char *virtual_path);
-
-FILE *vrt_fopen(char *cwd, char *path, char *mode);
-int vrt_stat(char *cwd, char *path, struct stat *st);
-int vrt_checkdir(char *cwd, char *path);
-int vrt_chdir(char *cwd, char *path);
-int vrt_unlink(char *cwd, char *path);
-int vrt_mkdir(char *cwd, char *path, mode_t mode);
-int vrt_rename(char *cwd, char *from_path, char *to_path);
-DIR_P *vrt_opendir(char *cwd, char *path);
-struct dirent *vrt_readdir(DIR_P *iter);
-int vrt_closedir(DIR_P *iter);
+#define spinTryLock(lock)               OSCompareAndSwapAtomic(&lock, SPINLOCK_FREE, SPINLOCK_LOCKED)
+#define spinIsLocked(lock)              (lock)
+#define spinLock(lock)                  while(!spinTryLock(lock)) {}
+#define spinReleaseLock(lock)           lock = SPINLOCK_FREE
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* _VRT_H_ */
+#endif /* _SPINLOCK_H_ */

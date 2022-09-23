@@ -23,10 +23,35 @@ misrepresented as being the original software.
 3.This notice may not be removed or altered from any source distribution.
 
 */
+/****************************************************************************
+  * WiiUFtpServer
+  * 2021-12-05:Laf111:V7-0: complete the some TODO left
+ ***************************************************************************/
+
 #ifndef _FTP_H_
 #define _FTP_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <malloc.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
+#include <sys/dir.h>
+#include <unistd.h>
+#include <errno.h>
+#include <inttypes.h>
 #include <time.h>
+
+#include <coreinit/time.h>
+#include <coreinit/thread.h>
+#include <coreinit/memdefaultheap.h>
+#include <nsysnet/_socket.h>
+
+#include <whb/log.h>
+#include <whb/log_console.h>
+
 #define FTP_PORT            21
 
 // Connection time out in seconds
@@ -42,9 +67,67 @@ misrepresented as being the original software.
 
 #define FTP_TRANSFER_STACK_SIZE (18*1024)
 
+// user buffers (socket and file)
+
+#define UNSCALED_BUFFER_SIZE (8*1024) 
+
+#define SOCKET_BUFFER_SIZE (16*UNSCALED_BUFFER_SIZE) 
+
+// socket memory buffer size = (2*sndBuffSize+2*rcvBuffSize)
+#define SOMEMOPT_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE)
+
+#define TRANSFER_BUFFER_SIZE (4*SOCKET_BUFFER_SIZE*32)
+// --------------------------------------------------------------------------------------------------
+
 #ifdef __cplusplus
 extern "C"{
 #endif
+
+typedef int32_t (*data_connection_callback)(int32_t data_socket, void *arg);
+
+struct connection_struct {
+    int32_t socket;
+    char representation_type;
+    int32_t passive_socket;
+    int32_t data_socket;
+    char cwd[MAXPATHLEN];
+    char pending_rename[MAXPATHLEN];
+    off_t restart_marker;
+    struct sockaddr_in address;
+    bool authenticated;
+    char buf[FTP_MSG_BUFFER_SIZE];
+    int32_t offset;
+    bool data_connection_connected;
+    data_connection_callback data_callback;
+    void *data_connection_callback_arg;
+    void (*data_connection_cleanup)(void *arg);
+    // index of the connection
+    uint32_t index;
+    // file to transfer
+    FILE *f;    
+    // for file transferring
+    char fileName[MAXPATHLEN];
+    // volume path to the file
+    char *volPath;
+    // thread for transfering
+    OSThread WUT_ALIGNAS(32) *transferThread;
+    // preallocated transfer thread stack
+    uint8_t WUT_ALIGNAS(8) transferThreadStack[FTP_TRANSFER_STACK_SIZE];
+	// buffer for transferring files
+    char WUT_ALIGNAS(64) *transferBuffer;
+    // CRC-32 decimal value of file transferred
+    unsigned long crc32;
+    // for data transfer tracking
+    int32_t dataTransferOffset;
+    // last speed computed in MB/s
+    float speed;	
+    // return code of send/recv functions
+    int32_t bytesTransferred;
+    OSTime data_connection_timer;
+};
+
+
+typedef struct connection_struct connection_t;
 
 char*    virtualToVolPath(char *vPath);
 
@@ -54,6 +137,7 @@ void     cleanup_ftp();
 
 void     setOsTime(struct tm *tmTime);
 
+uint32_t getActiveTransfersNumber();
 
 #ifdef __cplusplus
 }

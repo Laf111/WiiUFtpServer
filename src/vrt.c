@@ -26,31 +26,36 @@ misrepresented as being the original software.
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-0
  ***************************************************************************/
-#include "dynamic_libs/socket_functions.h"
+
+#include <errno.h>
 #include <malloc.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/param.h>
+#include <sys/dirent.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <dirent.h>
 
 #include "virtualpath.h"
+#include "net.h"
 #include "vrt.h"
 
-#ifndef _REENT_ONLY
-#define errno (*__errno())
-extern int *__errno (void);
-#endif
 
 extern void display(const char *fmt, ...);
-extern bool verboseMode;
+
+#ifdef LOG2FILE
+    extern void writeToLog(const char *fmt, ...);
+#endif
+
 
 static char *virtual_abspath(char *virtual_cwd, char *virtual_path) {
     char *path;
     if (virtual_path[0] == '/') {
         path = virtual_path;
-    } else {
+    } else {        
         size_t path_size = strlen(virtual_cwd) + strlen(virtual_path) + 1;
         if (path_size > MAXPATHLEN || !(path = malloc(path_size))) return NULL;
         strcpy(path, virtual_cwd);
@@ -262,10 +267,10 @@ int vrt_checkdir(char *cwd, char *path) {
 int vrt_chdir(char *cwd, char *path) {
     int ret = vrt_checkdir(cwd, path);
     if (ret != 0) {        
-/* if (verboseMode) {
+/* #ifdef LOG2FILE
         display("! ERROR : vrt_checkdir failed (%d) in vrt_chdir on cwd=%s, path=%s", ret, cwd, path);
         display("! ERROR : errno = %d (%s)", errno, strerror(errno)); 
-}
+#endif
                         
  */
         return ret;
@@ -289,9 +294,9 @@ int vrt_chdir(char *cwd, char *path) {
 int vrt_unlink(char *cwd, char *path) {
     int res = -1;
     
-if (verboseMode) {
-        display("vrt_unlink cwd=%s path=%s", cwd, path);
-}
+#ifdef LOG2FILE
+        writeToLog("vrt_unlink cwd=%s path=%s", cwd, path);
+#endif
         
     res = (int)with_virtual_path(cwd, unlink, path, -1, NULL);
 
@@ -314,9 +319,10 @@ int vrt_rename(char *cwd, char *from_path, char *to_path) {
 	char *real_to_path = to_real_path(cwd, to_path);
 	if (!real_to_path || !*real_to_path) return -1;
     
-	if (verboseMode) {
-	    display("vrt_rename, real_to_path=%s", real_to_path);
-	}
+#ifdef LOG2FILE
+    writeToLog("vrt_rename, real_to_path=%s", real_to_path);
+#endif
+    
     // ignore result, fail elsewhere than SD card
     int result = 0;
 	with_virtual_path(cwd, rename, from_path, -1, real_to_path, NULL);
