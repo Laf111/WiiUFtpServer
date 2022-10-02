@@ -30,15 +30,11 @@
 #include <sysapp/launch.h>
 #include <nsysnet/_socket.h>
 
-#include <fat.h>
-
-#include <iosuhax.h>
-#include <iosuhax_disc_interface.h>
+#include <mocha/mocha.h>
 
 #include "ftp.h"
 #include "virtualpath.h"
 #include "net.h"
-#include "nandBackup.h"
 #include "controllers.h"
 #include "spinlock.h"
 
@@ -56,15 +52,23 @@ typedef enum
 
 } APP_STATE;
 
+// MLC vol mounted flag
+bool mountMlc = false;
+
+// FS global vars
+extern FSClient *__wut_devoptab_fs_client;
+
+extern bool sd;
+
 /****************************************************************************/
 // STATIC VARS
 /****************************************************************************/
 
+// FS static vars
+static FSCmdBlock cmdBlk;
+
 // Wii-U date (GMT) %02d/%02d/%04d %02d:%02d:%02d
 static char sessionDate[40] = "";
-
-// path used to check if a NAND backup exists on SDCard
-static const char backupCheck[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/NandBackup/storage_slc/proc/prefs/nn.xml";
 
 // gamepad inputs
 static VPADStatus vpadStatus;
@@ -73,19 +77,14 @@ static volatile APP_STATE app = APP_STATE_RUNNING;
 
 static int serverSocket = -99;
 
-// mcp_hook_fd
-static int mcp_hook_fd = -1;
-
-// MLC vol mounted flag
-static bool mountMlc = false;
 
 // lock to limit to one access at a time for the display method
 static spinlock displayLock = false;
 
 #ifdef LOG2FILE
     // log files
-	static char logFilePath[FS_MAX_LOCALPATH_SIZE]="wiiu/apps/WiiUFtpServer/WiiUFtpServer.log";
-    static const char previousLogFilePath[FS_MAX_LOCALPATH_SIZE] = "wiiu/apps/WiiUFtpServer/WiiUFtpServer.old";
+	static char logFilePath[MAXPATHLEN]="sd:/wiiu/apps/WiiUFtpServer/WiiUFtpServer.log";
+    static const char previousLogFilePath[MAXPATHLEN] = "sd:/wiiu/apps/WiiUFtpServer/WiiUFtpServer.old";
     static FILE * logFile = NULL;
 
     // lock to limit to one access at a time for the loggin method
@@ -94,16 +93,14 @@ static spinlock displayLock = false;
 
 
 // 2 level CRC32 SFV report 
-static char sfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
-static const char previousSfvFilePath[FS_MAX_LOCALPATH_SIZE] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
+static char sfvFilePath[MAXPATHLEN] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.sfv";
+static const char previousSfvFilePath[MAXPATHLEN] = "sd:/wiiu/apps/WiiUFtpServer/CrcChecker/WiiUFtpServer_crc32_report.old";
 static FILE * sfvFile = NULL;
     
     
 /****************************************************************************/
 // GLOBAL VARS
 /****************************************************************************/
-// iosuhax file descriptor
-int fsaFd = -1;
 
 // verbose mode for server
 bool verboseMode = false;
@@ -111,11 +108,10 @@ bool verboseMode = false;
 // flag to enable CRC32 calculation
 bool calculateCrc32 = false;
 
-
 /****************************************************************************/
 // GLOBAL FUNCTIONS
 /****************************************************************************/
-
+/*
 extern void __init_wut_malloc();
 extern void __preinit_user(UNUSED MEMHeapHandle *outMem1,
                UNUSED MEMHeapHandle *outFG,
@@ -123,6 +119,7 @@ extern void __preinit_user(UNUSED MEMHeapHandle *outMem1,
 {
     __init_wut_malloc();
 }
+*/
 //--------------------------------------------------------------------------
 void lockDisplay() {
     spinLock(displayLock);
@@ -137,25 +134,29 @@ void unlockDisplay() {
     // method to output a message to gamePad and TV (thread safe)
     void writeToLog(const char *fmt, ...)
     {
-        char buf[MAXPATHLEN];
-        va_list va;
-        va_start(va, fmt);
-        vsprintf(buf, fmt, va);
-        va_end(va);
+        // if the sd card is mounted
+        if (sd) {
         
-        spinLock(logLock);
-        
-        if (logFile == NULL) logFile = fopen(logFilePath, "a");
-        if (logFile == NULL) {
-            WHBLogPrintf("! ERROR : Unable to reopen log file?");
-            OSSleepTicks(OSMillisecondsToTicks(5000));            
-        } else {
-     
-            fprintf(logFile, "%s\n", buf);
-            fclose(logFile);
-            logFile = NULL;
-        }    
-        spinReleaseLock(logLock);
+            char buf[MAXPATHLEN];
+            va_list va;
+            va_start(va, fmt);
+            vsprintf(buf, fmt, va);
+            va_end(va);
+            
+            spinLock(logLock);
+            
+            if (logFile == NULL) logFile = fopen(logFilePath, "a");
+            if (logFile == NULL) {
+                WHBLogPrintf("! ERROR : Unable to reopen log file?");
+                OSSleepTicks(OSMillisecondsToTicks(5000));            
+            } else {
+         
+                fprintf(logFile, "%s\n", buf);
+                fclose(logFile);
+                logFile = NULL;
+            }    
+            spinReleaseLock(logLock);
+        }
     }        
 #endif
 
@@ -203,47 +204,20 @@ void writeCRC32(const char way, const char *cwd, const char *name, const int crc
 /****************************************************************************/
 
 //--------------------------------------------------------------------------
-//just to be able to call asyn
-static void someFunc(IMError err UNUSED, void *arg) {
-    (void)arg;
-}
-
-//--------------------------------------------------------------------------
-static int MCPHookOpen() {
-    //take over mcp thread
-    mcp_hook_fd = MCP_Open();
-    if (mcp_hook_fd < 0) return -1;
-    IOS_IoctlAsync(mcp_hook_fd, 0x62, (void*)0, 0, (void*)0, 0, someFunc, (void*)0);
-    //let wupserver start up
-    OSSleepTicks(OSMillisecondsToTicks(1000));
-    if (IOSUHAX_Open("/dev/mcp") < 0) {
-        MCP_Close(mcp_hook_fd);
-        mcp_hook_fd = -1;
-        return -1;
-    }
-    return 0;
-}
-
-//--------------------------------------------------------------------------
-static void MCPHookClose() {
-    if (mcp_hook_fd < 0) return;
-    //close down wupserver, return control to mcp
-    IOSUHAX_Close();
-    //wait for mcp to return
-    OSSleepTicks(OSMillisecondsToTicks(1000));
-    MCP_Close(mcp_hook_fd);
-    mcp_hook_fd = -1;
-}
-
-//--------------------------------------------------------------------------
 static void cls() {
     for (int i=0; i<20; i++) display(" ");
 
 }
 
 //--------------------------------------------------------------------------
-static bool isChannel() {
-    return OSGetTitleID() == 0x0005000010050421;
+static bool isNotLaunchWithHBL() {
+    OSDynLoad_Module mod;
+    bool aroma = OSDynLoad_Acquire("homebrew_kernel", &mod) == OS_DYNLOAD_OK;
+    if (aroma)
+        OSDynLoad_Release(mod);
+	else 
+		aroma = (OSGetTitleID() == 0x0005000010050421);
+    return aroma;
 }
 
 //--------------------------------------------------------------------------
@@ -296,19 +270,16 @@ static void cleanUp() {
 
     display(" ");
 #ifdef LOG2FILE
-        display("cleanUp : UmountVirtualDevices()");
+        display("cleanUp : UnmountVirtualDevices()");
 #endif    
-    UmountVirtualDevices();
+    UnmountVirtualDevices();
 
-	OSSleepTicks(OSMillisecondsToTicks(1000));
+	OSSleepTicks(OSMillisecondsToTicks(1000));   
+
+    Mocha_DeInitLibrary();
+    UnmountVirtualPaths();
+    FSShutdown();
     
-#ifdef LOG2FILE
-        display("cleanUp : IOSUHAX_FSA_Close()");
-#endif    
-    IOSUHAX_FSA_Close(fsaFd);
-    if (mcp_hook_fd >= 0) MCPHookClose();
-    else IOSUHAX_Close();
-
 #ifdef LOG2FILE
         display("cleanUp : PADShutdown()");
 #endif    
@@ -392,7 +363,6 @@ static void writeSfvHeader() {
 int main()
 {
     setlocale(LC_ALL, "");
-    FSInit();
 
     WHBProcInit();
     
@@ -421,38 +391,29 @@ int main()
         // set the name
         OSSetThreadName(thread, "WiiUFtpServer thread on CPU1");
 
-        // set a priority to 2*NB_SIMULTANEOUS_TRANSFERS+1)
-        OSSetThreadPriority(thread, 2*NB_SIMULTANEOUS_TRANSFERS+1);
+        // set a priority to 0)
+        OSSetThreadPriority(thread, 0);
     }
 
-    #ifdef LOG2FILE
-        
-        // if log file exists
-        if (access(logFilePath, F_OK) == 0) {
-            // file exists
-
-            // check if second log file exists
-            if (access(previousLogFilePath, F_OK) == 0) {
-                // remove previousLogFilePath
-                if (remove(previousLogFilePath) != 0) {
-                    WHBLogPrintf("! ERROR : Failed to remove old log file");
-                }
-            }
-
-            // backup : log -> previous
-            if (rename(logFilePath, previousLogFilePath) != 0) {
-                WHBLogPrintf("! ERROR : Failed to rename log file");
-                
-            }
-            WHBLogConsoleDraw();  
+    FSInit();
+    FSInitCmdBlock(&cmdBlk);
+    FSSetCmdPriority(&cmdBlk, 0);    
+    // Mounting file system using libMocha
+    bool res = Mocha_InitLibrary() == MOCHA_RESULT_SUCCESS;
+    if (res) {
+        res = Mocha_UnlockFSClient(__wut_devoptab_fs_client) == MOCHA_RESULT_SUCCESS;    
+        if (!res) {
+            display("Failed to init libmocha: %s [%d]", Mocha_GetStatusStr(res), res);
+            OSSleepTicks(OSMillisecondsToTicks(10000));
+            
+            goto exit;
         }
-        
-    #endif    
+    }
     
     display(" -=============================-");
     display("|    %s    |", VERSION_STRING);
     display(" -=============================-");
-    display("[Laf111/2022-01]");
+    display("[Laf111/2022-10/RPX]");
     display(" ");
 
 
@@ -483,32 +444,13 @@ int main()
     // save GMT OS Time in ftp.c
     setOsTime(&tmTime);
 	
-	OSSleepTicks(OSMillisecondsToTicks(800));
+	OSSleepTicks(OSMillisecondsToTicks(1200));
     display(" ");
     display(" ");
     display(" ");
     display(" ");
-
-    /*--------------------------------------------------------------------------*/
-    /* IOSUHAX operations and mounting devices                                  */
-    /*--------------------------------------------------------------------------*/
-
-    int res = IOSUHAX_Open(NULL);
-    if (res < 0)
-        res = MCPHookOpen();
-    if (res < 0) {
-        display("! ERROR : IOSUHAX_Open failed.");
-        goto exitCFW;
-    }
-    
-    fsaFd = IOSUHAX_FSA_Open();
-    if (fsaFd < 0) {
-        display("! ERROR : IOSUHAX_FSA_Open failed.");
-        if (mcp_hook_fd >= 0) MCPHookClose();
-        else IOSUHAX_Close();
-        goto exitCFW;
-    }
         
+    
     // *PAD init
     KPADInit();
     WPADInit();
@@ -597,6 +539,30 @@ int main()
         goto exit;
     }
 
+    #ifdef LOG2FILE
+        // if log file exists
+        if (access(logFilePath, F_OK) == 0) {
+            // file exists
+
+            // check if second log file exists
+            if (access(previousLogFilePath, F_OK) == 0) {
+                // remove previousLogFilePath
+                if (remove(previousLogFilePath) != 0) {
+                    WHBLogPrintf("! ERROR : Failed to remove old log file");
+                }
+            }
+
+            // backup : log -> previous
+            if (rename(logFilePath, previousLogFilePath) != 0) {
+                WHBLogPrintf("! ERROR : Failed to rename log file");
+                
+            }
+            WHBLogConsoleDraw();  
+        }
+	    writeToLog("Wii-U date (GMT) : %s",sessionDate);    
+    #endif    
+    
+    
     // if SFV file exists
     if (access(sfvFilePath, F_OK) == 0) {
         // file exists
@@ -615,52 +581,17 @@ int main()
         }
     }
         
-    display(" ");
-    display("Starting network and create server...");
-    display(" ");
-
-    // if mountMlc, check that a NAND backup exists, ask to create one otherwise
-    bool backupExist = (access(backupCheck, F_OK) == 0);
+    // if mountMlc, display CRC Warning
     if (mountMlc) {
-        if (!backupExist) {                        
-            cls();
-            display("!!!!!!!!!!!!!!!!!!!!!!!! WARNING !!!!!!!!!!!!!!!!!!!!!!!!!");
-            display(" ");
-            display("No NAND backup was found !");
-            display(" ");
-            display("There's always a risk of brick");
-            display("(specially if you edit system files from your FTP client)");
-            display(" ");
-            display(" ");
-            display("WiiUFtPServer will now create a partial backup of your system");
-            display(" ");
-            display("");
-            display("Press A or B button to continue");
-            display("");
-            readUserAnswer(&vpadStatus);
-            display("Creating partial NAND backup...");
-            createNandBackup(0);
-            display("");
-            display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            display("This backup is only a PARTIAL one used to unbrick");
-            display("the Wii-U network in order to start WiiUFtpServer");
-            display("");
-            display("It is highly recommended to create a FULL backup");
-            display("on your own");
-
-            display("");
-            display("Press A or B button to continue");
-            display("");
-            readUserAnswer(&vpadStatus);
-            cls();
-                                    
-        }
         if (!calculateCrc32) displayCrcWarning();
     }
 
     /*--------------------------------------------------------------------------*/
     /* Starting Network                                                         */
-    /*--------------------------------------------------------------------------*/
+    /*--------------------------------------------------------------------------*/	
+    display(" ");
+    display("Starting network and create server...");
+	for (int i=0; i<12; i++) display(" ");
 
     if (initialize_network() < 0) {
         display("! ERROR : when initializing network");
@@ -679,47 +610,6 @@ int main()
     if (serverSocket < 0) display("! ERROR : when creating server");
     
     // check that network availability
-    struct in_addr addr;
-	addr.s_addr = network_gethostip();
-
-    if (strcmp(inet_ntoa(addr),"0.0.0.0") == 0 && !isChannel()) {
-        networkDown = true;
-        cls();
-        display(" ");
-        display("! ERROR : network is OFF on the wii-U, FTP is impossible");
-        display(" ");
-        if (backupExist) {
-            display("If you have already checked the Network connection to the WIi-U");
-            display("Do you want to restore the partial NAND backup?");
-            display(" ");
-            display("Press A for YES, B for NO ");
-            display("");
-            if (readUserAnswer(&vpadStatus)) {
-                display("NAND backup will be restored, please confirm");
-                display("");
-                fatUnmount("sd");                 
-                IOSUHAX_FSA_Mount(fsaFd, "/dev/sdcard01", "/vol/storage_sdcard", 2, (void*)0, 0);
-                mount_fs("storage_sdcard", fsaFd, NULL, "/vol/storage_sdcard");
-                
-                if (readUserAnswer(&vpadStatus)) restoreNandBackup();
-                display("");
-                
-                // reboot
-                display("Shutdowning...");
-                OSSleepTicks(OSMillisecondsToTicks(2000));
-                OSDynLoad_Module coreinitHandle = NULL;
-                int32_t (*OSShutdown)(int32_t status);
-                OSDynLoad_Acquire("coreinit.rpl", &coreinitHandle);
-                OSDynLoad_FindExport(coreinitHandle, FALSE, "OSShutdown", (void **)&OSShutdown);
-                OSDynLoad_Release(coreinitHandle);
-                OSShutdown(1);
-                goto exit;
-            }
-        } else {
-            display("! ERROR : Can't start the FTP server, exiting");
-        }
-        display("");
-    }
 
     // check network and server creation, wait for user aknowledgement
     if (networkDown | (serverSocket < 0)) {
@@ -727,9 +617,12 @@ int main()
         display("Press A or B button to continue");
         display("");
         readUserAnswer(&vpadStatus);
+		goto exit;
     }
 
 #ifdef LOG2FILE
+    struct in_addr addr;
+	addr.s_addr = network_gethostip();
     writeToLog("Server created, adress = %s", inet_ntoa(addr));
 #endif
 
@@ -742,7 +635,7 @@ int main()
         writeSfvHeader();
         sflHeaderWritten = true;
     }
-    
+
     bool userExitRequest = false;
     cpt=0;
     while (!networkDown && !userExitRequest)
@@ -802,7 +695,7 @@ int main()
     /*--------------------------------------------------------------------------*/
     display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
     display(" ");
-    if (!isChannel())
+    if (!isNotLaunchWithHBL())
         display("Stopping server and return to HBL Menu...");
     else
         display("Stopping server and return to Wii-U Menu...");
@@ -817,9 +710,8 @@ exit:
     if (logFile != NULL) fclose(logFile);
 #endif
     if (sfvFile != NULL) fclose(sfvFile);
-    FSShutdown();
-
-    if (isChannel()) {
+    
+    if (isNotLaunchWithHBL()) {
         SYSLaunchMenu();
         // loop to exit to the Wii-U Menu
 		while (app != APP_STATE_STOPPED) {
@@ -827,8 +719,6 @@ exit:
 	    }
     }
     
-exitCFW:
-
     WHBLogConsoleFree();
     WHBProcShutdown();
     WHBLogUdpDeinit();

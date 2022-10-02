@@ -26,7 +26,7 @@
  *
  * for WiiXplorer 2010
  ***************************************************************************/
- 
+
  /****************************************************************************
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-0
@@ -37,32 +37,32 @@
 #include <string.h>
 #include <whb/log.h>
 #include <whb/log_console.h>
-#include <coreinit/filesystem.h>
-
-#include <fat.h>
-
-#include <iosuhax_disc_interface.h>
 
 #include "vrt.h"
 #include "virtualpath.h"
 
+#include <mocha/mocha.h>
+#include <mocha/disc_interface.h>
+
+#define O_OPEN_UNENCRYPTED 0x4000000
+
 extern void display(const char *fmt, ...);
 
-// iosuhax fd
-extern int fsaFd;
-
 // mounting flags
-static int sd = 0;
-static int storage_slccmpt = 0;
-static int storage_mlc = 0;
-static int storage_usb[4] = {0, 0, 0, 0};    
-static char usbLabel[4][14];
+extern bool mountMlc;
+static bool diskInserted = false;
 
-static int storage_odd_tickets = 0;    
-static int storage_odd_updates = 0;
-static int storage_odd_content = 0; 
-static int storage_odd_content2 = 0;
-static int storage_slc = 0;
+bool sd = false;
+static bool storage_slccmpt = false;
+static bool storage_mlc = false;
+static bool storage_usb[4] = {false, false, false, false};    
+static char usbLabel[4][14] = {"storage_usb01", "storage_usb02", "storage_usb03", "storage_usb04"};
+static bool storage_odd_tickets = false;
+static bool storage_odd_updates = false;
+static bool storage_odd_content = false;
+static bool storage_odd_content2 = false;
+static bool storage_slc = false;
+
 static int nbDevices = 0;
 
 // storage_usb+port_number
@@ -71,7 +71,6 @@ char storage_usb_found[14] = "";
 uint8_t MAX_VIRTUAL_PARTITIONS = 0;
 VIRTUAL_PARTITION * VIRTUAL_PARTITIONS = NULL;
 
-//--------------------------------------------------------------------------
 static void AddVirtualPath(const char *name, const char *alias, const char *prefix)
 {
     if (!VIRTUAL_PARTITIONS)
@@ -172,221 +171,214 @@ void ResetVirtualPaths()
     if (nbDevices > 0) {
         UnmountVirtualPaths();
 
-        if (sd == 1)                   VirtualMountDevice("sd:/");
-        if (storage_slccmpt == 1)      VirtualMountDevice("storage_slccmpt:/");
-        if (storage_mlc == 1)          VirtualMountDevice("storage_mlc:/");
-
+        if (sd)                   VirtualMountDevice("sd:/");
+        if (storage_slccmpt)      VirtualMountDevice("storage_slccmpt:/");
+        if (storage_mlc)          VirtualMountDevice("storage_mlc:/");
         uint32_t i = -1;
         // Loop on all available USB ports     
         for (i = 0; i < 4; i++) {
-            if (storage_usb[i] == 1) {
+            if (storage_usb[i]) {
                 VirtualMountDevice(storage_usb_found);
             }
         }
-        
-        if (storage_slc == 1)          VirtualMountDevice("storage_slc:/");
-
-        if (storage_odd_tickets == 1)  VirtualMountDevice("storage_odd_tickets:/");
-        if (storage_odd_updates == 1)  VirtualMountDevice("storage_odd_updates:/");
-        if (storage_odd_content == 1)  VirtualMountDevice("storage_odd_content:/");
-        if (storage_odd_content2 == 1) VirtualMountDevice("storage_odd_content2:/");
+        if (storage_slc)          VirtualMountDevice("storage_slc:/");
+        if (storage_odd_tickets)  VirtualMountDevice("storage_odd_tickets:/");
+        if (storage_odd_updates)  VirtualMountDevice("storage_odd_updates:/");
+        if (storage_odd_content)  VirtualMountDevice("storage_odd_content:/");
+        if (storage_odd_content2) VirtualMountDevice("storage_odd_content2:/");
 
     }
 }
 
 //--------------------------------------------------------------------------
 int MountVirtualDevices(bool mountMlc) {
-    // free wut devoptab (unmount SD card)
-//    FSShutdown();
 
-    // SDCard : use libFat or it will cripple performances on SDCard
-//    if (fatMountSimple("sd", &IOSUHAX_sdio_disc_interface)) {
+	Mocha_sdio_disc_interface.startup();
+//    if (fatMountSimple("sd", &Mocha_sdio_disc_interface)) {
+    if (Mocha_MountFS("sd", NULL, "/vol/external01") == MOCHA_RESULT_SUCCESS) {
+
+        sd = true;
         display("Mounting sd...");
-        sd=1;
         VirtualMountDevice("sd:/");
         nbDevices++;
-//    }
-
-    // USB
-    strcat(usbLabel[0], "storage_usb01"); 
-    strcat(usbLabel[1], "storage_usb02"); 
-    strcat(usbLabel[2], "storage_usb03"); 
-    strcat(usbLabel[3], "storage_usb04"); 
-    
+    }
+	
+    // USB    
+	Mocha_usb_disc_interface.startup();
     uint32_t i = -1;
     // Loop on all available USB ports     
     for (i = 0; i < 4; i++) {
         
         char usbVolPath[19] = "/vol/";
         strcat(usbVolPath, usbLabel[i]);
-        // return no error...        
-        mount_fs(usbLabel[i], fsaFd, NULL, usbVolPath);
-
-        char usbVirtPath[16] = "";
-        strcat(usbVirtPath, usbLabel[i]);
-        strcat(usbVirtPath, ":/");
         
-        VirtualMountDevice(usbVirtPath);
+		if (Mocha_MountFS(usbLabel[i], NULL, usbVolPath) == MOCHA_RESULT_SUCCESS) {
+	        char usbVirtPath[16] = "";
+	        strcat(usbVirtPath, usbLabel[i]);
+	        strcat(usbVirtPath, ":/");
+        
+	        VirtualMountDevice(usbVirtPath);
 
-        char path[15] = "";
-        strcat(path, "/");
-        strcat(path, usbLabel[i]);
-        strcat(path, "/");
+	        char path[15] = "";
+	        strcat(path, "/");
+	        strcat(path, usbLabel[i]);
+	        strcat(path, "/");
                 
-        if (vrt_checkdir(path, "usr") >= 0) {
-            storage_usb[i] = 1;
-            strcpy(storage_usb_found, usbLabel[i]);
-        } 
-        UnmountVirtualPath(usbLabel[i]);
-        unmount_fs(usbLabel[i]);
+	        if (vrt_checkdir(path, "usr") >= 0) {
+	            storage_usb[i] = true;
+                strcpy(storage_usb_found, usbLabel[i]);
+	        } 
+	        UnmountVirtualPath(usbLabel[i]);
+	        Mocha_UnmountFS(usbLabel[i]);
+		}
     }
-    
+	
     if (strlen(storage_usb_found) != 0 ) {
         
-        // mount the right path
-        display("Mounting storage_usb...");
-        
+        // mount the right path        
         char usbVolPath[19] = "/vol/";
         strcat(usbVolPath, storage_usb_found);
 
-        mount_fs("storage_usb", fsaFd, NULL, usbVolPath);
+        Mocha_MountFS("storage_usb", NULL, usbVolPath);
+        display("Mounting storage_usb (%s)...", storage_usb_found);
         
         VirtualMountDevice("storage_usb:/");
         nbDevices++;
-    }
-    
+    }    
+
     // MLC Paths
     if (mountMlc) {
-        if (mount_fs("storage_slccmpt", fsaFd, "/dev/slccmpt01", "/vol/storage_slccmpt01") >=0) {
-            display("Mounting storage_slccmpt...");
 
-            storage_slccmpt=1;
-            VirtualMountDevice("storage_slccmpt:/");
-            nbDevices++;
-        }
-        if (mount_fs("storage_mlc", fsaFd, NULL, "/vol/storage_mlc01") >= 0) {
+        if (Mocha_MountFS("storage_mlc", NULL, "/vol/storage_mlc01") == MOCHA_RESULT_SUCCESS) {
             display("Mounting storage_mlc...");
-
-            storage_mlc=1;
+            storage_mlc = true;
             VirtualMountDevice("storage_mlc:/");
             nbDevices++;
         }
-        if (mount_fs("storage_slc", fsaFd, NULL, "/vol/system") >= 0) {
-            display("Mounting storage_slc...");
 
-            storage_slc=1;
+        if (Mocha_MountFS("storage_slc", "/dev/slc01", "/vol/storage_slc01") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_slc...");
+            storage_slc = true;
             VirtualMountDevice("storage_slc:/");
             nbDevices++;
         }
-    }
-    if (mount_fs("storage_odd_tickets", fsaFd, "/dev/odd01", "/vol/storage_odd_tickets") >= 0) {
-        display("Mounting storage_odd_tickets...");
 
-        storage_odd_tickets=1;
-        VirtualMountDevice("storage_odd_tickets:/");
-        nbDevices++;
+        if (Mocha_MountFS("storage_slccmpt", "/dev/slccmpt01", "/vol/storage_slccmpt01") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_slccmpt...");
+            storage_slccmpt = true;
+            VirtualMountDevice("storage_slccmpt:/");
+            nbDevices++;
+        }
+        mountMlc = true;
     }
-    if (mount_fs("storage_odd_updates", fsaFd, "/dev/odd02", "/vol/storage_odd_updates") >=0) {
-        display("Mounting storage_odd_updates...");
 
-        storage_odd_updates=1;
-        VirtualMountDevice("storage_odd_updates:/");
-        nbDevices++;
+    if (vrt_checkdir("/dev", "odd01") >= 0) {
+        if (Mocha_MountFS("storage_odd_tickets", "/dev/odd01", "/vol/storage_odd_tickets") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_odd_tickets...");
+            storage_odd_tickets = true;
+            diskInserted = true;
+            VirtualMountDevice("storage_odd_tickets:/");
+            nbDevices++;
+        }
     }
-    if (mount_fs("storage_odd_content", fsaFd, "/dev/odd03", "/vol/storage_odd_content") >= 0) {
-        display("Mounting storage_odd_content...");
 
-        storage_odd_content=1;
-        VirtualMountDevice("storage_odd_content:/");
-        nbDevices++;
+    if (vrt_checkdir("/dev", "odd02") >= 0) {
+        if (Mocha_MountFS("storage_odd_updates", "/dev/odd02", "/vol/storage_odd_updates") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_odd_updates...");
+            storage_odd_updates = true;
+            diskInserted = true;
+            VirtualMountDevice("storage_odd_updates:/");
+            nbDevices++;
+        }
     }
-    if (mount_fs("storage_odd_content2", fsaFd, "/dev/odd04", "/vol/storage_odd_content2") >= 0) {
-        display("Mounting storage_odd_content2...");
 
-        storage_odd_content2=1;
-        VirtualMountDevice("storage_odd_content2:/");
-        nbDevices++;
+    if (vrt_checkdir("/dev", "odd03") >= 0) {
+        if (Mocha_MountFS("storage_odd_content", "/dev/odd03", "/vol/storage_odd_content") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_odd_content...");
+            storage_odd_content = true;
+            diskInserted = true;
+            VirtualMountDevice("storage_odd_content:/");
+            nbDevices++;
+        }
     }
+
+    if (vrt_checkdir("/dev", "odd04") >= 0) {
+        if (Mocha_MountFS("storage_odd_content2", "/dev/odd04", "/vol/storage_odd_content2") == MOCHA_RESULT_SUCCESS) {
+            display("Mounting storage_odd_content2...");
+            storage_odd_content2 = true;
+            diskInserted = true;
+            VirtualMountDevice("storage_odd_content2:/");
+            nbDevices++;
+        }
+    }
+
     return nbDevices;
 
 }
 
 //--------------------------------------------------------------------------
-void UmountVirtualDevices() {
+void UnmountVirtualDevices() {
 
     UnmountVirtualPaths();
 
-    if (sd == 1) {
-  //      fatUnmount("sd");
-        display("Unmounting sd...");
-        sd = 0;
+    if (sd) {
+		if (Mocha_UnmountFS("sd") == MOCHA_RESULT_SUCCESS) {
+        	display("Unmounting sd...");
+//        fatUnmount("sd");
+        	sd = false;
+		}
+		Mocha_sdio_disc_interface.shutdown();
     }
-    if (storage_slccmpt == 1) {
-        unmount_fs("storage_slccmpt");
-        display("Unmounting storage_slccmpt...");
 
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slccmpt01");
-        storage_slccmpt = 0;
-    }
-    if (storage_mlc == 1) {
-        unmount_fs("storage_mlc");
-        display("Unmounting storage_mlc...");
-
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_mlc01");
-        storage_mlc = 0;
-    }
-    
-    // USB
-        uint32_t i = -1;
+    uint32_t i = -1;
     // Loop on all available USB ports     
     for (i = 0; i < 4; i++) {
-
-        if (storage_usb[i] == 1) {
-            char usbVolPath[19] = "/vol/";
-            strcat(usbVolPath, usbLabel[i]);
-            
-            unmount_fs(usbLabel[i]);
-            
-            display("Unmounting storage_usb...");
-            
-            IOSUHAX_FSA_FlushVolume(fsaFd, usbVolPath);
-            storage_usb[i] = 0;
+        if (storage_usb[i]) {
+            Mocha_UnmountFS(usbLabel[i]);
+	        display("Unmounting storage_usb (%s)...", storage_usb_found);
         }
     }
-    if (storage_odd_tickets == 1) {
-        unmount_fs("storage_odd_tickets");
-        display("Unmounting storage_odd_tickets...");
 
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_tickets");
-        storage_odd_tickets = 0;
+    if (mountMlc) {
+
+        if (storage_slccmpt && Mocha_UnmountFS("storage_slccmpt") == MOCHA_RESULT_SUCCESS) {
+            storage_slccmpt = false;
+            display("Unmounting storage_slccmpt...");
+        }
+
+        if (storage_mlc && Mocha_UnmountFS("storage_mlc") == MOCHA_RESULT_SUCCESS) {
+            storage_mlc = false;
+            display("Unmounting storage_mlc...");
+        }
+
+        if (storage_slc && Mocha_UnmountFS("storage_slc") == MOCHA_RESULT_SUCCESS) {
+            storage_slc = false;
+            display("Unmounting storage_slc...");
+        }
+        mountMlc = false;
     }
-    if (storage_odd_updates == 1) {
-        unmount_fs("storage_odd_updates");
-        display("Unmounting storage_odd_updates...");
 
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_updates");
-        storage_odd_updates = 0;
-    }
-    if (storage_odd_content == 1) {
-        unmount_fs("storage_odd_content");
-        display("Unmounting storage_odd_content...");
 
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content");
-        storage_odd_content = 0;
-    }
-    if (storage_odd_content2 == 1) {
-        unmount_fs("storage_odd_content2");
-        display("Unmounting storage_odd_content2...");
+    if (diskInserted) {
 
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_odd_content2");
-        storage_odd_content2 = 0;
-    }
-    if (storage_slc == 1) {
-        unmount_fs("storage_slc");
-        display("Unmounting storage_slc...");
-
-        IOSUHAX_FSA_FlushVolume(fsaFd, "/vol/storage_slc");
-        storage_slc = 0;
+        if (storage_odd_tickets && Mocha_UnmountFS("storage_odd_tickets") == MOCHA_RESULT_SUCCESS) {
+            storage_odd_tickets = false;
+            display("Unmounting storage_odd_tickets...");
+        }
+        if (storage_odd_updates && Mocha_UnmountFS("storage_odd_updates") == MOCHA_RESULT_SUCCESS) {
+            storage_odd_updates = false;
+            display("Unmounting storage_odd_updates...");
+        }
+        if (storage_odd_content && Mocha_UnmountFS("storage_odd_content") == MOCHA_RESULT_SUCCESS) {
+            storage_odd_content = false;
+            display("Unmounting storage_odd_content...");
+        }
+        if (storage_odd_content2 && Mocha_UnmountFS("storage_odd_content2") == MOCHA_RESULT_SUCCESS) {
+            storage_odd_content2 = false;
+            display("Unmounting storage_odd_content2...");
+        }
+    	Mocha_usb_disc_interface.shutdown();    
+        diskInserted = false;
     }
 }
 

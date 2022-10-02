@@ -107,14 +107,14 @@ struct connection_struct {
     FILE *f;    
     // for file transferring
     char fileName[MAXPATHLEN];
-    // volume path to the file
-    char *volPath;
+    // path to the file to upload
+    char uploadFilePath[MAXPATHLEN];
     // thread for transfering
-    OSThread WUT_ALIGNAS(32) *transferThread;
+    OSThread WUT_ALIGNAS(64) transferThread;
     // preallocated transfer thread stack
     uint8_t WUT_ALIGNAS(8) transferThreadStack[FTP_TRANSFER_STACK_SIZE];
 	// buffer for transferring files
-    char WUT_ALIGNAS(64) *transferBuffer;
+    void WUT_ALIGNAS(64) *transferBuffer;
     // CRC-32 decimal value of file transferred
     unsigned long crc32;
     // for data transfer tracking
@@ -128,8 +128,6 @@ struct connection_struct {
 
 
 typedef struct connection_struct connection_t;
-
-char*    virtualToVolPath(char *vPath);
 
 int32_t  create_server(uint16_t port);
 bool     process_ftp_events();

@@ -364,5 +364,34 @@ HISTORY :
 
       This version gives max speeds over 4M/s on both ways and treat a large number of files more quickly. 
 
+2022/09/02 V12 :    
+    > WUT developpement is interrupted (awaiting for a more stable version, tried 1.1.1 with no success), so no more channel version for 
+      V12 and up.
+    > it is a much more stable version that use dynamic libs (like the original software) and it fix : 
+        - transfers number limitation on the SDCard, now 8 is allowed
+        - CRC errors when transferring to the SDCard
+      and i suppose : 
+        - Disconnects to ftp server while copying a injected game #22 
+        - Crash when trying to access a folder on SD #23 
+        - unstable on tiramisu #24
+        - It seems that using FileZilla client to delete files on sdcard caused it died. #26 
+    > noticeable multi-transfers enhancement : 
+        - now connections are re-used (no more alloc/free when client connects)
+        - transfer buffer and thread are preallocated
+        - extend the priority values used for transfer threads
+    > fix : /storage_usb sometimes inaccessible if two USB devices are plugged in #25 
+    > fix : renaming file is broken #27 
+    > fix : rights on files uploaded not set properly
+    > remove nand backup, log file and CRC calculation features
+    
+    Special thanks to Masana for testing.
+        
+2022/09/08 V12-1 :    
+    > fix :  creating single letter folders Freezes the console #28 
+    > optimize transfer buffer for DL (to ease connections start)
 
-"D:\WiiuSdk\devkitPro\tools\bin\wuhbtool.exe" "D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\code\WiiUFtpServer.rpx" "D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\WiiUFtpServer.wuhb" --name=WiiUFtpServer  --short-name=WiiUFtpServer --author=Laf111 --icon="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\iconTex.tga"  --tv-image="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\bootTvTex.tga"  --drc-image="D:\Wiiu\WiiUFtpServer_WUT_V12\_loadiine\0005000010050421\meta\bootDrcTex.tga"
+2022/10/01 V13 :    
+    > restore WUT code (use WUT 1.1.1 and libMocha instead of libFat+libIOSUHAX)
+    > take into account feedback from the HBL (dynamic lib) versions (V12-*)
+    > restore file IO optimization (setvbuf)
+    > build.sh now creates WUTB file close to the RPX one

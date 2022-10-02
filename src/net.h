@@ -83,7 +83,7 @@ int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen);
 
 int32_t network_connect(int32_t s,struct sockaddr *,int32_t);
 
-int32_t network_read(int32_t s,void *mem,int32_t len);
+int32_t network_read(int32_t s,char *mem,int32_t len);
 
 int32_t network_close(int32_t s);
 

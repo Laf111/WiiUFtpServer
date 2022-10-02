@@ -43,8 +43,6 @@ extern "C"{
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <iosuhax.h>
-#include <iosuhax_devoptab.h>
 
 typedef struct {
     char *name;
@@ -58,7 +56,7 @@ extern uint8_t MAX_VIRTUAL_PARTITIONS;
 
 int  MountVirtualDevices(bool mountMlc);
 void UnmountVirtualPaths();
-void UmountVirtualDevices();
+void UnmountVirtualDevices();
 
 void VirtualMountDevice(const char * path);
 

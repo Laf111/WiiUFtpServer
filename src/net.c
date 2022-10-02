@@ -42,8 +42,6 @@ misrepresented as being the original software.
 
 #include <nn/ac.h>
 
-#include <iosuhax.h>
-
 #include "vrt.h"
 #include "ftp.h"
 #include "net.h"
@@ -117,12 +115,21 @@ static const unsigned long crcTable[256] = {
 
 int socketOptThreadMain(int argc UNUSED, const char **argv UNUSED)
 {
-    void *buf = MEMAllocFromDefaultHeapEx(SOMEMOPT_BUFFER_SIZE, 64);
-    if (buf == NULL)
-    {
-        display("! ERROR : Socket optimizer: OUT OF MEMORY!");
-        return -ENOMEM;
-    }
+
+    // allocate the buffer for socket opt on the custom heap 
+    int32_t buf_size = SOMEMOPT_BUFFER_SIZE+32;
+    char *buf = NULL;
+
+    // align memory (64bytes = 0x40) when alocating the buffer
+    do{
+        buf_size -= 32;
+        if (buf_size < 0) {
+			display("! ERROR when allocating buffer");
+            return -ENOMEM;
+        }
+        buf = (char *)memalign(64, buf_size);
+    } while (!buf); 
+	
 
     if (somemopt(0x01, buf, SOMEMOPT_BUFFER_SIZE, 0) == -1 && errno != 50)
     {if (!initDone) display("! ERROR : somemopt failed !");}
@@ -158,12 +165,14 @@ static bool retry(int32_t socketError) {
 
 int32_t initialize_network()
 {
-    ACInitialize();
     ACGetAssignedAddress(&hostIpAddress);
 
     socketOptThreadStack = MEMAllocFromDefaultHeapEx(SOCKET_MOPT_STACK_SIZE, 8);
-    // set priority to 3*NB_SIMULTANEOUS_TRANSFERS-1
-    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, 3*NB_SIMULTANEOUS_TRANSFERS-1, OS_THREAD_ATTRIB_AFFINITY_CPU0)) {
+    
+    
+    
+    // set priority to 0
+    if (socketOptThreadStack == NULL || !OSCreateThread(&socketOptThread, socketOptThreadMain, 0, NULL, socketOptThreadStack + SOCKET_MOPT_STACK_SIZE, SOCKET_MOPT_STACK_SIZE, 0, OS_THREAD_ATTRIB_AFFINITY_CPU0)) {
         display("! ERROR : failed to create socket memory optimization thread!");
         return -1;
     }
@@ -201,7 +210,6 @@ void finalize_network()
     
     if (socketOptThreadStack != NULL) MEMFreeToDefaultHeap(socketOptThreadStack);
 
-    ACFinalize();
 }
 
 int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
@@ -222,24 +230,6 @@ int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
 	    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
 	        {if (!initDone) display("! ERROR : setsockopt / SO_REUSEADDR failed !");}        
 
-        // SO_NOSLOWSTART
-        if (setsockopt(s, SOL_SOCKET, SO_NOSLOWSTART, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / Disable slow start feature failed !");}    
-        
-        // Activate TCP SAck
-        if (setsockopt(s, SOL_SOCKET, SO_TCPSACK, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / TCP SAck activation failed !");}
-        
-        // Disabling Nagle's algorithm
-        if (setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &enable, sizeof(enable))!=0) 
-            {if (!initDone) display("! ERROR : setsockopt / Disabling Nagle's algorithm failed !");}
-
-        int disable = 0;
-        
-        // Enable delayed ACKs
-        if (setsockopt(s, IPPROTO_TCP, TCP_NOACKDELAY, &disable, sizeof(disable))!=0)
-            {if (!initDone) display("! ERROR : setsockopt / Enabling delayed ACKs failed !");}
-        
         // Activate WinScale
         if (setsockopt(s, SOL_SOCKET, SO_WINSCALE, &enable, sizeof(enable))!=0) 
             {display("! ERROR : setsockopt / winScale activation failed !");}
@@ -323,7 +313,7 @@ int32_t network_connect(int32_t s,struct sockaddr *addr, int32_t addrlen)
     return res;
 }
 
-int32_t network_read(int32_t s,void *mem,int32_t len)
+int32_t network_read(int32_t s,char *mem,int32_t len)
 {
     int res = recv(s, mem, len, 0);
     if (res < 0)
@@ -334,7 +324,7 @@ int32_t network_read(int32_t s,void *mem,int32_t len)
     return res;
 }
 
-static int32_t network_readChunk(int32_t s, void *mem, int32_t len) {
+static int32_t network_readChunk(int32_t s, char *mem, int32_t len) {
 
     int32_t received = 0;
     int ret = -1;
@@ -369,7 +359,7 @@ uint32_t network_gethostip()
     return hostIpAddress;
 }
 
-int32_t network_write(int32_t s, const void *mem, int32_t len)
+int32_t network_write(int32_t s, const char *mem, int32_t len)
 {
     int32_t transferred = 0;
     
