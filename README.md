@@ -2,8 +2,8 @@
 
 **A robust and optimized FTP server for the WiiU !**
 
-**NOTE :** WUT developpement is interrupted (awaiting for a stable version, i tried WUT 1.1.1 without success), so no more channel version for V12 and up for now.
-
+This branch use dynamic libs instead of WUT (creates a ELF file compatible only with "old" CFW such as Haxchi, Mocha or CBHC)
+Note that you can launch ELF files with Tiramisu (throught the Mii-maker).
 
 <p align="center">
   <img src="WiiUFtpServer.png">
