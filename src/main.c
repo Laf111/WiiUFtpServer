@@ -116,7 +116,7 @@ void display(const char *format, ...)
 
 //--------------------------------------------------------------------------
 //just to be able to call async
-static void someFunc(s32 err, void *arg)
+static void someFunc(int32_t err, void *arg)
 {
     (void)arg;
 }
@@ -223,7 +223,7 @@ int __entry_menu(int argc, char **argv)
     display(" -=============================-\n");
     display("|    %s   |\n", VERSION_STRING);
     display(" -=============================-\n");
-    display("[Laf111/2022-09/dynamic_libs]");
+    display("[Laf111/2022-10/HBL]");
     display(" ");
     
     // Get OS time and save it in ftp static variable 
@@ -254,7 +254,7 @@ int __entry_menu(int argc, char **argv)
     display(" ");
     display(" ");
     display(" ");
-    
+    sleep(2);
     /*--------------------------------------------------------------------------*/
     /* IOSUHAX operations and mounting devices                                  */
     /*--------------------------------------------------------------------------*/
@@ -360,9 +360,8 @@ int __entry_menu(int argc, char **argv)
         returnCode = -20;
         goto exit;
     }
-    display(" ");
-    display(" ");
-
+    display("Starting network and create server...");
+	for (int i=0; i<12; i++) display(" ");
     /*--------------------------------------------------------------------------*/
     /* Create FTP server                                                        */
     /*--------------------------------------------------------------------------*/
@@ -445,7 +444,7 @@ int __entry_menu(int argc, char **argv)
     FreeSocketFunctionPointers();
     VPADShutdown();        
     display(" "); 
-    UmountVirtualDevices();
+    UnmountVirtualDevices();
     
     IOSUHAX_sdio_disc_interface.shutdown();
     IOSUHAX_usb_disc_interface.shutdown();

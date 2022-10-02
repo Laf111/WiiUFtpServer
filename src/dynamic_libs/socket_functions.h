@@ -146,29 +146,29 @@ void InitSocketFunctionPointers(void);
 void FreeSocketFunctionPointers(void);
 void InitAcquireSocket(void);
 
-extern s32 (*socket_lib_init)(void);
-extern s32 (*socket_lib_finish)(void);
-extern s32 (*socket)(s32 domain, s32 type, s32 protocol);
-extern s32 (*socketclose)(s32 s);
-extern s32 (*shutdown)(s32 s, s32 how);
-extern s32 (*connect)(s32 s, void *addr, s32 addrlen);
-extern s32 (*bind)(s32 s,struct sockaddr *name,s32 namelen);
-extern s32 (*listen)(s32 s,u32 backlog);
-extern s32 (*accept)(s32 s,struct sockaddr *addr,s32 *addrlen);
-extern s32 (*send)(s32 s, const void *buffer, s32 size, s32 flags);
-extern s32 (*recv)(s32 s, void *buffer, s32 size, s32 flags);
-extern s32 (*recvfrom)(s32 sockfd, void *buf, s32 len, s32 flags,struct sockaddr *src_addr, s32 *addrlen);
-extern s32 (*socketlasterr)(void);
+extern int32_t (*socket_lib_init)(void);
+extern int32_t (*socket_lib_finish)(void);
+extern int32_t (*socket)(int32_t domain, int32_t type, int32_t protocol);
+extern int32_t (*socketclose)(int32_t s);
+extern int32_t (*shutdown)(int32_t s, int32_t how);
+extern int32_t (*connect)(int32_t s, void *addr, int32_t addrlen);
+extern int32_t (*bind)(int32_t s,struct sockaddr *name,int32_t namelen);
+extern int32_t (*listen)(int32_t s,uint32_t backlog);
+extern int32_t (*accept)(int32_t s,struct sockaddr *addr,int32_t *addrlen);
+extern int32_t (*send)(int32_t s, const void *buffer, int32_t size, int32_t flags);
+extern int32_t (*recv)(int32_t s, void *buffer, int32_t size, int32_t flags);
+extern int32_t (*recvfrom)(int32_t sockfd, void *buf, int32_t len, int32_t flags,struct sockaddr *src_addr, int32_t *addrlen);
+extern int32_t (*socketlasterr)(void);
 
-extern s32 (*sendto)(s32 s, const void *buffer, s32 size, s32 flags, const struct sockaddr *dest, s32 dest_len);
-extern s32 (*setsockopt)(s32 s, s32 level, s32 optname, void *optval, s32 optlen);
-extern s32 (*getsockopt)(s32 s, s32 level, s32 optname, void *optval, s32 optlen);
-extern s32 (*somemopt) (int type, void *buf, size_t bufsize, int unk);
+extern int32_t (*sendto)(int32_t s, const void *buffer, int32_t size, int32_t flags, const struct sockaddr *dest, int32_t dest_len);
+extern int32_t (*setsockopt)(int32_t s, int32_t level, int32_t optname, void *optval, int32_t optlen);
+extern int32_t (*getsockopt)(int32_t s, int32_t level, int32_t optname, void *optval, int32_t optlen);
+extern int32_t (*somemopt) (int type, void *buf, size_t bufsize, int unk);
 
 extern char * (*inet_ntoa)(struct in_addr in);
-extern s32 (*inet_aton)(const char *cp, struct in_addr *inp);
-extern const char * (*inet_ntop)(s32 af, const void *src, char *dst, s32 size);
-extern s32 (*inet_pton)(s32 af, const char *src, void *dst);
+extern int32_t (*inet_aton)(const char *cp, struct in_addr *inp);
+extern const char * (*inet_ntop)(int32_t af, const void *src, char *dst, int32_t size);
+extern int32_t (*inet_pton)(int32_t af, const char *src, void *dst);
 
 #ifdef __cplusplus
 }

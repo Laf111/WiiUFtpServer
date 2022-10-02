@@ -24,72 +24,72 @@
 #include "os_functions.h"
 #include "vpad_functions.h"
 
-u32 vpad_handle __attribute__((section(".data"))) = 0;
-u32 vpadbase_handle __attribute__((section(".data"))) = 0;
+uint32_t vpad_handle __attribute__((section(".data"))) = 0;
+uint32_t vpadbase_handle __attribute__((section(".data"))) = 0;
 
 EXPORT_DECL(void, VPADInit, void);
 EXPORT_DECL(void, VPADShutdown, void);
-EXPORT_DECL(s32, VPADRead, s32 chan, VPADData *buffer, u32 buffer_size, s32 *error);
-EXPORT_DECL(void, VPADSetAccParam, s32 chan, f32 play_radius, f32 sensitivity);
-EXPORT_DECL(void, VPADGetAccParam, s32 chan, f32 *play_radius, f32 *sensitivity);
-EXPORT_DECL(void, VPADSetBtnRepeat, s32 chan, f32 delay_sec, f32 pulse_sec);
-EXPORT_DECL(void, VPADEnableStickCrossClamp, s32 chan);
-EXPORT_DECL(void, VPADDisableStickCrossClamp, s32 chan);
-EXPORT_DECL(void, VPADSetLStickClampThreshold, s32 chan, s32 max, s32 min);
-EXPORT_DECL(void, VPADSetRStickClampThreshold, s32 chan, s32 max, s32 min);
-EXPORT_DECL(void, VPADGetLStickClampThreshold, s32 chan, s32* max, s32* min);
-EXPORT_DECL(void, VPADGetRStickClampThreshold, s32 chan, s32* max, s32* min);
-EXPORT_DECL(void, VPADSetStickOrigin, s32 chan);
-EXPORT_DECL(void, VPADDisableLStickZeroClamp, s32 chan);
-EXPORT_DECL(void, VPADDisableRStickZeroClamp, s32 chan);
-EXPORT_DECL(void, VPADEnableLStickZeroClamp, s32 chan);
-EXPORT_DECL(void, VPADEnableRStickZeroClamp, s32 chan);
-EXPORT_DECL(void, VPADSetCrossStickEmulationParamsL, s32 chan, f32 rot_deg, f32 xy_deg, f32 radius);
-EXPORT_DECL(void, VPADSetCrossStickEmulationParamsR, s32 chan, f32 rot_deg, f32 xy_deg, f32 radius);
-EXPORT_DECL(void, VPADGetCrossStickEmulationParamsL, s32 chan, f32* rot_deg, f32* xy_deg, f32* radius);
-EXPORT_DECL(void, VPADGetCrossStickEmulationParamsR, s32 chan, f32* rot_deg, f32* xy_deg, f32* radius);
-EXPORT_DECL(void, VPADSetGyroAngle, s32 chan, f32 ax, f32 ay, f32 az);
-EXPORT_DECL(void, VPADSetGyroDirection, s32 chan, VPADDir *dir);
-EXPORT_DECL(void, VPADSetGyroDirectionMag, s32 chan, f32 mag);
-EXPORT_DECL(void, VPADSetGyroMagnification, s32 chan, f32 pitch, f32 yaw, f32 roll);
-EXPORT_DECL(void, VPADEnableGyroZeroPlay, s32 chan);
-EXPORT_DECL(void, VPADEnableGyroDirRevise, s32 chan);
-EXPORT_DECL(void, VPADEnableGyroAccRevise, s32 chan);
-EXPORT_DECL(void, VPADDisableGyroZeroPlay, s32 chan);
-EXPORT_DECL(void, VPADDisableGyroDirRevise, s32 chan);
-EXPORT_DECL(void, VPADDisableGyroAccRevise, s32 chan);
-EXPORT_DECL(f32, VPADIsEnableGyroZeroPlay, s32 chan);
-EXPORT_DECL(f32, VPADIsEnableGyroZeroDrift, s32 chan);
-EXPORT_DECL(f32, VPADIsEnableGyroDirRevise, s32 chan);
-EXPORT_DECL(f32, VPADIsEnableGyroAccRevise, s32 chan);
-EXPORT_DECL(void, VPADSetGyroZeroPlayParam, s32 chan, f32 radius);
-EXPORT_DECL(void, VPADSetGyroDirReviseParam, s32 chan, f32 revis_pw);
-EXPORT_DECL(void, VPADSetGyroAccReviseParam, s32 chan, f32 revise_pw, f32 revise_range);
-EXPORT_DECL(void, VPADSetGyroDirReviseBase, s32 chan, VPADDir *base);
-EXPORT_DECL(void, VPADGetGyroZeroPlayParam, s32 chan, f32 *radius);
-EXPORT_DECL(void, VPADGetGyroDirReviseParam, s32 chan, f32 *revise_pw);
-EXPORT_DECL(void, VPADGetGyroAccReviseParam, s32 chan, f32 *revise_pw, f32 *revise_range);
-EXPORT_DECL(void, VPADInitGyroZeroPlayParam, s32 chan);
-EXPORT_DECL(void, VPADInitGyroDirReviseParam, s32 chan);
-EXPORT_DECL(void, VPADInitGyroAccReviseParam, s32 chan);
-EXPORT_DECL(void, VPADInitGyroZeroDriftMode, s32 chan);
-EXPORT_DECL(void, VPADSetGyroZeroDriftMode, s32 chan, VPADGyroZeroDriftMode mode);
-EXPORT_DECL(void, VPADGetGyroZeroDriftMode, s32 chan, VPADGyroZeroDriftMode *mode);
-EXPORT_DECL(s16, VPADCalcTPCalibrationParam, VPADTPCalibrationParam* param, u16 rawX1, u16 rawY1, u16 x1, u16 y1, u16 rawX2, u16 rawY2, u16 x2, u16 y2);
-EXPORT_DECL(void, VPADSetTPCalibrationParam, s32 chan, const VPADTPCalibrationParam param);
-EXPORT_DECL(void, VPADGetTPCalibrationParam, s32 chan, VPADTPCalibrationParam* param);
-EXPORT_DECL(void, VPADGetTPCalibratedPoint, s32 chan, VPADTPData *disp, const VPADTPData *raw);
-EXPORT_DECL(void, VPADGetTPCalibratedPointEx, s32 chan, VPADTPResolution tpReso, VPADTPData *disp, const VPADTPData *raw);
-EXPORT_DECL(s32, VPADControlMotor, s32 chan, u8* pattern, u8 length);
-EXPORT_DECL(void, VPADStopMotor, s32 chan);
-EXPORT_DECL(s32, VPADSetLcdMode, s32 chan, s32 lcdmode);
-EXPORT_DECL(s32, VPADGetLcdMode, s32 chan, s32 *lcdmode);
-EXPORT_DECL(s32, VPADBASEGetMotorOnRemainingCount, s32 lcdmode);
-EXPORT_DECL(s32, VPADBASESetMotorOnRemainingCount, s32 lcdmode, s32 counter);
-EXPORT_DECL(void, VPADBASESetSensorBarSetting, s32 chan, s8 setting);
-EXPORT_DECL(void, VPADBASEGetSensorBarSetting, s32 chan, s8 *setting);
-EXPORT_DECL(s32, VPADSetSensorBar, s32 chan, bool on);
-EXPORT_DECL(samplingCallback, VPADSetSamplingCallback, s32 chan, samplingCallback callbackn);
+EXPORT_DECL(int32_t, VPADRead, int32_t chan, VPADData *buffer, uint32_t buffer_size, int32_t *error);
+EXPORT_DECL(void, VPADSetAccParam, int32_t chan, float play_radius, float sensitivity);
+EXPORT_DECL(void, VPADGetAccParam, int32_t chan, float *play_radius, float *sensitivity);
+EXPORT_DECL(void, VPADSetBtnRepeat, int32_t chan, float delay_sec, float pulse_sec);
+EXPORT_DECL(void, VPADEnableStickCrossClamp, int32_t chan);
+EXPORT_DECL(void, VPADDisableStickCrossClamp, int32_t chan);
+EXPORT_DECL(void, VPADSetLStickClampThreshold, int32_t chan, int32_t max, int32_t min);
+EXPORT_DECL(void, VPADSetRStickClampThreshold, int32_t chan, int32_t max, int32_t min);
+EXPORT_DECL(void, VPADGetLStickClampThreshold, int32_t chan, int32_t* max, int32_t* min);
+EXPORT_DECL(void, VPADGetRStickClampThreshold, int32_t chan, int32_t* max, int32_t* min);
+EXPORT_DECL(void, VPADSetStickOrigin, int32_t chan);
+EXPORT_DECL(void, VPADDisableLStickZeroClamp, int32_t chan);
+EXPORT_DECL(void, VPADDisableRStickZeroClamp, int32_t chan);
+EXPORT_DECL(void, VPADEnableLStickZeroClamp, int32_t chan);
+EXPORT_DECL(void, VPADEnableRStickZeroClamp, int32_t chan);
+EXPORT_DECL(void, VPADSetCrossStickEmulationParamsL, int32_t chan, float rot_deg, float xy_deg, float radius);
+EXPORT_DECL(void, VPADSetCrossStickEmulationParamsR, int32_t chan, float rot_deg, float xy_deg, float radius);
+EXPORT_DECL(void, VPADGetCrossStickEmulationParamsL, int32_t chan, float* rot_deg, float* xy_deg, float* radius);
+EXPORT_DECL(void, VPADGetCrossStickEmulationParamsR, int32_t chan, float* rot_deg, float* xy_deg, float* radius);
+EXPORT_DECL(void, VPADSetGyroAngle, int32_t chan, float ax, float ay, float az);
+EXPORT_DECL(void, VPADSetGyroDirection, int32_t chan, VPADDir *dir);
+EXPORT_DECL(void, VPADSetGyroDirectionMag, int32_t chan, float mag);
+EXPORT_DECL(void, VPADSetGyroMagnification, int32_t chan, float pitch, float yaw, float roll);
+EXPORT_DECL(void, VPADEnableGyroZeroPlay, int32_t chan);
+EXPORT_DECL(void, VPADEnableGyroDirRevise, int32_t chan);
+EXPORT_DECL(void, VPADEnableGyroAccRevise, int32_t chan);
+EXPORT_DECL(void, VPADDisableGyroZeroPlay, int32_t chan);
+EXPORT_DECL(void, VPADDisableGyroDirRevise, int32_t chan);
+EXPORT_DECL(void, VPADDisableGyroAccRevise, int32_t chan);
+EXPORT_DECL(float, VPADIsEnableGyroZeroPlay, int32_t chan);
+EXPORT_DECL(float, VPADIsEnableGyroZeroDrift, int32_t chan);
+EXPORT_DECL(float, VPADIsEnableGyroDirRevise, int32_t chan);
+EXPORT_DECL(float, VPADIsEnableGyroAccRevise, int32_t chan);
+EXPORT_DECL(void, VPADSetGyroZeroPlayParam, int32_t chan, float radius);
+EXPORT_DECL(void, VPADSetGyroDirReviseParam, int32_t chan, float revis_pw);
+EXPORT_DECL(void, VPADSetGyroAccReviseParam, int32_t chan, float revise_pw, float revise_range);
+EXPORT_DECL(void, VPADSetGyroDirReviseBase, int32_t chan, VPADDir *base);
+EXPORT_DECL(void, VPADGetGyroZeroPlayParam, int32_t chan, float *radius);
+EXPORT_DECL(void, VPADGetGyroDirReviseParam, int32_t chan, float *revise_pw);
+EXPORT_DECL(void, VPADGetGyroAccReviseParam, int32_t chan, float *revise_pw, float *revise_range);
+EXPORT_DECL(void, VPADInitGyroZeroPlayParam, int32_t chan);
+EXPORT_DECL(void, VPADInitGyroDirReviseParam, int32_t chan);
+EXPORT_DECL(void, VPADInitGyroAccReviseParam, int32_t chan);
+EXPORT_DECL(void, VPADInitGyroZeroDriftMode, int32_t chan);
+EXPORT_DECL(void, VPADSetGyroZeroDriftMode, int32_t chan, VPADGyroZeroDriftMode mode);
+EXPORT_DECL(void, VPADGetGyroZeroDriftMode, int32_t chan, VPADGyroZeroDriftMode *mode);
+EXPORT_DECL(int16_t, VPADCalcTPCalibrationParam, VPADTPCalibrationParam* param, uint16_t rawX1, uint16_t rawY1, uint16_t x1, uint16_t y1, uint16_t rawX2, uint16_t rawY2, uint16_t x2, uint16_t y2);
+EXPORT_DECL(void, VPADSetTPCalibrationParam, int32_t chan, const VPADTPCalibrationParam param);
+EXPORT_DECL(void, VPADGetTPCalibrationParam, int32_t chan, VPADTPCalibrationParam* param);
+EXPORT_DECL(void, VPADGetTPCalibratedPoint, int32_t chan, VPADTPData *disp, const VPADTPData *raw);
+EXPORT_DECL(void, VPADGetTPCalibratedPointEx, int32_t chan, VPADTPResolution tpReso, VPADTPData *disp, const VPADTPData *raw);
+EXPORT_DECL(int32_t, VPADControlMotor, int32_t chan, uint8_t* pattern, uint8_t length);
+EXPORT_DECL(void, VPADStopMotor, int32_t chan);
+EXPORT_DECL(int32_t, VPADSetLcdMode, int32_t chan, int32_t lcdmode);
+EXPORT_DECL(int32_t, VPADGetLcdMode, int32_t chan, int32_t *lcdmode);
+EXPORT_DECL(int32_t, VPADBASEGetMotorOnRemainingCount, int32_t lcdmode);
+EXPORT_DECL(int32_t, VPADBASESetMotorOnRemainingCount, int32_t lcdmode, int32_t counter);
+EXPORT_DECL(void, VPADBASESetSensorBarSetting, int32_t chan, int8_t setting);
+EXPORT_DECL(void, VPADBASEGetSensorBarSetting, int32_t chan, int8_t *setting);
+EXPORT_DECL(int32_t, VPADSetSensorBar, int32_t chan, bool on);
+EXPORT_DECL(samplingCallback, VPADSetSamplingCallback, int32_t chan, samplingCallback callbackn);
 
 void InitAcquireVPad(void) {
     if(coreinit_handle == 0) {
@@ -100,7 +100,7 @@ void InitAcquireVPad(void) {
 }
 
 void InitVPadFunctionPointers(void) {
-    u32 *funcPointer = 0;
+    uint32_t *funcPointer = 0;
 
     InitAcquireVPad();
 

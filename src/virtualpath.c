@@ -35,8 +35,9 @@
 // this module handle posix path with virtual mounted drives (wrapping)
 #include <malloc.h>
 #include <string.h>
-#include "fat.h"
-#include "iosuhax_disc_interface.h"
+
+#include "fat/fat.h"
+#include "iosuhax/iosuhax_disc_interface.h"
 
 #include "vrt.h"
 #include "virtualpath.h"
@@ -303,7 +304,7 @@ int MountVirtualDevices(bool mountMlc) {
 }
 
 //--------------------------------------------------------------------------
-void UmountVirtualDevices() {
+void UnmountVirtualDevices() {
     
     UnmountVirtualPaths();
 

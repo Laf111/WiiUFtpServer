@@ -28,8 +28,9 @@ misrepresented as being the original software.
 #include <stdlib.h>
 #include <string.h>
 #include <sys/dir.h>
-#include <sys/param.h>
+
 #include <unistd.h>
+
 #include "common/common.h"
 #include "dynamic_libs/os_functions.h"
 #include "dynamic_libs/socket_functions.h"
@@ -53,7 +54,7 @@ extern void display(const char *fmt, ...);
 extern char storage_usb_found[14];
 
 // global vraiables from dynamic_libs/socket_functions.c
-extern u32 hostIpAddress;
+extern uint32_t hostIpAddress;
 
 static bool network_down = false;
 static const uint16_t SRC_PORT = 20;
@@ -81,7 +82,7 @@ static const time_t minTime = 1262214000;
 
 static connection_t *connections[FTP_NB_SIMULTANEOUS_TRANSFERS] = { NULL };
 
-static s32 listener = -1;     // listening socket descriptor
+static int32_t listener = -1;     // listening socket descriptor
 
 // max and min transfer rate speeds in MBs
 static float maxTransferRate = -9999;
@@ -129,7 +130,7 @@ static void initConnection(connection_t *connection) {
     connection->transferThread = OSAllocFromSystem(sizeof(OSThread), 32);
 
     // allocate the buffer for transfering
-    s32 buf_size = TRANSFER_BUFFER_SIZE+32;
+    int32_t buf_size = TRANSFER_BUFFER_SIZE+32;
     connection->transferBuffer = NULL;
 
     // align memory (64bytes = 0x40) when alocating the buffer
@@ -300,7 +301,7 @@ void displayConnectionDetails(uint32_t index) {
     }
 }
 
-int launchTransfer(s32 argc UNUSED, void *argv)
+int launchTransfer(int32_t argc UNUSED, void *argv)
 
 {
         
@@ -330,6 +331,8 @@ int launchTransfer(s32 argc UNUSED, void *argv)
             }            
         }            
     }
+    // set a priority to 1 to priorize the termination of the thread
+    OSSetThreadPriority(activeConnection->transferThread, 1);
     
     return result;
 }
@@ -358,7 +361,7 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
         // Dispatching connections over CPUs :
         
         // connection->index+1 = 1,4,7 => CPU2
-        s32 cpu = OS_THREAD_ATTR_AFFINITY_CORE2;                
+        int32_t cpu = OS_THREAD_ATTR_AFFINITY_CORE2;                
         // index+1 = 2,5,8 => CPU0
         if (connection->index == 1 || connection->index == 4 || connection->index == 7) cpu = OS_THREAD_ATTR_AFFINITY_CORE0;
         // index+1 = 3,6   => CPU1
@@ -366,16 +369,16 @@ static int32_t transfer(int32_t data_socket UNUSED, connection_t *connection) {
 
         // set thread priority : 
     
-        // activeTransfersNumber <= 3 : prio = 6
-        u32 priority = 6;
-        // activeTransfersNumber > 3 & activeTransfersNumber < 7 : prio = 3
-        if (activeTransfersNumber > 3 && activeTransfersNumber < 7) priority = 3;
-        // activeTransfersNumber > 6 : prio = 1
-        if (activeTransfersNumber > 6 ) priority = 1;
+        // activeTransfersNumber <= 3 : prio = 8
+        int priority = 8;
+        // activeTransfersNumber > 3 & activeTransfersNumber < 7 : prio = 4
+        if (activeTransfersNumber > 3 && activeTransfersNumber < 7) priority = 4;
+        // activeTransfersNumber > 6 : prio = 2
+        if (activeTransfersNumber > 6 ) priority = 2;
 		
    
         // launching transfer thread
-        if (!OSCreateThread(connection->transferThread, launchTransfer, 1, (char *)connection, (u32)connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, priority, cpu)) {
+        if (!OSCreateThread(connection->transferThread, launchTransfer, 1, (char *)connection, (uint32_t)connection->transferThreadStack + FTP_TRANSFER_STACK_SIZE, FTP_TRANSFER_STACK_SIZE, priority, cpu)) {
             display("! ERROR : when launching transferThread with priority = %u", priority);
             return -105;
         }
@@ -1100,7 +1103,7 @@ static int32_t ftp_SIZE(connection_t *connection, char *path) {
 
 static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
 
-    static const int retriesNumber = 4;
+    static const int retriesNumber = 2*NB_SIMULTANEOUS_TRANSFERS;
     close_passive_socket(connection);
     
     int nbTries = 0;
@@ -1117,6 +1120,7 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
             display("~ WARNING : %s", msg);
             return write_reply(connection, 421, msg);
 		}
+		usleep(retriesNumber*10000);
     }
 	
     if (verboseMode) {
@@ -1150,6 +1154,7 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
             close_passive_socket(connection);
             return write_reply(connection, 421, msg);
         }
+		usleep(retriesNumber*10000);
     }
     
     nbTries = 0;
@@ -1167,6 +1172,7 @@ static int32_t ftp_PASV(connection_t *connection, char *rest UNUSED) {
             close_passive_socket(connection);
             return write_reply(connection, 421, msg);
         }
+		usleep(retriesNumber*10000);
     }
     char reply[49+2+16] = "";
     uint16_t port = bindAddress.sin_port;
@@ -1205,7 +1211,7 @@ typedef int32_t (*data_connection_handler)(connection_t *connection, data_connec
 
 static int32_t prepare_data_connection_active(connection_t *connection, data_connection_callback callback UNUSED, void *arg UNUSED) {
     
-    static const int retriesNumber = 4;
+    static const int retriesNumber = 2*NB_SIMULTANEOUS_TRANSFERS;
     int nbTries=0;
 	
     while (1)
@@ -1220,6 +1226,7 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
             display("~ WARNING : %s", msg);
             return write_reply(connection, 421, msg);
 		}
+		usleep(retriesNumber*10000);
 		
     }
 	
@@ -1248,6 +1255,7 @@ static int32_t prepare_data_connection_active(connection_t *connection, data_con
             network_close(connection->data_socket);
             return write_reply(connection, 421, msg);
         }
+		usleep(retriesNumber*10000);
     }
 
     if (verboseMode) display("- Attempting to connect to connection through %s : %u", inet_ntoa(connection->address.sin_addr), connection->address.sin_port);
@@ -1347,6 +1355,8 @@ static int32_t send_list(int32_t data_socket, DIR_P *iter) {
             // size
             size = st.st_size;
             
+            // set permissions for symlinks
+            if S_ISLNK(st.st_mode) strcpy(permissions, "lwxr-xr-x");
         }
         
         // dim = 13
@@ -1468,6 +1478,9 @@ static int32_t ftp_RETR(connection_t *connection, char *path) {
         return write_reply(connection, 550, strerror(lseek_error));
     }
     connection->volPath = NULL;
+
+	// set the internal file's buffer to connection->transferBuffer 	
+	setvbuf(connection->f, connection->transferBuffer, _IOFBF, TRANSFER_BUFFER_SIZE);
     
     int32_t result = prepare_data_connection(connection, transfer, connection, closeTransferredFile);
 
@@ -1537,6 +1550,8 @@ static int32_t stor_or_append(connection_t *connection, char *path, char mode[3]
         return write_reply(connection, 550, msg);
     }
 
+	// set the internal file's buffer to connection->transferBuffer 	
+	setvbuf(connection->f, connection->transferBuffer, _IOFBF, TRANSFER_BUFFER_SIZE);
     
     display("> C[%d] receiving %s...", connection->index+1, connection->fileName);
     

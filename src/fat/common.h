@@ -43,10 +43,10 @@
 // Platform specific includes
 #if   defined (__wiiu__)
    #include <iosuhax_disc_interface.h>
-   typedef uint8_t u8;
-   typedef uint16_t u16;
-   typedef int32_t s32;
-   typedef uint32_t u32;
+   typedef uint8_t uint8_t;
+   typedef uint16_t uint16_t;
+   typedef int32_t int32_t;
+   typedef uint32_t uint32_t;
 
    // The mutex needs 44 bytes. See
    // https://github.com/decaf-emu/wut/blob/fe9e0b208cbc0b970e9a6035290cf698fe984242/include/coreinit/mutex.h#L63

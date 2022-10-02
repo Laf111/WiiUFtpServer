@@ -32,63 +32,63 @@ extern "C" {
 
 void InitFSFunctionPointers(void);
 
-extern s32 (* FSInit)(void);
-extern s32 (* FSShutdown)(void);
-extern s32 (* FSAddClient)(void *pClient, s32 errHandling);
-extern s32 (* FSAddClientEx)(void *pClient, s32 unk_zero_param, s32 errHandling);
-extern s32 (* FSDelClient)(void *pClient);
+extern int32_t (* FSInit)(void);
+extern int32_t (* FSShutdown)(void);
+extern int32_t (* FSAddClient)(void *pClient, int32_t errHandling);
+extern int32_t (* FSAddClientEx)(void *pClient, int32_t unk_zero_param, int32_t errHandling);
+extern int32_t (* FSDelClient)(void *pClient);
 extern void (* FSInitCmdBlock)(void *pCmd);
 extern void *(* FSGetCurrentCmdBlock)(void *pClient);
-extern s32 (* FSGetMountSource)(void *pClient, void *pCmd, s32 type, void *source, s32 errHandling);
+extern int32_t (* FSGetMountSource)(void *pClient, void *pCmd, int32_t type, void *source, int32_t errHandling);
 
-extern s32 (* FSMount)(void *pClient, void *pCmd, void *source, char *target, u32 bytes, s32 errHandling);
-extern s32 (* FSUnmount)(void *pClient, void *pCmd, const char *target, s32 errHandling);
-extern s32 (* FSRename)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, s32 error);
-extern s32 (* FSRenameAsync)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, s32 error, void *asyncParams);
-extern s32 (* FSRemove)(void *pClient, void *pCmd, const char *path, s32 error);
-extern s32 (* FSRemoveAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
+extern int32_t (* FSMount)(void *pClient, void *pCmd, void *source, char *target, uint32_t bytes, int32_t errHandling);
+extern int32_t (* FSUnmount)(void *pClient, void *pCmd, const char *target, int32_t errHandling);
+extern int32_t (* FSRename)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, int32_t error);
+extern int32_t (* FSRenameAsync)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, int32_t error, void *asyncParams);
+extern int32_t (* FSRemove)(void *pClient, void *pCmd, const char *path, int32_t error);
+extern int32_t (* FSRemoveAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
 
-extern s32 (* FSGetStat)(void *pClient, void *pCmd, const char *path, FSStat *stats, s32 errHandling);
-extern s32 (* FSGetStatAsync)(void *pClient, void *pCmd, const char *path, void *stats, s32 error, void *asyncParams);
-extern s32 (* FSRename)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, s32 error);
-extern s32 (* FSRenameAsync)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, s32 error, void *asyncParams);
-extern s32 (* FSRemove)(void *pClient, void *pCmd, const char *path, s32 error);
-extern s32 (* FSRemoveAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
-extern s32 (* FSFlushQuota)(void *pClient, void *pCmd, const char* path, s32 error);
-extern s32 (* FSFlushQuotaAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
-extern s32 (* FSGetFreeSpaceSize)(void *pClient, void *pCmd, const char *path, u64 *returnedFreeSize, s32 error);
-extern s32 (* FSGetFreeSpaceSizeAsync)(void *pClient, void *pCmd, const char *path, u64 *returnedFreeSize, s32 error, void *asyncParams);
-extern s32 (* FSRollbackQuota)(void *pClient, void *pCmd, const char *path, s32 error);
-extern s32 (* FSRollbackQuotaAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
+extern int32_t (* FSGetStat)(void *pClient, void *pCmd, const char *path, FSStat *stats, int32_t errHandling);
+extern int32_t (* FSGetStatAsync)(void *pClient, void *pCmd, const char *path, void *stats, int32_t error, void *asyncParams);
+extern int32_t (* FSRename)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, int32_t error);
+extern int32_t (* FSRenameAsync)(void *pClient, void *pCmd, const char *oldPath, const char *newPath, int32_t error, void *asyncParams);
+extern int32_t (* FSRemove)(void *pClient, void *pCmd, const char *path, int32_t error);
+extern int32_t (* FSRemoveAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
+extern int32_t (* FSFlushQuota)(void *pClient, void *pCmd, const char* path, int32_t error);
+extern int32_t (* FSFlushQuotaAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
+extern int32_t (* FSGetFreeSpaceSize)(void *pClient, void *pCmd, const char *path, uint64_t *returnedFreeSize, int32_t error);
+extern int32_t (* FSGetFreeSpaceSizeAsync)(void *pClient, void *pCmd, const char *path, uint64_t *returnedFreeSize, int32_t error, void *asyncParams);
+extern int32_t (* FSRollbackQuota)(void *pClient, void *pCmd, const char *path, int32_t error);
+extern int32_t (* FSRollbackQuotaAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
 
-extern s32 (* FSOpenDir)(void *pClient, void *pCmd, const char *path, s32 *dh, s32 errHandling);
-extern s32 (* FSOpenDirAsync)(void *pClient, void* pCmd, const char *path, s32 *handle, s32 error, void *asyncParams);
-extern s32 (* FSReadDir)(void *pClient, void *pCmd, s32 dh, FSDirEntry *dir_entry, s32 errHandling);
-extern s32 (* FSRewindDir)(void *pClient, void *pCmd, s32 dh, s32 errHandling);
-extern s32 (* FSCloseDir)(void *pClient, void *pCmd, s32 dh, s32 errHandling);
-extern s32 (* FSChangeDir)(void *pClient, void *pCmd, const char *path, s32 errHandling);
-extern s32 (* FSChangeDirAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
-extern s32 (* FSMakeDir)(void *pClient, void *pCmd, const char *path, s32 errHandling);
-extern s32 (* FSMakeDirAsync)(void *pClient, void *pCmd, const char *path, s32 error, void *asyncParams);
+extern int32_t (* FSOpenDir)(void *pClient, void *pCmd, const char *path, int32_t *dh, int32_t errHandling);
+extern int32_t (* FSOpenDirAsync)(void *pClient, void* pCmd, const char *path, int32_t *handle, int32_t error, void *asyncParams);
+extern int32_t (* FSReadDir)(void *pClient, void *pCmd, int32_t dh, FSDirEntry *dir_entry, int32_t errHandling);
+extern int32_t (* FSRewindDir)(void *pClient, void *pCmd, int32_t dh, int32_t errHandling);
+extern int32_t (* FSCloseDir)(void *pClient, void *pCmd, int32_t dh, int32_t errHandling);
+extern int32_t (* FSChangeDir)(void *pClient, void *pCmd, const char *path, int32_t errHandling);
+extern int32_t (* FSChangeDirAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
+extern int32_t (* FSMakeDir)(void *pClient, void *pCmd, const char *path, int32_t errHandling);
+extern int32_t (* FSMakeDirAsync)(void *pClient, void *pCmd, const char *path, int32_t error, void *asyncParams);
 
-extern s32 (* FSOpenFile)(void *pClient, void *pCmd, const char *path, const char *mode, s32 *fd, s32 errHandling);
-extern s32 (* FSOpenFileAsync)(void *pClient, void *pCmd, const char *path, const char *mode, s32 *handle, s32 error, const void *asyncParams);
-extern s32 (* FSReadFile)(void *pClient, void *pCmd, void *buffer, s32 size, s32 count, s32 fd, s32 flag, s32 errHandling);
-extern s32 (* FSCloseFile)(void *pClient, void *pCmd, s32 fd, s32 errHandling);
+extern int32_t (* FSOpenFile)(void *pClient, void *pCmd, const char *path, const char *mode, int32_t *fd, int32_t errHandling);
+extern int32_t (* FSOpenFileAsync)(void *pClient, void *pCmd, const char *path, const char *mode, int32_t *handle, int32_t error, const void *asyncParams);
+extern int32_t (* FSReadFile)(void *pClient, void *pCmd, void *buffer, int32_t size, int32_t count, int32_t fd, int32_t flag, int32_t errHandling);
+extern int32_t (* FSCloseFile)(void *pClient, void *pCmd, int32_t fd, int32_t errHandling);
 
-extern s32 (* FSFlushFile)(void *pClient, void *pCmd, s32 fd, s32 error);
-extern s32 (* FSTruncateFile)(void *pClient, void *pCmd, s32 fd, s32 error);
-extern s32 (* FSGetStatFile)(void *pClient, void *pCmd, s32 fd, void *buffer, s32 error);
-extern s32 (* FSSetPosFile)(void *pClient, void *pCmd, s32 fd, u32 pos, s32 error);
-extern s32 (* FSWriteFile)(void *pClient, void *pCmd, const void *source, s32 block_size, s32 block_count, s32 fd, s32 flag, s32 error);
+extern int32_t (* FSFlushFile)(void *pClient, void *pCmd, int32_t fd, int32_t error);
+extern int32_t (* FSTruncateFile)(void *pClient, void *pCmd, int32_t fd, int32_t error);
+extern int32_t (* FSGetStatFile)(void *pClient, void *pCmd, int32_t fd, void *buffer, int32_t error);
+extern int32_t (* FSSetPosFile)(void *pClient, void *pCmd, int32_t fd, uint32_t pos, int32_t error);
+extern int32_t (* FSWriteFile)(void *pClient, void *pCmd, const void *source, int32_t block_size, int32_t block_count, int32_t fd, int32_t flag, int32_t error);
 
-extern s32 (* FSBindMount)(void *pClient, void *pCmd, char *source, char *target, s32 error);
-extern s32 (* FSBindUnmount)(void *pClient, void *pCmd, char *target, s32 error);
+extern int32_t (* FSBindMount)(void *pClient, void *pCmd, char *source, char *target, int32_t error);
+extern int32_t (* FSBindUnmount)(void *pClient, void *pCmd, char *target, int32_t error);
 
-extern s32 (* FSMakeQuota)( void *pClient, void *pCmd, const char *path,u32 mode, u64 size, s32 errHandling);
-extern s32 (* FSMakeQuotaAsync)(void *pClient, void *pCmd, const char *path,u32 mode, u64 size, s32 errHandling,const void  *asyncParams);
+extern int32_t (* FSMakeQuota)( void *pClient, void *pCmd, const char *path,uint32_t mode, uint64_t size, int32_t errHandling);
+extern int32_t (* FSMakeQuotaAsync)(void *pClient, void *pCmd, const char *path,uint32_t mode, uint64_t size, int32_t errHandling,const void  *asyncParams);
 
-extern s32 (* FSGetCwd)(void * client,void * block,char * buffer,u32 bufferSize,u32 flags);
+extern int32_t (* FSGetCwd)(void * client,void * block,char * buffer,uint32_t bufferSize,uint32_t flags);
 
 
 #ifdef __cplusplus

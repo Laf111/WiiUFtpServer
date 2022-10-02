@@ -27,6 +27,7 @@ misrepresented as being the original software.
 #define _FTP_H_
 
 #include <time.h>
+#include <sys/param.h>
 #define FTP_PORT            21
 
 // Connection time out in seconds

@@ -5,8 +5,8 @@
 int vpadError = -1;
 static VPADData vpad;
 
-static s32 padErrors[4];
-static u32 padTypes[4];
+static int32_t padErrors[4];
+static uint32_t padTypes[4];
 static KPADData pads[4];
 
 

@@ -24,18 +24,18 @@
 #include "os_functions.h"
 #include "padscore_functions.h"
 
-u32 padscore_handle __attribute__((section(".data"))) = 0;
+uint32_t padscore_handle __attribute__((section(".data"))) = 0;
 
 EXPORT_DECL(void, KPADInit, void);
 EXPORT_DECL(void, WPADInit, void);
-EXPORT_DECL(s32, WPADProbe, s32 chan, u32 * pad_type);
-EXPORT_DECL(s32, WPADSetDataFormat, s32 chan, s32 format);
-EXPORT_DECL(void, WPADEnableURCC, s32 enable);
-EXPORT_DECL(void, WPADRead, s32 chan, void * data);
-EXPORT_DECL(s32, KPADRead, s32 chan, KPADData * data, u32 size);
-EXPORT_DECL(s32, KPADReadEx, s32 chan, KPADData * data, u32 size, s32 *error);
-EXPORT_DECL(void,WPADSetAutoSleepTime,u8 minute);
-EXPORT_DECL(void,WPADDisconnect,s32 chan);
+EXPORT_DECL(int32_t, WPADProbe, int32_t chan, uint32_t * pad_type);
+EXPORT_DECL(int32_t, WPADSetDataFormat, int32_t chan, int32_t format);
+EXPORT_DECL(void, WPADEnableURCC, int32_t enable);
+EXPORT_DECL(void, WPADRead, int32_t chan, void * data);
+EXPORT_DECL(int32_t, KPADRead, int32_t chan, KPADData * data, uint32_t size);
+EXPORT_DECL(int32_t, KPADReadEx, int32_t chan, KPADData * data, uint32_t size, int32_t *error);
+EXPORT_DECL(void,WPADSetAutoSleepTime,uint8_t minute);
+EXPORT_DECL(void,WPADDisconnect,int32_t chan);
 
 void InitAcquirePadScore(void) {
     if(coreinit_handle == 0) {
@@ -45,7 +45,7 @@ void InitAcquirePadScore(void) {
 }
 
 void InitPadScoreFunctionPointers(void) {
-    u32 *funcPointer = 0;
+    uint32_t *funcPointer = 0;
     InitAcquirePadScore();
 
     OS_FIND_EXPORT(padscore_handle, WPADInit);

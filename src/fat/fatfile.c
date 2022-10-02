@@ -236,8 +236,8 @@ int _FAT_open_r (struct _reent *r, void *fileStruct, const char *path, int flags
 
 			// Set the creation time and date
 			dirEntry.entryData[DIR_ENTRY_cTime_ms] = 0;
-			u16_to_u8array (dirEntry.entryData, DIR_ENTRY_cTime, _FAT_filetime_getTimeFromRTC());
-			u16_to_u8array (dirEntry.entryData, DIR_ENTRY_cDate, _FAT_filetime_getDateFromRTC());
+			uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_cTime, _FAT_filetime_getTimeFromRTC());
+			uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_cDate, _FAT_filetime_getDateFromRTC());
 
 			if (!_FAT_directory_addEntry (partition, &dirEntry, dirCluster)) {
 				_FAT_unlock(&partition->lock);
@@ -255,7 +255,7 @@ int _FAT_open_r (struct _reent *r, void *fileStruct, const char *path, int flags
 		}
 	}
 
-	file->filesize = u8array_to_u32 (dirEntry.entryData, DIR_ENTRY_fileSize);
+	file->filesize = uint8_t_array_to_uint32_t (dirEntry.entryData, DIR_ENTRY_fileSize);
 
 	/* Allow LARGEFILEs with undefined results
 	// Make sure that the file size can fit in the available space
@@ -354,18 +354,18 @@ int _FAT_syncToDisc (FILE_STRUCT* file) {
 
 		// Write new data to the directory entry
 		// File size
-		u32_to_u8array (dirEntryData, DIR_ENTRY_fileSize, file->filesize);
+		uint32_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_fileSize, file->filesize);
 
 		// Start cluster
-		u16_to_u8array (dirEntryData, DIR_ENTRY_cluster, file->startCluster);
-		u16_to_u8array (dirEntryData, DIR_ENTRY_clusterHigh, file->startCluster >> 16);
+		uint16_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_cluster, file->startCluster);
+		uint16_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_clusterHigh, file->startCluster >> 16);
 
 		// Modification time and date
-		u16_to_u8array (dirEntryData, DIR_ENTRY_mTime, _FAT_filetime_getTimeFromRTC());
-		u16_to_u8array (dirEntryData, DIR_ENTRY_mDate, _FAT_filetime_getDateFromRTC());
+		uint16_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_mTime, _FAT_filetime_getTimeFromRTC());
+		uint16_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_mDate, _FAT_filetime_getDateFromRTC());
 
 		// Access date
-		u16_to_u8array (dirEntryData, DIR_ENTRY_aDate, _FAT_filetime_getDateFromRTC());
+		uint16_t_to_uint8_tarray (dirEntryData, DIR_ENTRY_aDate, _FAT_filetime_getDateFromRTC());
 
 		// Set archive attribute
 		dirEntryData[DIR_ENTRY_attributes] |= ATTRIB_ARCH;

@@ -104,9 +104,9 @@ void _FAT_cache_destructor (CACHE* cache) {
 }
 
 
-static u32 accessCounter = 0;
+static uint32_t accessCounter = 0;
 
-static u32 accessTime(){
+static uint32_t accessTime(){
 	accessCounter++;
 	return accessCounter;
 }
@@ -204,8 +204,8 @@ bool _FAT_cache_readLittleEndianValue (CACHE* cache, uint32_t *value, sec_t sect
 
   switch(num_bytes) {
   case 1: *value = buf[0]; break;
-  case 2: *value = u8array_to_u16(buf,0); break;
-  case 4: *value = u8array_to_u32(buf,0); break;
+  case 2: *value = uint8_t_array_to_uint16_t(buf,0); break;
+  case 4: *value = uint8_t_array_to_uint32_t(buf,0); break;
   default: return false;
   }
   return true;
@@ -236,8 +236,8 @@ bool _FAT_cache_writeLittleEndianValue (CACHE* cache, const uint32_t value, sec_
 
   switch(size) {
   case 1: buf[0] = value; break;
-  case 2: u16_to_u8array(buf, 0, value); break;
-  case 4: u32_to_u8array(buf, 0, value); break;
+  case 2: uint16_t_to_uint8_tarray(buf, 0, value); break;
+  case 4: uint32_t_to_uint8_tarray(buf, 0, value); break;
   default: return false;
   }
 

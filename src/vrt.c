@@ -26,7 +26,6 @@ misrepresented as being the original software.
   * WiiUFtpServer
   * 2021-12-05:Laf111:V7-0
  ***************************************************************************/
-#include "dynamic_libs/socket_functions.h"
 #include <malloc.h>
 #include <stdarg.h>
 #include <string.h>
@@ -34,6 +33,7 @@ misrepresented as being the original software.
 #include <unistd.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "dynamic_libs/socket_functions.h"
 
 #include "virtualpath.h"
 #include "vrt.h"

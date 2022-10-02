@@ -401,11 +401,11 @@ int _FAT_mkdir_r (struct _reent *r, const char *path, int mode) {
 
 	// Set the creation time and date
 	dirEntry.entryData[DIR_ENTRY_cTime_ms] = 0;
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_cTime, _FAT_filetime_getTimeFromRTC());
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_cDate, _FAT_filetime_getDateFromRTC());
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_mTime, _FAT_filetime_getTimeFromRTC());
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_mDate, _FAT_filetime_getDateFromRTC());
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_aDate, _FAT_filetime_getDateFromRTC());
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_cTime, _FAT_filetime_getTimeFromRTC());
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_cDate, _FAT_filetime_getDateFromRTC());
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_mTime, _FAT_filetime_getTimeFromRTC());
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_mDate, _FAT_filetime_getDateFromRTC());
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_aDate, _FAT_filetime_getDateFromRTC());
 
 	// Set the directory attribute
 	dirEntry.entryData[DIR_ENTRY_attributes] = ATTRIB_DIR;
@@ -418,8 +418,8 @@ int _FAT_mkdir_r (struct _reent *r, const char *path, int mode) {
 		r->_errno = ENOSPC;
 		return -1;
 	}
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_cluster, dirCluster);
-	u16_to_u8array (dirEntry.entryData, DIR_ENTRY_clusterHigh, dirCluster >> 16);
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_cluster, dirCluster);
+	uint16_t_to_uint8_tarray (dirEntry.entryData, DIR_ENTRY_clusterHigh, dirCluster >> 16);
 
 	// Write the new directory's entry to it's parent
 	if (!_FAT_directory_addEntry (partition, &dirEntry, parentCluster)) {
@@ -433,8 +433,8 @@ int _FAT_mkdir_r (struct _reent *r, const char *path, int mode) {
 	memset (newEntryData, ' ', 11);
 	newEntryData[DIR_ENTRY_name] = '.';
 	newEntryData[DIR_ENTRY_attributes] = ATTRIB_DIR;
-	u16_to_u8array (newEntryData, DIR_ENTRY_cluster, dirCluster);
-	u16_to_u8array (newEntryData, DIR_ENTRY_clusterHigh, dirCluster >> 16);
+	uint16_t_to_uint8_tarray (newEntryData, DIR_ENTRY_cluster, dirCluster);
+	uint16_t_to_uint8_tarray (newEntryData, DIR_ENTRY_clusterHigh, dirCluster >> 16);
 
 	// Write it to the directory, erasing that sector in the process
 	_FAT_cache_eraseWritePartialSector ( partition->cache, newEntryData,
@@ -448,8 +448,8 @@ int _FAT_mkdir_r (struct _reent *r, const char *path, int mode) {
 		parentCluster = FAT16_ROOT_DIR_CLUSTER;
 
 	newEntryData[DIR_ENTRY_name + 1] = '.';
-	u16_to_u8array (newEntryData, DIR_ENTRY_cluster, parentCluster);
-	u16_to_u8array (newEntryData, DIR_ENTRY_clusterHigh, parentCluster >> 16);
+	uint16_t_to_uint8_tarray (newEntryData, DIR_ENTRY_cluster, parentCluster);
+	uint16_t_to_uint8_tarray (newEntryData, DIR_ENTRY_clusterHigh, parentCluster >> 16);
 
 	// Write it to the directory
 	_FAT_cache_writePartialSector ( partition->cache, newEntryData,

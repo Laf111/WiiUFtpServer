@@ -4,7 +4,7 @@
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
 VERSION_MAJOR=12
-VERSION_MINOR=1
+VERSION_MINOR=2
 VERSION_PATCH=0
 export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 

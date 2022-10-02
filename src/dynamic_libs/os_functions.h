@@ -35,7 +35,7 @@ extern "C" {
 /* Disassembler */
 typedef void (*DisasmReport)(char *outputBuffer, ...);
 
-typedef void *(*DisasmGetSym)(u32 addr, u8 *symbolName, u32 nameBufSize);
+typedef void *(*DisasmGetSym)(uint32_t addr, uint8_t *symbolName, uint32_t nameBufSize);
 
 #define PPC_DISASM_MAX_BUFFER 64
 
@@ -78,7 +78,7 @@ typedef void *(*DisasmGetSym)(u32 addr, u8 *symbolName, u32 nameBufSize);
 #define EXPORT_VAR(type, var)           type var __attribute__((section(".data")));
 
 
-#define EXPORT_FUNC_WRITE(func, val)    *(u32*)(((u32)&func) + 0) = (u32)val
+#define EXPORT_FUNC_WRITE(func, val)    *(uint32_t*)(((uint32_t)&func) + 0) = (uint32_t)val
 
 #define OS_FIND_EXPORT(handle, func)    _os_find_export(handle, # func, &funcPointer);                                  \
                                         EXPORT_FUNC_WRITE(func, funcPointer);
@@ -90,67 +90,67 @@ typedef void *(*DisasmGetSym)(u32 addr, u8 *symbolName, u32 nameBufSize);
 #define OS_MUTEX_SIZE                   44
 
 /* Handle for coreinit */
-extern u32 coreinit_handle;
-extern void _os_find_export(u32 handle, const char *funcName, void *funcPointer);
+extern uint32_t coreinit_handle;
+extern void _os_find_export(uint32_t handle, const char *funcName, void *funcPointer);
 extern void InitAcquireOS(void);
 extern void InitOSFunctionPointers(void);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Lib handle functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern s32 (* OSDynLoad_Acquire)(const char* rpl, u32 *handle);
-extern s32 (* OSDynLoad_FindExport)(u32 handle, s32 isdata, const char *symbol, void *address);
-extern void (* OSDynLoad_Release)(u32 handle);
+extern int32_t (* OSDynLoad_Acquire)(const char* rpl, uint32_t *handle);
+extern int32_t (* OSDynLoad_FindExport)(uint32_t handle, int32_t isdata, const char *symbol, void *address);
+extern void (* OSDynLoad_Release)(uint32_t handle);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Security functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern s32 (* OSGetSecurityLevel)(void);
-extern s32 (* OSForceFullRelaunch)(void);
+extern int32_t (* OSGetSecurityLevel)(void);
+extern int32_t (* OSForceFullRelaunch)(void);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Thread functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern s32 (* OSCreateThread)(OSThread *thread, s32 (*callback)(s32, void*), s32 argc, void *args, u32 stack, u32 stack_size, s32 priority, u32 attr);
+extern int32_t (* OSCreateThread)(OSThread *thread, int32_t (*callback)(int32_t, void*), int32_t argc, void *args, uint32_t stack, uint32_t stack_size, int32_t priority, uint32_t attr);
 
 extern void (*OSEnableInterrupts)(void);
 extern void (*__OSClearAndEnableInterrupt)(void);
-extern s32 (*OSIsInterruptEnabled)(void);
-extern s32 (*OSIsDebuggerPresent)(void);
+extern int32_t (*OSIsInterruptEnabled)(void);
+extern int32_t (*OSIsDebuggerPresent)(void);
 
 extern void (*OSRestoreInterrupts)(void);
-extern void (*OSSetDABR)(s32, s32, s32, s32);
-extern void (*OSSetIABR)(s32, s32);
+extern void (*OSSetDABR)(int32_t, int32_t, int32_t, int32_t);
+extern void (*OSSetIABR)(int32_t, int32_t);
 
-extern s32 (* OSResumeThread)(OSThread *thread);
-extern s32 (* OSSuspendThread)(OSThread *thread);
-extern s32 (* OSIsThreadTerminated)(OSThread *thread);
-extern s32 (* OSIsThreadSuspended)(OSThread *thread);
-extern s32 (* OSJoinThread)(OSThread * thread, s32 * ret_val);
-extern s32 (* OSSetThreadPriority)(OSThread * thread, s32 priority);
+extern int32_t (* OSResumeThread)(OSThread *thread);
+extern int32_t (* OSSuspendThread)(OSThread *thread);
+extern int32_t (* OSIsThreadTerminated)(OSThread *thread);
+extern int32_t (* OSIsThreadSuspended)(OSThread *thread);
+extern int32_t (* OSJoinThread)(OSThread * thread, int32_t * ret_val);
+extern int32_t (* OSSetThreadPriority)(OSThread * thread, int32_t priority);
 extern void (* OSDetachThread)(OSThread * thread);
 extern OSThread * (* OSGetCurrentThread)(void);
 extern const char * (* OSGetThreadName)(OSThread * thread);
 extern void (* OSYieldThread)(void);
 
 extern void (* OSGetActiveThreadLink)(OSThread * thread, void* link);
-extern u32 (* OSGetThreadAffinity)(OSThread * thread);
-extern s32 (* OSGetThreadPriority)(OSThread * thread);
+extern uint32_t (* OSGetThreadAffinity)(OSThread * thread);
+extern int32_t (* OSGetThreadPriority)(OSThread * thread);
 extern void (* OSSetThreadName)(OSThread * thread, const char *name);
-extern s32 (* OSGetCoreId)(void);
+extern int32_t (* OSGetCoreId)(void);
 
-extern void (* OSSleepTicks)(u64 ticks);
-extern u64 (* OSGetTick)(void);
-extern u64 (* OSGetTime)(void);
-extern u64 (* OSGetSystemTime)(void);
-extern void (*OSTicksToCalendarTime)(u64 time, OSCalendarTime *calendarTime);
+extern void (* OSSleepTicks)(uint64_t ticks);
+extern uint64_t (* OSGetTick)(void);
+extern uint64_t (* OSGetTime)(void);
+extern uint64_t (* OSGetSystemTime)(void);
+extern void (*OSTicksToCalendarTime)(uint64_t time, OSCalendarTime *calendarTime);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Message functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern void(* OSInitMessageQueue)(OSMessageQueue *queue, OSMessage *messages, s32 size);
-extern u32(* OSSendMessage)(OSMessageQueue *queue, OSMessage *message, s32 flags);
-extern u32(* OSReceiveMessage)(OSMessageQueue *queue, OSMessage *message, s32 flags);
+extern void(* OSInitMessageQueue)(OSMessageQueue *queue, OSMessage *messages, int32_t size);
+extern uint32_t(* OSSendMessage)(OSMessageQueue *queue, OSMessage *message, int32_t flags);
+extern uint32_t(* OSReceiveMessage)(OSMessageQueue *queue, OSMessage *message, int32_t flags);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Mutex functions
@@ -158,89 +158,89 @@ extern u32(* OSReceiveMessage)(OSMessageQueue *queue, OSMessage *message, s32 fl
 extern void (* OSInitMutex)(void* mutex);
 extern void (* OSLockMutex)(void* mutex);
 extern void (* OSUnlockMutex)(void* mutex);
-extern s32 (* OSTryLockMutex)(void* mutex);
+extern int32_t (* OSTryLockMutex)(void* mutex);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! System functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern u64 (* OSGetTitleID)(void);
-extern void (* OSGetArgcArgv)(s32* argc, char*** argv);
+extern uint64_t (* OSGetTitleID)(void);
+extern void (* OSGetArgcArgv)(int32_t* argc, char*** argv);
 extern void (* __Exit)(void);
 extern void (* OSFatal)(const char* msg);
-extern void (* DCFlushRange)(const void *addr, u32 length);
-extern void (* DCStoreRange)(const void *addr, u32 length);
-extern void (* ICInvalidateRange)(const void *addr, u32 length);
+extern void (* DCFlushRange)(const void *addr, uint32_t length);
+extern void (* DCStoreRange)(const void *addr, uint32_t length);
+extern void (* ICInvalidateRange)(const void *addr, uint32_t length);
 extern void* (* OSEffectiveToPhysical)(const void*);
 extern void* (* __OSPhysicalToEffectiveUncached)(const void*);
-extern s32 (* __OSValidateAddressSpaceRange)(s32, void*, s32);
-extern s32 (* __os_snprintf)(char* s, s32 n, const char * format, ...);
-extern s32 * (* __gh_errno_ptr)(void);
+extern int32_t (* __OSValidateAddressSpaceRange)(int32_t, void*, int32_t);
+extern int32_t (* __os_snprintf)(char* s, int32_t n, const char * format, ...);
+extern int32_t * (* __gh_errno_ptr)(void);
 
 extern void (*OSScreenInit)(void);
 extern void (*OSScreenShutdown)(void);
-extern u32 (*OSScreenGetBufferSizeEx)(u32 bufferNum);
-extern s32 (*OSScreenSetBufferEx)(u32 bufferNum, void * addr);
-extern s32 (*OSScreenClearBufferEx)(u32 bufferNum, u32 temp);
-extern s32 (*OSScreenFlipBuffersEx)(u32 bufferNum);
-extern s32 (*OSScreenPutFontEx)(u32 bufferNum, u32 posX, u32 posY, const char * buffer);
-extern s32 (*OSScreenEnableEx)(u32 bufferNum, s32 enable);
-extern u32 (*OSScreenPutPixelEx)(u32 bufferNum, u32 posX, u32 posY, u32 color);
+extern uint32_t (*OSScreenGetBufferSizeEx)(uint32_t bufferNum);
+extern int32_t (*OSScreenSetBufferEx)(uint32_t bufferNum, void * addr);
+extern int32_t (*OSScreenClearBufferEx)(uint32_t bufferNum, uint32_t temp);
+extern int32_t (*OSScreenFlipBuffersEx)(uint32_t bufferNum);
+extern int32_t (*OSScreenPutFontEx)(uint32_t bufferNum, uint32_t posX, uint32_t posY, const char * buffer);
+extern int32_t (*OSScreenEnableEx)(uint32_t bufferNum, int32_t enable);
+extern uint32_t (*OSScreenPutPixelEx)(uint32_t bufferNum, uint32_t posX, uint32_t posY, uint32_t color);
 
 typedef unsigned char (*exception_callback)(OSContext * interruptedContext);
-extern void * (* OSSetExceptionCallback)(u8 exceptionType, exception_callback newCallback);
-extern void * (* OSSetExceptionCallbackEx)(s32 unknwn,u8 exceptionType, exception_callback newCallback);
+extern void * (* OSSetExceptionCallback)(uint8_t exceptionType, exception_callback newCallback);
+extern void * (* OSSetExceptionCallbackEx)(int32_t unknwn,uint8_t exceptionType, exception_callback newCallback);
 extern void (* OSLoadContext)(OSContext * context);
 
-extern void (*DisassemblePPCRange)(void *rangeStart, void *rangeEnd, DisasmReport disasmReport, DisasmGetSym disasmGetSym, u32 disasmOptions);
-extern bool (*DisassemblePPCOpcode)(u32 *opcode, char *outputBuffer, u32 bufferSize, DisasmGetSym disasmGetSym, u32 disasmOptions);
-extern void *(*OSGetSymbolName)(u32 addr, u8 *symbolName, u32 nameBufSize);
-extern void *(*OSGetSymbolNameEx)(u32 addr, u8 *symbolName, u32 nameBufSize);
+extern void (*DisassemblePPCRange)(void *rangeStart, void *rangeEnd, DisasmReport disasmReport, DisasmGetSym disasmGetSym, uint32_t disasmOptions);
+extern bool (*DisassemblePPCOpcode)(uint32_t *opcode, char *outputBuffer, uint32_t bufferSize, DisasmGetSym disasmGetSym, uint32_t disasmOptions);
+extern void *(*OSGetSymbolName)(uint32_t addr, uint8_t *symbolName, uint32_t nameBufSize);
+extern void *(*OSGetSymbolNameEx)(uint32_t addr, uint8_t *symbolName, uint32_t nameBufSize);
 extern int (*OSIsDebuggerInitialized)(void);
 
-extern bool (*OSGetSharedData)(u32 type, u32 unk_r4, u8 *addr, u32 *size);
+extern bool (*OSGetSharedData)(uint32_t type, uint32_t unk_r4, uint8_t *addr, uint32_t *size);
 extern int (*OSShutdown)(int status);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Memory functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern u32 *pMEMAllocFromDefaultHeapEx;
-extern u32 *pMEMAllocFromDefaultHeap;
-extern u32 *pMEMFreeToDefaultHeap;
+extern uint32_t *pMEMAllocFromDefaultHeapEx;
+extern uint32_t *pMEMAllocFromDefaultHeap;
+extern uint32_t *pMEMFreeToDefaultHeap;
 
-extern void* (* MEMAllocFromAllocator) (void * allocator, u32 size);
+extern void* (* MEMAllocFromAllocator) (void * allocator, uint32_t size);
 extern void (* MEMFreeToAllocator) (void * allocator, void* address);
-extern s32 (* MEMGetBaseHeapHandle)(s32 mem_arena);
-extern u32 (* MEMGetTotalFreeSizeForExpHeap)(s32 heap);
-extern u32 (* MEMGetAllocatableSizeForExpHeapEx)(s32 heap, s32 align);
-extern u32 (* MEMGetAllocatableSizeForFrmHeapEx)(s32 heap, s32 align);
-extern void* (* MEMAllocFromFrmHeapEx)(s32 heap, u32 size, s32 align);
-extern void (* MEMFreeToFrmHeap)(s32 heap, s32 mode);
-extern void *(* MEMAllocFromExpHeapEx)(s32 heap, u32 size, s32 align);
-extern s32 (* MEMCreateExpHeapEx)(void* address, u32 size, unsigned short flags);
-extern s32 (* MEMCreateFrmHeapEx)(void* address, u32 size, unsigned short flags);
-extern void *(* MEMDestroyExpHeap)(s32 heap);
-extern void (* MEMFreeToExpHeap)(s32 heap, void* ptr);
-extern void* (* OSAllocFromSystem)(u32 size, s32 alignment);
+extern int32_t (* MEMGetBaseHeapHandle)(int32_t mem_arena);
+extern uint32_t (* MEMGetTotalFreeSizeForExpHeap)(int32_t heap);
+extern uint32_t (* MEMGetAllocatableSizeForExpHeapEx)(int32_t heap, int32_t align);
+extern uint32_t (* MEMGetAllocatableSizeForFrmHeapEx)(int32_t heap, int32_t align);
+extern void* (* MEMAllocFromFrmHeapEx)(int32_t heap, uint32_t size, int32_t align);
+extern void (* MEMFreeToFrmHeap)(int32_t heap, int32_t mode);
+extern void *(* MEMAllocFromExpHeapEx)(int32_t heap, uint32_t size, int32_t align);
+extern int32_t (* MEMCreateExpHeapEx)(void* address, uint32_t size, unsigned short flags);
+extern int32_t (* MEMCreateFrmHeapEx)(void* address, uint32_t size, unsigned short flags);
+extern void *(* MEMDestroyExpHeap)(int32_t heap);
+extern void (* MEMFreeToExpHeap)(int32_t heap, void* ptr);
+extern void* (* OSAllocFromSystem)(uint32_t size, int32_t alignment);
 extern void (* OSFreeToSystem)(void *addr);
-extern s32 (* OSIsAddressValid)(const void *ptr);
-extern s32 (* MEMFindParentHeap)(s32 heap);
-extern s32 (* OSGetMemBound)(s32 type, u32 * startAddress, u32 * size);
+extern int32_t (* OSIsAddressValid)(const void *ptr);
+extern int32_t (* MEMFindParentHeap)(int32_t heap);
+extern int32_t (* OSGetMemBound)(int32_t type, uint32_t * startAddress, uint32_t * size);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! MCP functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern s32 (* MCP_Open)(void);
-extern s32 (* MCP_Close)(s32 handle);
-extern s32 (* MCP_TitleCount)(s32 handle);
-extern s32 (* MCP_TitleList)(s32 handle, s32 *res, void *data, s32 count);
-extern s32 (* MCP_GetOwnTitleInfo)(s32 handle, void *data);
-extern void* (* MCP_GetDeviceId)(s32 handle, u32 * id);
+extern int32_t (* MCP_Open)(void);
+extern int32_t (* MCP_Close)(int32_t handle);
+extern int32_t (* MCP_TitleCount)(int32_t handle);
+extern int32_t (* MCP_TitleList)(int32_t handle, int32_t *res, void *data, int32_t count);
+extern int32_t (* MCP_GetOwnTitleInfo)(int32_t handle, void *data);
+extern void* (* MCP_GetDeviceId)(int32_t handle, uint32_t * id);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! LOADER functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern s32 (* LiWaitIopComplete)(s32 unknown_syscall_arg_r3, s32 * remaining_bytes);
-extern s32 (* LiWaitIopCompleteWithInterrupts)(s32 unknown_syscall_arg_r3, s32 * remaining_bytes);
+extern int32_t (* LiWaitIopComplete)(int32_t unknown_syscall_arg_r3, int32_t * remaining_bytes);
+extern int32_t (* LiWaitIopCompleteWithInterrupts)(int32_t unknown_syscall_arg_r3, int32_t * remaining_bytes);
 extern void (* addr_LiWaitOneChunk)(void);
 extern void (* addr_sgIsLoadingBuffer)(void);
 extern void (* addr_gDynloadInitialized)(void);
@@ -253,35 +253,35 @@ extern void (* addr_PrepareTitle_hook)(void);
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Other function addresses
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-extern void (*DCInvalidateRange)(void *buffer, u32 length);
-extern s32 (*OSDynLoad_GetModuleName)(s32 handle, char *name_buffer, s32 *name_buffer_size);
-extern s32 (*OSIsHomeButtonMenuEnabled) (void);
-extern void (*OSEnableHomeButtonMenu) (s32);
-extern s32 (*OSSetScreenCapturePermissionEx) (s32 tvEnabled, s32 drcEnabled);
+extern void (*DCInvalidateRange)(void *buffer, uint32_t length);
+extern int32_t (*OSDynLoad_GetModuleName)(int32_t handle, char *name_buffer, int32_t *name_buffer_size);
+extern int32_t (*OSIsHomeButtonMenuEnabled) (void);
+extern void (*OSEnableHomeButtonMenu) (int32_t);
+extern int32_t (*OSSetScreenCapturePermissionEx) (int32_t tvEnabled, int32_t drcEnabled);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! Energy Saver functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ////Burn-in Reduction
-extern s32 (*IMEnableDim)(void);
-extern s32 (*IMDisableDim)(void);
-extern s32 (*IMIsDimEnabled)(s32 * result);
+extern int32_t (*IMEnableDim)(void);
+extern int32_t (*IMDisableDim)(void);
+extern int32_t (*IMIsDimEnabled)(int32_t * result);
 //Auto power down
-extern s32 (*IMEnableAPD)(void);
-extern s32 (*IMDisableAPD)(void);
-extern s32 (*IMIsAPDEnabled)(s32 * result);
-extern s32 (*IMIsAPDEnabledBySysSettings)(s32 * result);
+extern int32_t (*IMEnableAPD)(void);
+extern int32_t (*IMDisableAPD)(void);
+extern int32_t (*IMIsAPDEnabled)(int32_t * result);
+extern int32_t (*IMIsAPDEnabledBySysSettings)(int32_t * result);
 
-extern s32 (*OSSendAppSwitchRequest)(s32 param,void* unknown1,void* unknown2);
+extern int32_t (*OSSendAppSwitchRequest)(int32_t param,void* unknown1,void* unknown2);
 
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 //! IOS functions
 //!----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-extern s32 (*IOS_Ioctl)(s32 fd, u32 request, void *input_buffer,u32 input_buffer_len, void *output_buffer, u32 output_buffer_len);
-extern s32 (*IOS_IoctlAsync)(s32 fd, u32 request, void *input_buffer,u32 input_buffer_len, void *output_buffer, u32 output_buffer_len, void *cb, void *cbarg);
-extern s32 (*IOS_Open)(char *path, u32 mode);
-extern s32 (*IOS_Close)(s32 fd);
+extern int32_t (*IOS_Ioctl)(int32_t fd, uint32_t request, void *input_buffer,uint32_t input_buffer_len, void *output_buffer, uint32_t output_buffer_len);
+extern int32_t (*IOS_IoctlAsync)(int32_t fd, uint32_t request, void *input_buffer,uint32_t input_buffer_len, void *output_buffer, uint32_t output_buffer_len, void *cb, void *cbarg);
+extern int32_t (*IOS_Open)(char *path, uint32_t mode);
+extern int32_t (*IOS_Close)(int32_t fd);
 
 #ifdef __cplusplus
 }

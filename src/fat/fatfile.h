@@ -42,9 +42,9 @@
 #define FILE_MAX_SIZE ((uint32_t)0xFFFFFFFF)	// 4GiB - 1B
 
 typedef struct {
-	u32   cluster;
+	uint32_t   cluster;
 	sec_t sector;
-	s32   byte;
+	int32_t   byte;
 } FILE_POSITION;
 
 struct _FILE_STRUCT;

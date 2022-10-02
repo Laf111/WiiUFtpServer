@@ -33,32 +33,32 @@
 
 extern void display(const char *format, ...);
 
-u32 hostIpAddress = 0;
+uint32_t hostIpAddress = 0;
 
-u32 nsysnet_handle __attribute__((section(".data"))) = 0;
+uint32_t nsysnet_handle __attribute__((section(".data"))) = 0;
 
-EXPORT_DECL(s32, socket_lib_init, void);
-EXPORT_DECL(s32, socket_lib_finish, void);
-EXPORT_DECL(s32, socket, s32 domain, s32 type, s32 protocol);
-EXPORT_DECL(s32, socketclose, s32 s);
-EXPORT_DECL(s32, shutdown, s32 s, s32 how);
-EXPORT_DECL(s32, connect, s32 s, void *addr, s32 addrlen);
-EXPORT_DECL(s32, bind, s32 s,struct sockaddr *name,s32 namelen);
-EXPORT_DECL(s32, listen, s32 s,u32 backlog);
-EXPORT_DECL(s32, accept, s32 s,struct sockaddr *addr,s32 *addrlen);
-EXPORT_DECL(s32, send, s32 s, const void *buffer, s32 size, s32 flags);
-EXPORT_DECL(s32, recv, s32 s, void *buffer, s32 size, s32 flags);
-EXPORT_DECL(s32, recvfrom,s32 sockfd, void *buf, s32 len, s32 flags,struct sockaddr *src_addr, s32 *addrlen);
-EXPORT_DECL(s32, sendto, s32 s, const void *buffer, s32 size, s32 flags, const struct sockaddr *dest, s32 dest_len);
-EXPORT_DECL(s32, setsockopt, s32 s, s32 level, s32 optname, void *optval, s32 optlen);
-EXPORT_DECL(s32, getsockopt, s32 s, s32 level, s32 optname, void *optval, s32 optlen);
-EXPORT_DECL(s32, somemopt, int type, void *buf, size_t bufsize, int unk);
+EXPORT_DECL(int32_t, socket_lib_init, void);
+EXPORT_DECL(int32_t, socket_lib_finish, void);
+EXPORT_DECL(int32_t, socket, int32_t domain, int32_t type, int32_t protocol);
+EXPORT_DECL(int32_t, socketclose, int32_t s);
+EXPORT_DECL(int32_t, shutdown, int32_t s, int32_t how);
+EXPORT_DECL(int32_t, connect, int32_t s, void *addr, int32_t addrlen);
+EXPORT_DECL(int32_t, bind, int32_t s,struct sockaddr *name,int32_t namelen);
+EXPORT_DECL(int32_t, listen, int32_t s,uint32_t backlog);
+EXPORT_DECL(int32_t, accept, int32_t s,struct sockaddr *addr,int32_t *addrlen);
+EXPORT_DECL(int32_t, send, int32_t s, const void *buffer, int32_t size, int32_t flags);
+EXPORT_DECL(int32_t, recv, int32_t s, void *buffer, int32_t size, int32_t flags);
+EXPORT_DECL(int32_t, recvfrom,int32_t sockfd, void *buf, int32_t len, int32_t flags,struct sockaddr *src_addr, int32_t *addrlen);
+EXPORT_DECL(int32_t, sendto, int32_t s, const void *buffer, int32_t size, int32_t flags, const struct sockaddr *dest, int32_t dest_len);
+EXPORT_DECL(int32_t, setsockopt, int32_t s, int32_t level, int32_t optname, void *optval, int32_t optlen);
+EXPORT_DECL(int32_t, getsockopt, int32_t s, int32_t level, int32_t optname, void *optval, int32_t optlen);
+EXPORT_DECL(int32_t, somemopt, int type, void *buf, size_t bufsize, int unk);
 
 EXPORT_DECL(char *, inet_ntoa, struct in_addr in);
-EXPORT_DECL(s32, inet_aton, const char *cp, struct in_addr *inp);
-EXPORT_DECL(const char *, inet_ntop, s32 af, const void *src, char *dst, s32 size);
-EXPORT_DECL(s32, inet_pton, s32 af, const char *src, void *dst);
-EXPORT_DECL(s32, socketlasterr, void);
+EXPORT_DECL(int32_t, inet_aton, const char *cp, struct in_addr *inp);
+EXPORT_DECL(const char *, inet_ntop, int32_t af, const void *src, char *dst, int32_t size);
+EXPORT_DECL(int32_t, inet_pton, int32_t af, const char *src, void *dst);
+EXPORT_DECL(int32_t, socketlasterr, void);
         
 
 void InitAcquireSocket(void) {
@@ -70,15 +70,15 @@ void InitAcquireSocket(void) {
 
 void InitSocketFunctionPointers(void) {
 
-    u32 *funcPointer = 0;
+    uint32_t *funcPointer = 0;
 
     InitAcquireSocket();
 
-    u32 nn_ac_handle;
-    s32(*ACInitialize)();
-    s32(*ACGetStartupId) (u32 *id);
-    s32(*ACConnectWithConfigId) (u32 id);
-    s32(*ACGetAssignedAddress) (u32 * ip);
+    uint32_t nn_ac_handle;
+    int32_t(*ACInitialize)();
+    int32_t(*ACGetStartupId) (uint32_t *id);
+    int32_t(*ACConnectWithConfigId) (uint32_t id);
+    int32_t(*ACGetAssignedAddress) (uint32_t * ip);
     OSDynLoad_Acquire("nn_ac.rpl", &nn_ac_handle);
     OSDynLoad_FindExport(nn_ac_handle, 0, "ACInitialize", &ACInitialize);
     OSDynLoad_FindExport(nn_ac_handle, 0, "ACGetStartupId", &ACGetStartupId);
@@ -107,7 +107,7 @@ void InitSocketFunctionPointers(void) {
     OS_FIND_EXPORT(nsysnet_handle, inet_ntop);
     OS_FIND_EXPORT(nsysnet_handle, inet_pton);
     
-    u32 nn_startupid;
+    uint32_t nn_startupid;
     ACInitialize();
     ACGetStartupId(&nn_startupid);
     ACConnectWithConfigId(nn_startupid);

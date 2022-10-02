@@ -34,20 +34,20 @@
 /*-----------------------------------------------------------------
 Functions to deal with little endian values stored in uint8_t arrays
 -----------------------------------------------------------------*/
-static inline uint16_t u8array_to_u16 (const uint8_t* item, int offset) {
+static inline uint16_t uint8_t_array_to_uint16_t (const uint8_t* item, int offset) {
 	return ( item[offset] | (item[offset + 1] << 8));
 }
 
-static inline uint32_t u8array_to_u32 (const uint8_t* item, int offset) {
+static inline uint32_t uint8_t_array_to_uint32_t (const uint8_t* item, int offset) {
 	return ( item[offset] | (item[offset + 1] << 8) | (item[offset + 2] << 16) | (item[offset + 3] << 24));
 }
 
-static inline void u16_to_u8array (uint8_t* item, int offset, uint16_t value) {
+static inline void uint16_t_to_uint8_tarray (uint8_t* item, int offset, uint16_t value) {
 	item[offset]     = (uint8_t) value;
 	item[offset + 1] = (uint8_t)(value >> 8);
 }
 
-static inline void u32_to_u8array (uint8_t* item, int offset, uint32_t value) {
+static inline void uint32_t_to_uint8_tarray (uint8_t* item, int offset, uint32_t value) {
 	item[offset]     = (uint8_t) value;
 	item[offset + 1] = (uint8_t)(value >> 8);
 	item[offset + 2] = (uint8_t)(value >> 16);

@@ -18,7 +18,7 @@ extern "C" {
 #define FS_STATUS_FATAL_ERROR           -0x400
 #define FS_RET_UNSUPPORTED_CMD          0x0400
 #define FS_RET_NO_ERROR                 0x0000
-#define FS_RET_ALL_ERROR                (u32)(-1)
+#define FS_RET_ALL_ERROR                (uint32_t)(-1)
 
 #define FS_IO_BUFFER_ALIGN              64
 
@@ -35,25 +35,25 @@ extern "C" {
 #define FS_CMD_BLOCK_SIZE               0xA80
 
 typedef struct FSClient_ {
-    u8 buffer[FS_CLIENT_SIZE];
+    uint8_t buffer[FS_CLIENT_SIZE];
 } FSClient;
 
 typedef struct FSCmdBlock_ {
-    u8 buffer[FS_CMD_BLOCK_SIZE];
+    uint8_t buffer[FS_CMD_BLOCK_SIZE];
 } FSCmdBlock;
 
 typedef struct {
-    u32 flag;
-    u32 permission;
-    u32 owner_id;
-    u32 group_id;
-    u32 size;
-    u32 alloc_size;
-    u64 quota_size;
-    u32 ent_id;
-    u64 ctime;
-    u64 mtime;
-    u8 attributes[48];
+    uint32_t flag;
+    uint32_t permission;
+    uint32_t owner_id;
+    uint32_t group_id;
+    uint32_t size;
+    uint32_t alloc_size;
+    uint64_t quota_size;
+    uint32_t ent_id;
+    uint64_t ctime;
+    uint64_t mtime;
+    uint8_t attributes[48];
 } __attribute__((packed)) FSStat;
 
 typedef struct {
@@ -61,7 +61,7 @@ typedef struct {
     char        name[FS_MAX_ENTNAME_SIZE];
 } FSDirEntry;
 
-typedef void (*FSAsyncCallback)(FSClient * pClient, FSCmdBlock * pCmd, s32 result, void *context);
+typedef void (*FSAsyncCallback)(FSClient * pClient, FSCmdBlock * pCmd, int32_t result, void *context);
 typedef struct {
     FSAsyncCallback userCallback;
     void            *userContext;
@@ -70,9 +70,9 @@ typedef struct {
 
 typedef struct {
     void*               data; // pointer to a FSAsyncResult;
-    u32                 unkwn1;
-    u32                 unkwn2;
-    u32                 unkwn3; // always 0x08
+    uint32_t                 unkwn1;
+    uint32_t                 unkwn2;
+    uint32_t                 unkwn3; // always 0x08
 } __attribute__((packed)) FSMessage;
 
 typedef struct FSAsyncResult_ {
@@ -81,7 +81,7 @@ typedef struct FSAsyncResult_ {
 
     FSClient *          client;
     FSCmdBlock *        block;
-    u32                 result;
+    uint32_t                 result;
 } FSAsyncResult;
 
 #ifdef __cplusplus

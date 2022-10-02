@@ -60,20 +60,20 @@ typedef struct OSThreadQueue_ {
     OSThread *head;
     OSThread *tail;
     void *parentStruct;
-    u32 reserved;
+    uint32_t reserved;
 } OSThreadQueue;
 
 typedef struct OSMessage_ {
-    u32 message;
-    u32 data0;
-    u32 data1;
-    u32 data2;
+    uint32_t message;
+    uint32_t data0;
+    uint32_t data1;
+    uint32_t data2;
 } OSMessage;
 
 typedef struct OSMessageQueue_ {
-    u32 tag;
+    uint32_t tag;
     char *name;
-    u32 reserved;
+    uint32_t reserved;
 
     OSThreadQueue sendQueue;
     OSThreadQueue recvQueue;
@@ -86,44 +86,44 @@ typedef struct OSMessageQueue_ {
 typedef struct OSContext_ {
     char tag[8];
 
-    u32 gpr[32];
+    uint32_t gpr[32];
 
-    u32 cr;
-    u32 lr;
-    u32 ctr;
-    u32 xer;
+    uint32_t cr;
+    uint32_t lr;
+    uint32_t ctr;
+    uint32_t xer;
 
-    u32 srr0;
-    u32 srr1;
+    uint32_t srr0;
+    uint32_t srr1;
 
-    u32 ex0;
-    u32 ex1;
+    uint32_t ex0;
+    uint32_t ex1;
 
-    u32 exception_type;
-    u32 reserved;
+    uint32_t exception_type;
+    uint32_t reserved;
 
     double fpscr;
     double fpr[32];
 
-    u16 spinLockCount;
-    u16 state;
+    uint16_t spinLockCount;
+    uint16_t state;
 
-    u32 gqr[8];
-    u32 pir;
+    uint32_t gqr[8];
+    uint32_t pir;
     double psf[32];
 
-    u64 coretime[3];
-    u64 starttime;
+    uint64_t coretime[3];
+    uint64_t starttime;
 
-    u32 error;
-    u32 attributes;
+    uint32_t error;
+    uint32_t attributes;
 
-    u32 pmc1;
-    u32 pmc2;
-    u32 pmc3;
-    u32 pmc4;
-    u32 mmcr0;
-    u32 mmcr1;
+    uint32_t pmc1;
+    uint32_t pmc2;
+    uint32_t pmc3;
+    uint32_t pmc4;
+    uint32_t mmcr0;
+    uint32_t mmcr1;
 } OSContext;
 
 typedef enum OSExceptionType {
@@ -149,9 +149,9 @@ typedef int (*ThreadFunc)(int argc, void *argv);
 struct OSThread_ {
     OSContext context;
 
-    u32 txtTag;
-    u8 state;
-    u8 attr;
+    uint32_t txtTag;
+    uint8_t state;
+    uint8_t attr;
 
     short threadId;
     int suspend;
@@ -183,15 +183,15 @@ typedef struct _OSCalendarTime {
 
 
 typedef struct MCPTitleListType {
-    u64 titleId;
-    u8 unknwn[4];
-    s8 path[56];
-    u32 appType;
-    u8 unknwn1[0x54 - 0x48];
-    u8 device;
-    u8 unknwn2;
-    s8 indexedDevice[10];
-    u8 unk0x60;
+    uint64_t titleId;
+    uint8_t unknwn[4];
+    int8_t path[56];
+    uint32_t appType;
+    uint8_t unknwn1[0x54 - 0x48];
+    uint8_t device;
+    uint8_t unknwn2;
+    int8_t indexedDevice[10];
+    uint8_t unk0x60;
 } MCPTitleListType;
 
 #ifdef __cplusplus

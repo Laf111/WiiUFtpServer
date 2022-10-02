@@ -23,7 +23,6 @@ misrepresented as being the original software.
 */
 #include <stdio.h>
 #include <string.h>
-#include <malloc.h>
 #include <unistd.h>
 #include <sys/fcntl.h>
 
@@ -69,7 +68,7 @@ static bool retry(int32_t socketError) {
     }
     return status;
 }
-s32 network_socket(u32 domain,u32 type,u32 protocol)
+int32_t network_socket(uint32_t domain,uint32_t type,uint32_t protocol)
 {
     int s = socket(domain, type, protocol);
     if (s < 0)
@@ -79,7 +78,7 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
     }
     if (type == SOCK_STREAM)
     {
-        s32 enable = 1;
+        int32_t enable = 1;
 
 		// Reuse socket
 	    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(enable))!=0) 
@@ -101,7 +100,7 @@ s32 network_socket(u32 domain,u32 type,u32 protocol)
     return s;
 }
 
-s32 network_bind(s32 s,struct sockaddr *name,s32 namelen)
+int32_t network_bind(int32_t s,struct sockaddr *name,int32_t namelen)
 {
     int res = bind(s, name, namelen);
     if(res < 0)
@@ -112,7 +111,7 @@ s32 network_bind(s32 s,struct sockaddr *name,s32 namelen)
     return res;
 }
 
-s32 network_listen(s32 s,u32 backlog)
+int32_t network_listen(int32_t s,uint32_t backlog)
 {
     int res = listen(s, backlog);
     if(res < 0)
@@ -123,7 +122,7 @@ s32 network_listen(s32 s,u32 backlog)
     return res;
 }
 
-s32 network_accept(s32 s,struct sockaddr *addr,s32 *addrlen)
+int32_t network_accept(int32_t s,struct sockaddr *addr,int32_t *addrlen)
 {
 
     int res = accept(s, addr, addrlen);
@@ -135,7 +134,7 @@ s32 network_accept(s32 s,struct sockaddr *addr,s32 *addrlen)
     return res;
 }
 
-s32 network_connect(s32 s,struct sockaddr *addr, s32 addrlen)
+int32_t network_connect(int32_t s,struct sockaddr *addr, int32_t addrlen)
 {
     int res = connect(s, addr, addrlen);
     if(res < 0)
@@ -146,7 +145,7 @@ s32 network_connect(s32 s,struct sockaddr *addr, s32 addrlen)
     return res;
 }
 
-s32 network_read(s32 s, char *mem,s32 len)
+int32_t network_read(int32_t s, char *mem,int32_t len)
 {
     int res = recv(s, mem, len, 0);
     if(res < 0)
@@ -157,10 +156,10 @@ s32 network_read(s32 s, char *mem,s32 len)
     return res;
 }
 
-static s32 network_readChunk(s32 s, char *mem, s32 len) {
+static int32_t network_readChunk(int32_t s, char *mem, int32_t len) {
 
-    s32 received = 0;
-    s32 ret = -1;
+    int32_t received = 0;
+    int32_t ret = -1;
 
     // while buffer is not full (len>0)
     while (len>0)
@@ -188,9 +187,9 @@ static s32 network_readChunk(s32 s, char *mem, s32 len) {
 }
 
 
-s32 network_write(s32 s, const char *mem,s32 len)
+int32_t network_write(int32_t s, const char *mem,int32_t len)
 {
-    s32 transfered = 0;
+    int32_t transfered = 0;
 
     while(len)
     {
@@ -211,7 +210,7 @@ s32 network_write(s32 s, const char *mem,s32 len)
     return transfered;
 }
 
-s32 network_close(s32 s)
+int32_t network_close(int32_t s)
 {
     if(s < 0)
         return -1;
@@ -219,18 +218,18 @@ s32 network_close(s32 s)
     return socketclose(s);
 }
 
-s32 set_blocking(s32 s, bool blocking) {
-    s32 block = !blocking;
+int32_t set_blocking(int32_t s, bool blocking) {
+    int32_t block = !blocking;
     setsockopt(s, SOL_SOCKET, SO_NONBLOCK, &block, sizeof(block));
     return 0;
 }
 
-s32 network_close_blocking(s32 s) {
+int32_t network_close_blocking(int32_t s) {
     set_blocking(s, true);
     return network_close(s);
 }
 
-s32 send_exact(s32 s, char *buf, s32 length) {
+int32_t send_exact(int32_t s, char *buf, int32_t length) {
     int buf_size = length;
     int32_t result = 0;
     int32_t remaining = length;

@@ -202,7 +202,7 @@ static int _FAT_directory_mbsncasecmp (const char* s1, const char* s2, size_t le
 }
 
 
-static bool _FAT_directory_entryGetAlias (const u8* entryData, char* destName) {
+static bool _FAT_directory_entryGetAlias (const uint8_t* entryData, char* destName) {
 	char c;
 	bool caseInfo;
 	int i = 0;
@@ -244,9 +244,9 @@ static bool _FAT_directory_entryGetAlias (const u8* entryData, char* destName) {
 uint32_t _FAT_directory_entryGetCluster (PARTITION* partition, const uint8_t* entryData) {
 	if (partition->filesysType == FS_FAT32) {
 		// Only use high 16 bits of start cluster when we are certain they are correctly defined
-		return u8array_to_u16(entryData,DIR_ENTRY_cluster) | (u8array_to_u16(entryData, DIR_ENTRY_clusterHigh) << 16);
+		return uint8_t_array_to_uint16_t(entryData,DIR_ENTRY_cluster) | (uint8_t_array_to_uint16_t(entryData, DIR_ENTRY_clusterHigh) << 16);
 	} else {
-		return u8array_to_u16(entryData,DIR_ENTRY_cluster);
+		return uint8_t_array_to_uint16_t(entryData,DIR_ENTRY_cluster);
 	}
 }
 
@@ -416,8 +416,8 @@ bool _FAT_directory_getRootEntry (PARTITION* partition, DIR_ENTRY* entry) {
 
 	entry->entryData[DIR_ENTRY_attributes] = ATTRIB_DIR;
 
-	u16_to_u8array (entry->entryData, DIR_ENTRY_cluster, partition->rootDirCluster);
-	u16_to_u8array (entry->entryData, DIR_ENTRY_clusterHigh, partition->rootDirCluster >> 16);
+	uint16_t_to_uint8_tarray (entry->entryData, DIR_ENTRY_cluster, partition->rootDirCluster);
+	uint16_t_to_uint8_tarray (entry->entryData, DIR_ENTRY_clusterHigh, partition->rootDirCluster >> 16);
 
 	return true;
 }
@@ -1093,19 +1093,19 @@ bool _FAT_directory_addEntry (PARTITION* partition, DIR_ENTRY* entry, uint32_t d
 				for (j = 0; j < 13; j++) {
 					if (lfn [(i - 2) * 13 + j] == '\0') {
 						if ((j > 1) && (lfn [(i - 2) * 13 + (j-1)] == '\0')) {
-							u16_to_u8array (lfnEntry, LFN_offset_table[j], 0xffff);		// Padding
+							uint16_t_to_uint8_tarray (lfnEntry, LFN_offset_table[j], 0xffff);		// Padding
 						} else {
-							u16_to_u8array (lfnEntry, LFN_offset_table[j], 0x0000);		// Terminating null character
+							uint16_t_to_uint8_tarray (lfnEntry, LFN_offset_table[j], 0x0000);		// Terminating null character
 						}
 					} else {
-						u16_to_u8array (lfnEntry, LFN_offset_table[j], lfn [(i - 2) * 13 + j]);
+						uint16_t_to_uint8_tarray (lfnEntry, LFN_offset_table[j], lfn [(i - 2) * 13 + j]);
 					}
 				}
 
 				lfnEntry[LFN_offset_checkSum] = aliasCheckSum;
 				lfnEntry[LFN_offset_flag] = ATTRIB_LFN;
 				lfnEntry[LFN_offset_reserved1] = 0;
-				u16_to_u8array (lfnEntry, LFN_offset_reserved2, 0);
+				uint16_t_to_uint8_tarray (lfnEntry, LFN_offset_reserved2, 0);
 				_FAT_cache_writePartialSector (partition->cache, lfnEntry, _FAT_fat_clusterToSector(partition, curEntryPos.cluster) + curEntryPos.sector, curEntryPos.offset * DIR_ENTRY_DATA_SIZE, DIR_ENTRY_DATA_SIZE);
 			} else {
 				// Alias & file data
@@ -1145,18 +1145,18 @@ void _FAT_directory_entryStat (PARTITION* partition, DIR_ENTRY* entry, struct st
 	st->st_uid = 1;									// Faked for FAT
 	st->st_gid = 2;									// Faked for FAT
 	st->st_rdev = st->st_dev;
-	st->st_size = u8array_to_u32 (entry->entryData, DIR_ENTRY_fileSize);		// File size
+	st->st_size = uint8_t_array_to_uint32_t (entry->entryData, DIR_ENTRY_fileSize);		// File size
 	st->st_atime = _FAT_filetime_to_time_t (
 		0,
-		u8array_to_u16 (entry->entryData, DIR_ENTRY_aDate)
+		uint8_t_array_to_uint16_t (entry->entryData, DIR_ENTRY_aDate)
 	);
 	st->st_mtime = _FAT_filetime_to_time_t (
-		u8array_to_u16 (entry->entryData, DIR_ENTRY_mTime),
-		u8array_to_u16 (entry->entryData, DIR_ENTRY_mDate)
+		uint8_t_array_to_uint16_t (entry->entryData, DIR_ENTRY_mTime),
+		uint8_t_array_to_uint16_t (entry->entryData, DIR_ENTRY_mDate)
 	);
 	st->st_ctime = _FAT_filetime_to_time_t (
-		u8array_to_u16 (entry->entryData, DIR_ENTRY_cTime),
-		u8array_to_u16 (entry->entryData, DIR_ENTRY_cDate)
+		uint8_t_array_to_uint16_t (entry->entryData, DIR_ENTRY_cTime),
+		uint8_t_array_to_uint16_t (entry->entryData, DIR_ENTRY_cDate)
 	);
 	st->st_blksize = partition->bytesPerSector;				// Prefered file I/O block size
 	st->st_blocks = (st->st_size + partition->bytesPerSector - 1) / partition->bytesPerSector;	// File size in blocks
