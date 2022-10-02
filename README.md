@@ -75,8 +75,6 @@ Then just copy the \_sdCard folder content to your SD card.
 
 #
 # KNOWN ISSUES :
-
-- symlinks are displayed as regular files in FTP client browser and trying to transfer them will fail (links not resolved)
   
   When dumping games for CEMU, just ignore those errors (CEMU does not use them).
 - libFat is used because of very poor performance on SDCard transfers using only libIOSUHAX 
