@@ -80,8 +80,7 @@ To build from scratch :
 
 - install [devkitPro](https://github.com/devkitPro/installer/releases/latest) (in DEVKITPRO_PATH)
 - get [libWUT](https://github.com/devkitPro/wut) 
-- get [libIOSUHAX](https://github.com/Crementif/libiosuhax) (crementif version)
-- get [libFat](https://github.com/Crementif/libfat) (because using only WUT+IOSUHAX cripple SDCard performance, crementif version)
+- get [libMocha](https://github.com/wiiu-env/libmocha)
 
 
 Launch "msys2\msys2_shell.bat" 
@@ -90,16 +89,14 @@ Launch "msys2\msys2_shell.bat"
 
 - Build WUT, create $DEVKITPRO_PATH/wut folder and put lib and include folders in
 
-- Build libIOSUHAX, create $DEVKITPRO_PATH/iosuhax folder and put lib and include folders in
-
-- Build libFat, create $DEVKITPRO_PATH/fat folder and put lib and include folders in
+- Build libMocha (make install)
 
 - cd to WiiUFtpServer folder
 
 - ./build.sh
 
 
-It creates a HBL App under \_sdCard\wiiu\apps\WiiUFtpServer
+It creates the HBL App and WUTB file under \_sdCard\wiiu\apps\WiiUFtpServer 
 
 To create the channel version (HBC), use "toWUP\createChannel.bat"
 
