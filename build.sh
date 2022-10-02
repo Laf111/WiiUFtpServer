@@ -3,8 +3,8 @@
 #/****************************************************************************
 #  WiiUFtpServer (fork of FTP everywhere by Laf111@2021)
 # ***************************************************************************/
-VERSION_MAJOR=12
-VERSION_MINOR=1
+VERSION_MAJOR=13
+VERSION_MINOR=0
 VERSION_PATCH=0
 export WiiUFtpServerVersion=$VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH
 
@@ -35,8 +35,7 @@ else
             # wutVersion=${line##*" * wut "}
             wutVersion="1.1.1"
             echo "WUT        : [$wutVersion]         in $DEVKITPRO/wut"
-            echo "IOSUHAX    : [crementif]     in $DEVKITPRO/iosuhax"
-            echo "Fat        : [crementif]     in $DEVKITPRO/fat"
+            echo "MOCHA      :                 in $DEVKITPRO/wut/usr"
         fi
     else
         echo "$DEVKITPRO is invalid"
