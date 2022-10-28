@@ -1,6 +1,8 @@
-# WiiUFtpServer
+# WiiUFtpServer : a robust and optimized FTP server for the WiiU 
 
-**A robust and optimized FTP server for the WiiU !**
+**EDIT : dev are interrupted. This version is for users running a CFW = MOCHA, HAXCHI or CBHC
+The code is not compatible with the latest devkitpro version ! 
+Use the last release stable version (V12-1)**
 
 This branch use dynamic libs instead of WUT (creates a ELF file compatible only with "old" CFW such as Haxchi, Mocha or CBHC)
 Note that you can launch ELF files with Tiramisu (throught the Mii-maker).
