@@ -1,6 +1,6 @@
 # WiiUFtpServer : a robust and optimized FTP server for the WiiU 
 
-**EDIT : dev are interrupted. This version is for users running a CFW = MOCHA, HAXCHI or CBHC
+**EDIT : devs are interrupted. This version is for users running a CFW = MOCHA, HAXCHI or CBHC
 The code is not compatible with the latest devkitpro version ! 
 Use the last release stable version (V12-1)**
 
