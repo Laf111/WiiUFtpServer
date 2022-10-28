@@ -1,6 +1,7 @@
-# WiiUFtpServer
+# WiiUFtpServer : a robust and optimized FTP server for the WiiU 
 
-**A robust and optimized FTP server for the WiiU !**
+**EDIT : devs are interrupted. Users running a CFW = MOCHA, HAXCHI or CBHC should use the last HBL stable version released (V12-1)  
+The code is not compatible with the latest devkitpro version !**
 
 
 <p align="center">
